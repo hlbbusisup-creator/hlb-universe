@@ -46,7 +46,7 @@
 
   function build({T,site,box,place,tube,collider,colliders,roofs}) {
     // Local positive X faces the plaza. Local positive Z faces the window seats.
-    const cx=-14.8, cz=10.82, roofY=3.92;
+    const cx=-14.8, cz=10.82, roofY=3.95;
     const room=new T.Group();
     room.name="Café Lento 1975";
     room.position.set(cx,0,cz);
@@ -178,7 +178,7 @@
     mesh("Smoked transom",new T.BoxGeometry(.045,.84,7.88),transom,6.067,3.34,1.02);
     sign("Café Lento · entrance marquee",6.11,3.33,1.02,7.71,Math.PI/2);
     block(5.94,3.55,3.0,.16,.14,2.7,espresso);
-    const roofCollider=collider(cx,cz,12.34,10.3,4.18,roofY-.14);
+    const roofCollider=collider(cx,cz,12.34,10.3,4.3,roofY-.14);
     roofs.push(roofCollider);
     slab("Floating pavilion eave",0,roofY-.15,0,12.32,.10,10.30,.34,cove);
     slab("Warm white ceiling",0,roofY-.164,0,12.10,.04,10.08,.29,finish(porcelain));
@@ -189,9 +189,9 @@
       for (const z of [-1.2,1.4,3.15]) block(x,roofY-.185,z,.032,.018,.22,glow,null,"light");
     }
     for (const x of [-3.55,.1,3.55]) {
-      slab("Rooflight frame",x,4.15,.32,1.07,.13,4.13,.12,finish(metal));
-      slab("Smoked rooflight",x,4.28,.32,.92,.022,3.97,.09,finish(0x93a6a4));
-      block(x,4.31,.32,.96,.029,.048,metal);
+      slab("Rooflight frame",x,4.18,.32,1.07,.10,4.13,.12,finish(metal));
+      slab("Smoked rooflight",x,4.28,.32,.92,.02,3.97,.09,finish(0x93a6a4));
+      block(x,4.29,.32,.96,.02,.048,metal);
     }
 
     // Continuous plaster fascia, recessed ribbed-oak cabinets and the service desk.

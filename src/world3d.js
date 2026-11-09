@@ -1,7 +1,8 @@
 (() => {
   "use strict";
 
-  // Positions are in metres. All entrances face positive Z.
+  // Hall builders use their original local plans. buildAt() aligns the complete
+  // geometry, collision boxes and reading stops on the pedestrian street.
   const halls = [
     {id:"group", title:"그룹안내소", en:"GROUP INFORMATION", x:0, front:0, width:10.6, depth:6.7},
     {id:"brand", title:"브랜드관", en:"BRAND ARCHIVE", x:-14.4, front:-4.5, width:9.2, depth:6.2},
@@ -15,7 +16,9 @@
     const site = new T.Group();
     site.name = "HLB Universe";
     scene.add(site);
-    const bounds = {minX:-24, maxX:24, minZ:-29, maxZ:17.5};
+    const bounds = {minX:-25, maxX:25, minZ:-45, maxZ:25};
+    const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-36,maxZ:19.5};
+    const lavaLights = [[-4.9,3],[4.9,-13],[-11,21],[11,21]];
     const colliders = [], roofs = [], spaces = [];
     let seed = 1171;
     function random() { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; }
@@ -74,6 +77,36 @@
     function collider(x,z,w,d,height,base=0) {
       return {minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:base,maxY:height};
     }
+    function buildAt(make,x,z,yaw=0) {
+      const firstChild=site.children.length, firstCollider=colliders.length, firstRoof=roofs.length;
+      const starts=new Map([...batches].map(([key,batch])=>[key,batch.matrices.length]));
+      const room=make();
+      const transform=new T.Matrix4().makeTranslation(x,0,z)
+        .multiply(new T.Matrix4().makeRotationY(yaw))
+        .multiply(new T.Matrix4().makeTranslation(-room.x,0,-room.z));
+      const coordinate=new T.Vector3();
+      function point(p) {
+        coordinate.set(p.x,0,p.z).applyMatrix4(transform);
+        return {...p,x:coordinate.x,z:coordinate.z};
+      }
+      function rectangle(rect) {
+        const corners=[
+          point({x:rect.minX,z:rect.minZ}), point({x:rect.maxX,z:rect.minZ}),
+          point({x:rect.minX,z:rect.maxZ}), point({x:rect.maxX,z:rect.maxZ})
+        ];
+        return {...rect,minX:Math.min(...corners.map(p=>p.x)),maxX:Math.max(...corners.map(p=>p.x)),
+          minZ:Math.min(...corners.map(p=>p.z)),maxZ:Math.max(...corners.map(p=>p.z))};
+      }
+      for(let i=firstChild;i<site.children.length;i++) site.children[i].applyMatrix4(transform);
+      for(const [key,batch] of batches) {
+        for(let i=starts.get(key) || 0;i<batch.matrices.length;i++) batch.matrices[i].premultiply(transform);
+      }
+      for(let i=firstCollider;i<colliders.length;i++) colliders[i]=rectangle(colliders[i]);
+      for(let i=firstRoof;i<roofs.length;i++) roofs[i]=rectangle(roofs[i]);
+      return {...point(room),station:point(room.station),lookAt:point(room.lookAt),label:point(room.label),
+        interior:rectangle(room.interior),exhibits:room.exhibits?.map(exhibit=>({...exhibit,
+          station:point(exhibit.station),lookAt:point(exhibit.lookAt),hitBox:rectangle(exhibit.hitBox)}))};
+    }
     function triangles(name,verts,colors,material) {
       const geometry=new T.BufferGeometry();
       geometry.setAttribute("position",new T.Float32BufferAttribute(verts,3));
@@ -91,7 +124,7 @@
     // A triangulated, eroded stratovolcano. The lava follows the very same
     // triangles as the crust, including the channels below the crater rim.
     const flowVerts=[],flowColors=[];
-    const summit = {x:-10, z:-80};
+    const summit = {x:-10, z:-94};
     const mountainMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:1,side:T.DoubleSide,flatShading:true});
     function volcano() {
       const centerX=summit.x,centerZ=summit.z,segments=72;
@@ -145,10 +178,16 @@
           }
         }
       }
-      lavaRibbon(.103,.93,-.26,.030,1,1);
-      lavaRibbon(.143,.69,.34,.016,2.9,1);
-      lavaRibbon(.15,.52,-.71,.011,3,.86);
-      lavaRibbon(.15,.70,1.15,.012,.4,.93);
+      lavaRibbon(.103,.97,-.26,.038,1,1);
+      lavaRibbon(.143,.91,.34,.025,2.9,1);
+      lavaRibbon(.15,.76,-.71,.020,3,.93);
+      lavaRibbon(.15,.85,1.15,.022,.4,.96);
+      lavaRibbon(.15,.91,-1.14,.021,1.6,.93);
+      lavaRibbon(.15,.74,.74,.015,4.3,1);
+      lavaRibbon(.15,.89,1.72,.020,2.1,.92);
+      lavaRibbon(.15,.82,-1.73,.017,.8,.94);
+      lavaRibbon(.35,.98,.06,.010,2.6,1);
+      lavaRibbon(.42,.94,-.47,.011,4.8,.96);
       const hot=new T.Color(0xff9c4d);
       for(let i=0;i<segments;i++){
         const a=i/segments*TAU,b=(i+1)/segments*TAU;
@@ -214,13 +253,13 @@
     function landscape() {
       const verts=[],colors=[];
       // Beyond the walkable plateau the caldera wall rises in jagged layers.
-      const rings=[29,39,53,72,100], sections=108;
+      const rings=[31,43,59,78,108], sections=108;
       const ridge=rings.map((radius,j)=>Array.from({length:sections},(_,i)=>{
         const angle=i*TAU/sections, wav=Math.sin(angle*5+.7)*.43+Math.sin(angle*13+1.9)*.34+Math.cos(angle*29)*.23;
         const open=1-.92*Math.pow(Math.max(0,-Math.cos(angle)),3);
         const h=[-1,1.5,5.2,8,1][j];
         const r=radius+(1.8+j)*wav;
-        return [Math.sin(angle)*r,(h+(j?wav*(2+j*.58):0))*open-1,Math.cos(angle)*r-4];
+        return [Math.sin(angle)*r,(h+(j?wav*(2+j*.58):0))*open-1,Math.cos(angle)*r*1.3-10];
       }));
       const tint=new T.Color();
       for(let j=0;j<ridge.length-1;j++) for(let i=0;i<sections;i++){
@@ -233,11 +272,12 @@
       const ground=new T.PlaneGeometry(205,205,65,65);
       ground.rotateX(-Math.PI/2);
       const position=ground.getAttribute("position"), tones=[];
+      const ashTone=new T.Color(0x958276);
       for(let i=0;i<position.count;i++){
         const x=position.getX(i),z=position.getZ(i);
         position.setY(i,-.11+random()*.07);
         const ash=(Math.sin(x*.19+Math.cos(z*.08)*2)*.45+Math.cos(z*.24-x*.08)*.55+1)*.5;
-        tint.setHex(0x756971).lerp(new T.Color(0x958276),ash).multiplyScalar(.85+random()*.23);
+        tint.setHex(0x756971).lerp(ashTone,ash).multiplyScalar(.85+random()*.23);
         tones.push(tint.r,tint.g,tint.b);
       }
       ground.setAttribute("color",new T.Float32BufferAttribute(tones,3));
@@ -287,7 +327,7 @@
       }
       if(block)colliders.push(collider(x,z,scale*1.81,scale*1.81,scale*1.55));
     }
-    const hotRock=[];
+    const hotRock=[], ventVerts=[], ventColors=[];
     // Each vent is a recessed lava bed with a cooling crust, broken into
     // individual basalt rafts. The irregular open channels glow between them.
     function vent(x,z,rx,rz) {
@@ -297,7 +337,7 @@
         [1.05,.93,.81,.53].forEach((radius,j)=>rings[j].push([
           x+Math.sin(a)*radius*edge*rx,[.014,.21,.105,.085][j],z+Math.cos(a)*radius*edge*rz]));
       }
-      const verts=[],colors=[],shade=new T.Color(),lc=new T.Color(0xff942e);
+      const verts=ventVerts,colors=ventColors,shade=new T.Color(),lc=new T.Color(0xff942e);
       const center=[x,.087,z];
       for(let i=0;i<n;i++){
         const j=(i+1)%n;
@@ -311,7 +351,6 @@
         face(flowVerts,flowColors,a,c,b,lc);face(flowVerts,flowColors,b,c,d,lc);
         lc.setHex(choose([0xff832a,0xff902d,0xff9838]));face(flowVerts,flowColors,c,center,d,lc);
       }
-      triangles("Basalt vent rim",verts,colors,mountainMaterial);
       for(let i=0;i<13;i++){
         const angle=random()*TAU,r=.72*Math.sqrt(random());
         const xx=x+Math.sin(angle)*rx*r,zz=z+Math.cos(angle)*rz*r;
@@ -321,59 +360,50 @@
       hotRock.push([x,z]);
     }
     function siteDetail(){
-      // All paths meet on level ground, including two side routes behind the hub.
-      path(0,18.9,0,.02,3.48);
-      path(-14.4,2.08,14.4,2.08,2.65);
+      // Three equally spaced entrance pairs open onto one continuous avenue.
+      path(0,25,0,-36,8.2);
+      for(const z of [11,-5,-21]) path(-5.5,z,5.5,z,2.8);
+      // Thin lava beds sit beyond the paving. The crosswalks remain open.
       for(const side of [-1,1]){
-        path(side*14.4,2.14,side*14.4,-4.47,2.76);
-        path(side*7.35,2.14,side*7.35,-14.8,2.33);
-        path(side*7.35,-14.8,side*10.5,-16.1,2.31);
-        path(side*10.5,-16.1,side*10.5,-19.48,2.33);
+        for(const z of [18,3,-13,-29]) vent(side*4.9,z,.45,3.3);
+        for(const z of [11,-5,-21,-36]) vent(side*21.3,z,2.05,4);
+        vent(side*11,21,3.6,2);
+        vent(side*10,-39,2.3,3.4);
       }
-      path(-7.35,-13.72,7.35,-13.72,2.25);
-      path(-8.87,13.82,8.50,13.82,2.46);
-      // Protected geothermal fissures flank the arrival path.
-      vent(-6.05,8.85,1.82,3.0);
-      vent(6.03,7.46,1.35,2.58);
-      vent(0,-18.32,2.04,1.62);
-      vent(18.65,-15.25,1.28,2.12);
-      const clusters=[[-4.69,11.42,.7],[5.15,5.12,.76],[7.07,10.24,.67],[-11.28,-2.04,.86],
-        [11.2,-1.78,.9],[-20.90,-12.5,1.89],[21.94,-7.8,2.12],[-3.38,-17.26,1.23],[3.06,-9.85,.86],
-        [-16.01,-15.24,1.04],[16.61,-17.01,.73],[-.70,-25.48,1.74]];
-      for(const [xx,zz,s] of clusters)outcrop(xx,zz,s);
-      for(let i=0;i<87;i++){
-        const a=TAU*i/87+random()*.035,r=30+random()*12;
-        const x=Math.sin(a)*r,z=Math.cos(a)*r-5,scale=1+random()*2.75;
-        if (Math.abs(x)>7 && Math.abs(x)<22+scale && z>3 && z<18+scale) continue;
-        outcrop(x,z,scale,false);
+      // A named threshold marks the transition from the caldera into the street.
+      for(const side of [-1,1]){
+        box(side*5.4,1.9,19.5,.30,3.8,.36,dark);
+        box(side*5.4,1.88,19.72,.09,3.50,.045,red,null,"light");
+        colliders.push(collider(side*5.4,19.5,.36,.42,3.8));
       }
-      for(let i=0;i<360;i++){
-        const x=random()*50-25,z=random()*50-30;
-        if ((z>-.6 && Math.abs(x)<2.4) || Math.abs(z-2.08)<1.58 ||
-          (Math.abs(Math.abs(x)-7.35)<1.48 && z<2.1 && z>-15.4) ||
-          (Math.abs(Math.abs(x)-14.4)<1.61 && z<2.1 && z>-4.8) ||
-          (z<-12.1 && z>-20.0) ||
-          (Math.abs(x)>8 && Math.abs(x)<22.1 && z>3.8 && z<17.5) ||
-          (Math.abs(x)<8.9 && Math.abs(z-13.82)<1.4) ||
-          halls.some(h=>Math.abs(x-h.x)<h.width*.5+.42 && z<h.front+.8 && z>h.front-h.depth-.5))continue;
+      box(0,3.95,19.5,11.12,.35,.40,dark);
+      roofs.push(collider(0,19.5,11.12,.40,4.13,3.77));
+      const canvas=document.createElement("canvas");
+      canvas.width=1024;canvas.height=128;
+      const ctx=canvas.getContext("2d");
+      ctx.fillStyle="#30282d";ctx.fillRect(0,0,1024,128);
+      ctx.fillStyle="#fff4dd";ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.font='700 64px "Malgun Gothic",sans-serif';
+      ctx.fillText("HLB 브랜드 거리",512,64,970);
+      const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
+      const sign=new T.Mesh(new T.PlaneGeometry(4.8,.6),new T.MeshBasicMaterial({map,toneMapped:false}));
+      sign.name="HLB 브랜드 거리 입구";
+      sign.position.set(0,3.95,19.73);site.add(sign);
+
+      for(let i=0;i<94;i++){
+        const a=TAU*i/94+random()*.035,scale=1+random()*2.3;
+        outcrop(Math.sin(a)*(33+random()*10),Math.cos(a)*(47+random()*11)-10,scale,false);
+      }
+      for(let i=0;i<430;i++){
+        const x=random()*50-25,z=random()*70-45;
+        if(Math.abs(x)<6 || spaces.some(({interior:b})=>
+          x>b.minX-.6 && x<b.maxX+.6 && z>b.minZ-.6 && z<b.maxZ+.6)) continue;
         const s=.08+random()*.21;
         place("rock",choose(basalt),x,s*.16,z,s,.36*s,s*(.75+random()),[.06,random()*TAU,.05],"stone");
       }
-      // Geothermal supply pipes and steel collars live on the margins of campus.
-      for(const side of [-1,1]){
-        const x=side*22.4;
-        tube([x,.54,10],[x,.54,-26.1],.14,0x8f817b);
-        tube([x+side*.36,.48,10],[x+side*.36,.48,-26.1],.092,iron);
-        for(let i=0;i<13;i++){
-          const z=9.5-i*2.83;
-          box(x+side*.12,.19,z,.83,.37,.23,dark);
-          tube([x,.54,z-.038],[x,.54,z+.038],.18,i%3===0?red:iron);
-        }
-        colliders.push(collider(x+side*.10,-8.07,.78,36.4,.72));
-      }
-      // Pairs of inset signal lamps keep the walking routes legible in the ash.
-      for(const [x,z] of [[-2.06,11.48],[2.06,11.48],[-2.06,4.11],[2.06,4.11],[-9.6,3.81],[9.6,3.81],
-        [-16.18,-2.65],[16.18,-2.65],[-9.02,-12.0],[9.02,-12.0],[-12.17,-17.65],[12.17,-17.65]]){
+      // Lamps repeat between the entrances without narrowing any door approach.
+      for(const side of [-1,1]) for(const z of [14,8,-2,-8,-18,-24,-33]){
+        const x=side*3.85;
         box(x,.35,z,.18,.70,.18,dark);
         box(x,.62,z,.194,.12,.194,0xffbe7b,null,"light");
         box(x,.75,z,.23,.10,.23,iron);
@@ -413,7 +443,7 @@
         time+=Math.min(.10,Math.max(dt,0));
         clouds.forEach((p,i)=>{
           const age=(i/8+time*.045)%1, size=3.8+11.4*age;
-          p.position.set(-9.1-age*5.1-age*age*8+Math.sin(age*8)*.85,20.2+age*12.5,-80+1.1*age);
+          p.position.set(summit.x+.9-age*5.1-age*age*8+Math.sin(age*8)*.85,20.2+age*12.5,summit.z+1.1*age);
           p.scale.set(size,size*(.81+.17*age),1);
           p.material.rotation=-.15-age*.70;
           p.material.opacity=.64*Math.min(1,age/.09)*(1-Math.pow(age,2.35));
@@ -434,10 +464,15 @@
     volcano();
     const summitLogo=makeSummitLogo();
     const hallKit={T,site,box,place,tube,collider,colliders,roofs};
-    for(const hall of halls) spaces.push(globalThis.HLBHalls.build(hallKit,hall));
+    const placements={
+      group:[0,-36,0], brand:[-5.5,-5,Math.PI/2], product:[5.5,-5,-Math.PI/2],
+      ir:[-5.5,-21,Math.PI/2], esg:[5.5,-21,-Math.PI/2]
+    };
+    for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
+    spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
+    spaces.push(buildAt(()=>globalThis.HLBCafe.build(hallKit),-5.5,11));
     siteDetail();
-    spaces.push(globalThis.HLBCologneGallery.build({T,site,box,place,collider,colliders,roofs}));
-    spaces.push(globalThis.HLBCafe.build(hallKit));
+    triangles("Basalt vent rims",ventVerts,ventColors,mountainMaterial);
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));
     for(const {shape,finish,matrices,colors} of batches.values()){
       const mesh=new T.InstancedMesh(forms[shape],materials[finish],matrices.length);
@@ -458,7 +493,8 @@
       summitLogo.rotation.y=-angle;
       updateAtmosphere(dt);
     }
-    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,spawn:{x:1.55,z:10},update};
+    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,lavaLights,
+      spawn:{x:0,z:23},update};
   }
   globalThis.HLBWorld3D={build};
 })();

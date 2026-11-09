@@ -7,7 +7,7 @@
   const northZ = 4.35;
   const halfWidth = 6.6;
   const depth = 12.7;
-  const height = 4.65;
+  const height = 3.8;
   const scents = [
     { label:"티 우디", color:"#d6e0d2", names:["T1  Thé Clair","T2  Thé Doré","T3  Bois Calme"] },
     { label:"아이리스 머스크", color:"#ded9e8", names:["I1  Iris Voilé","I2  Nuage Blanc","I3  Musc Tendre"] },
@@ -112,56 +112,57 @@
       piece(-halfWidth,height/2,(from+to)/2,.24,height,to-from,ivory,"stone");
       solid(-halfWidth,(from+to)/2,.24,to-from,height);
     }
-    piece(-halfWidth,height-.60,(doorStart+doorEnd)/2,.32,1.2,doorEnd-doorStart,ivory,"stone");
-    roofs.push(collider(centerX-halfWidth,northZ+(doorStart+doorEnd)/2,.35,doorEnd-doorStart,height,height-1.2));
+    piece(-halfWidth,height-.30,(doorStart+doorEnd)/2,.32,.60,doorEnd-doorStart,ivory,"stone");
+    roofs.push(collider(centerX-halfWidth,northZ+(doorStart+doorEnd)/2,.35,doorEnd-doorStart,height,height-.60));
     for(const z of [doorStart+.10,doorEnd-.10]){
       piece(-halfWidth,1.72,z,.31,3.44,.12,brass);
       piece(-halfWidth-.18,1.78,z,.025,3.24,.035,0xffe3aa,"light");
     }
     piece(0,.40,depth,13.28,.8,.21,plaster,"stone");
     solid(0,depth,13.28,.23,height);
-    piece(0,4.13,depth,13.28,1.04,.24,ivory,"stone");
+    piece(0,height-.30,depth,13.28,.60,.24,ivory,"stone");
     const glazing=new T.MeshPhysicalMaterial({color:0xe0d4cc,transparent:true,opacity:.16,
       roughness:.18,side:T.DoubleSide,depthWrite:false});
     glazing.userData.nightWindow=true;
-    const windows=addMesh(new T.PlaneGeometry(12.9,2.88),glazing,0,2.18,depth,"Panoramic glazing");
+    const windows=addMesh(new T.PlaneGeometry(12.9,2.40),glazing,0,2.0,depth,"Panoramic glazing");
     windows.castShadow=false;
-    for(const x of [-6.45,-4.30,-2.15,0,2.15,4.30,6.45]) piece(x,2.18,depth,.065,3.13,.20,brass);
+    for(const x of [-6.45,-4.30,-2.15,0,2.15,4.30,6.45]) piece(x,2.0,depth,.065,2.62,.20,brass);
     // Skylights flank a central acoustic soffit. The light coves stay visible
     // from within the room while the outer fascia hides the roof assembly.
     for(const x of [-5.5,0,5.5]) piece(x,height+.10,depth/2,x===0?4.5:2.35,.20,depth+.36,ivory);
-    for(const z of [0,depth]) piece(0,height+.12,z,13.72,.39,.39,ivory);
-    for(const x of [-halfWidth,halfWidth]) piece(x,height+.12,depth/2,.39,.39,depth+.35,ivory);
+    for(const z of [0,depth]) piece(0,height+.28,z,13.72,.44,.39,ivory);
+    for(const x of [-halfWidth,halfWidth]) piece(x,height+.28,depth/2,.39,.44,depth+.35,ivory);
     for(const x of [-4.33,-2.33,2.33,4.33]){
       piece(x,height-.048,depth/2,.10,.18,depth,brass);
       piece(x,height-.145,depth/2,.075,.018,depth-.58,0xffdfaa,"light");
     }
-    roofs.push(collider(centerX,northZ+depth/2,13.6,depth+.32,height+.32,height-.22));
+    roofs.push(collider(centerX,northZ+depth/2,13.6,depth+.32,4.3,height-.22));
     // West-facing shop sign and a smaller southern sign are readable on
     // approach from either side of the plaza.
     const wordmark=[{text:"AI de cologne",size:.58,y:.38,font:"Georgia,serif",style:"italic",color:"#fbe8c1"},
       {text:"에데꼬론 상품관",size:.19,y:.83,color:"#f8e7ce"}];
-    print(-halfWidth-.182,4.02,(doorStart+doorEnd)/2,4.82,.98,"#352a28",wordmark,-Math.PI/2);
-    print(-2.56,4.09,depth+.132,5.00,.90,"#352a28",wordmark);
+    print(-halfWidth-.182,height-.25,(doorStart+doorEnd)/2,4.82,.70,"#352a28",wordmark,-Math.PI/2);
+    print(-2.56,height-.25,depth+.132,5.00,.70,"#352a28",wordmark);
     // Narrow grooves break up the stone frontage and frame the shop entry.
     for(let z=.35;z<doorStart-.2;z+=.29) piece(-halfWidth-.135,1.89,z,.09,3.65,.035,0xcdbca4);
 
     const archStone=plain(0xf2e5ce);
     const archMetal=plain(brass,.34,.44);
-    // A faceted amber-glass roof lantern borrows its profile from a perfume flacon.
-    const lanternX=-3.64, lanternZ=2.66;
-    drum(lanternX,height+.26,lanternZ,1.62,.20,espresso);
-    drum(lanternX,height+.40,lanternZ,1.56,.13,brass);
+    // The amber flacon sits beside the windows below the shared roofline.
+    const lanternX=4.8, lanternZ=10.3;
+    drum(lanternX,.26,lanternZ,1.62,.20,espresso);
+    drum(lanternX,.40,lanternZ,1.56,.13,brass);
+    solid(lanternX,lanternZ,3.24,3.24,2.30);
     const profile=[[1.18,0],[1.39,.16],[1.39,.85],[1.28,1.00],[.59,1.26],[.52,1.34],[.52,1.47]];
     const lanternGlass=new T.MeshPhysicalMaterial({color:0xe1b684,roughness:.24,metalness:.12,
       transparent:true,opacity:.74,side:T.DoubleSide,depthWrite:false,flatShading:true});
     lanternGlass.userData.nightWindow=true;
     const lantern=addMesh(new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),8),
-      lanternGlass,lanternX,height+.45,lanternZ,"Flacon skylight");
+      lanternGlass,lanternX,.45,lanternZ,"Amber flacon sculpture");
     lantern.castShadow=false;
-    drum(lanternX,height+1.91,lanternZ,.64,.18,brass);
-    drum(lanternX,height+2.11,lanternZ,.70,.25,espresso);
-    drum(lanternX,height+2.26,lanternZ,.68,.058,brass);
+    drum(lanternX,1.91,lanternZ,.64,.18,brass);
+    drum(lanternX,2.11,lanternZ,.70,.25,espresso);
+    drum(lanternX,2.26,lanternZ,.68,.058,brass);
     // Tall arched niches turn the formerly blank west wall into a scent-strip display.
     for(const [index,z] of [1.78,4.78].entries()){
       arch(-halfWidth-.21,.26,z,.92,1.62,.13,archStone).rotation.y=-Math.PI/2;
@@ -171,7 +172,7 @@
         piece(-halfWidth-.20,1.31,z+(strip-1)*.31,.06,.98+strip*.11,.16,tint);
       }
     }
-    arch(-halfWidth-.23,.12,(doorStart+doorEnd)/2,2.30,1.48,.13,archMetal).rotation.y=-Math.PI/2;
+    arch(-halfWidth-.23,.12,(doorStart+doorEnd)/2,2.30,1.18,.13,archMetal).rotation.y=-Math.PI/2;
     piece(-halfWidth-.34,3.54,(doorStart+doorEnd)/2,.90,.12,4.83,espresso);
     piece(-halfWidth-.80,3.55,(doorStart+doorEnd)/2,.03,.11,4.84,brass);
     for(const x of [-3.45,3.45]){
@@ -241,7 +242,7 @@
     const entry=worldPoint(-halfWidth-.12,9.47);
     return {
       id:"cologne", ...entry, station:reception, lookAt:worldPoint(0,.48),
-      label:{...entry,y:4.1},
+      label:{...entry,y:3.55},
       interior:{minX:centerX-halfWidth,maxX:centerX+halfWidth,minZ:northZ,maxZ:northZ+depth,ceilingY:height-.17},
       exhibits:[
         {

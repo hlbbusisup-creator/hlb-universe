@@ -436,7 +436,14 @@
       return p.x >= b.minX+radius && p.x <= b.maxX-radius && p.z >= b.minZ+radius && p.z <= b.maxZ-radius;
     }
     function clear(a,target) {
-      return insideBounds(target) && !boxes.some(box => segmentHits(a,target,box));
+      if (!insideBounds(target)) return false;
+      const minX=Math.min(a.x,target.x),maxX=Math.max(a.x,target.x);
+      const minZ=Math.min(a.z,target.z),maxZ=Math.max(a.z,target.z);
+      for (const box of boxes) {
+        if (box.maxX<minX || box.minX>maxX || box.maxZ<minZ || box.minZ>maxZ) continue;
+        if (segmentHits(a,target,box)) return false;
+      }
+      return true;
     }
     function move(p,dx,dz) {
       const next = {x:p.x+dx,z:p.z+dz};
@@ -450,6 +457,7 @@
     const cols = Math.ceil((b.maxX-b.minX)/cell), rows = Math.ceil((b.maxZ-b.minZ)/cell);
     const size = cols*rows;
     const blocked = new Uint8Array(size);
+    const parent = new Int32Array(size), queue = new Int32Array(size);
     const at = (col,row) => row*cols + col;
     const worldPoint = id => ({x:b.minX+(id%cols+0.5)*cell,z:b.minZ+(Math.floor(id/cols)+0.5)*cell});
     for (let i=0;i<size;i++) {
@@ -490,7 +498,7 @@
       if (start<0 || goal<0) return [];
       // Uniform-cost breadth-first search over the small campus grid, followed by
       // line-of-sight smoothing. Each cell enters the queue only once.
-      const parent = new Int32Array(size).fill(-1), queue = new Int32Array(size);
+      parent.fill(-1);
       let read=0, write=1;
       queue[0]=start; parent[start]=start;
       while (read<write && parent[goal]===-1) {
@@ -524,13 +532,14 @@
     return {move,route};
   }
 
-  function create(scene,camera,canvas,world,arrival = null,onScenePick = null) {
+  function create(scene,camera,canvas,world,arrival = null,onScenePick = null,onAction = null) {
     const T = globalThis.THREE;
     const visitor = createVisitor(T,scene);
     let position = {...(arrival?.station || world.spawn)};
     visitor.root.position.set(position.x,arrival ? 0.086 : 0.025,position.z);
     const nav = makeNavigation(world);
     const movementCodes = new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD"]);
+    const actionCodes = new Map([["Space","jump"],["KeyF","firework"],["KeyE","interact"]]);
     const held = new Set(), freshPresses = new Set(), pointers = new Map();
     const stick = {x:0,y:0};
     const firstDoor = world.spaces.find(space => space.id === "group") || world.spaces[0];
@@ -602,7 +611,8 @@
     }
     function consumeCafeItem(item) {
       if (!active || !visitor.consumeCafeItem(item)) return false;
-      if (!route.length && !held.size && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
+      const movingKeys = [...held].some(code => movementCodes.has(code));
+      if (!route.length && !movingKeys && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
         const start=visitor.root.rotation.y, home=cafeTurn?.home ?? start;
         const toCamera=yaw+Math.PI+(item==="coffee" ? .32 : -.32);
         const toward=Math.atan2(Math.sin(toCamera-start),Math.cos(toCamera-start));
@@ -693,10 +703,12 @@
       pitch = entryPitch;
       updateCamera(1);
     }
+    function down(a,b) {
+      return held.has(a)||held.has(b)||freshPresses.has(a)||freshPresses.has(b);
+    }
     function update(dt) {
       dt=clamp(Number(dt)||0,0,0.07);
       // A quick keyboard tap can start and finish between two rendered frames.
-      const down=(a,b) => held.has(a)||held.has(b)||freshPresses.has(a)||freshPresses.has(b);
       let right=stick.x + Number(down("KeyD","ArrowRight")) - Number(down("KeyA","ArrowLeft"));
       let forward=stick.y + Number(down("KeyW","ArrowUp")) - Number(down("KeyS","ArrowDown"));
       freshPresses.clear();
@@ -742,12 +754,29 @@
       updateCamera(dt);
       return position;
     }
+    function editing(event) {
+      return event.target?.closest?.("input,textarea,select,[contenteditable]:not([contenteditable=false]),[role=textbox]");
+    }
     function keyDown(event) {
-      if (!active || !movementCodes.has(event.code) || event.altKey || event.ctrlKey || event.metaKey ||
-        event.target?.closest?.("input,textarea,select,[contenteditable=true],[role=textbox]")) return;
+      const moving = movementCodes.has(event.code);
+      const action = actionCodes.get(event.code);
+      if (!active || document.hidden || (!moving && !action) || event.isComposing ||
+        event.altKey || event.ctrlKey || event.metaKey || editing(event)) return;
+      if (event.code === "Space" && event.target?.closest?.("button,a")) return;
+      // A key kept down across a dialog or a lost window focus needs a new press.
+      if (event.repeat && !held.has(event.code)) return;
       event.preventDefault();
-      if (!held.has(event.code)) freshPresses.add(event.code);
-      held.add(event.code); stopRoute();
+      const firstPress = !held.has(event.code);
+      held.add(event.code);
+      if (moving) {
+        if (document.activeElement !== canvas) canvas.focus({preventScroll:true});
+        if (firstPress) freshPresses.add(event.code);
+        stopRoute();
+        onAction?.("move");
+      } else if (firstPress) {
+        if (action === "jump") jump();
+        else onAction?.(action);
+      }
     }
     function keyUp(event) { held.delete(event.code); }
     function pointOnGround(x,y) {
@@ -828,6 +857,8 @@
     window.addEventListener("keyup",keyUp,options);
     window.addEventListener("blur",release,options);
     document.addEventListener("visibilitychange",()=>{if(document.hidden) release();},options);
+    document.addEventListener("compositionstart",release,options);
+    document.addEventListener("focusin",event=>{if(editing(event)) release();},options);
     canvas.addEventListener("pointerdown",pointerDown,options);
     canvas.addEventListener("pointermove",pointerMove,options);
     for (const name of ["pointerup","pointercancel","lostpointercapture"]) canvas.addEventListener(name,pointerUp,options);

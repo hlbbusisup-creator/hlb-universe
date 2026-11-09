@@ -50,7 +50,7 @@
     };
   }
 
-  function create(scene) {
+  function create(scene, lavaLocations = [[-6.05,8.85],[6.03,7.46]]) {
     const T = globalThis.THREE;
     const daylight = {
       horizon:0xf4caba, zenith:0x7f8cae, mist:0xe5b6aa, density:.0053,
@@ -146,9 +146,9 @@
     scene.fog=new T.FogExp2();
     scene.add(sky,fill,key);
 
-    // The two open lava vents flank the arrival path. Their glow reaches the
-    // surrounding basalt and visitor after sunset.
-    const ventLights=[[-6.05,8.85],[6.03,7.46]].map(([x,z])=>{
+    // A few lights represent the molten district edges. All lava surfaces share
+    // an unlit mesh, so adding pools does not add a dynamic light for each one.
+    const ventLights=lavaLocations.map(([x,z])=>{
       const glow=new T.PointLight(0xff713c,0,12,2);
       glow.position.set(x,.80,z);
       scene.add(glow);

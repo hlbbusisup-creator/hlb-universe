@@ -3,11 +3,11 @@
 
   const magma = 0xef4136, cream = 0xf5ead4, brass = 0xb58b56;
   const themes = {
-    group:   {height:3.35, floor:0xddd2b8, frame:0x336266, wall:0x477273, sign:"#234c50"},
-    brand:   {height:3.50, floor:0xe6d5c3, frame:0x862e32, wall:0xf4ddc7, sign:"#7c2730"},
-    product: {height:3.40, floor:0xd3dfe1, frame:0x395768, wall:0xe2eaea, sign:"#294552"},
-    ir:      {height:3.72, floor:0xc9b59d, frame:0x524439, wall:0xd4c2a5, sign:"#443d35"},
-    esg:     {height:3.10, floor:0xc0b998, frame:0x356252, wall:0x789483, sign:"#294c3e"}
+    group:   {floor:0xddd2b8, frame:0x336266, wall:0x477273, sign:"#234c50"},
+    brand:   {floor:0xe6d5c3, frame:0x862e32, wall:0xf4ddc7, sign:"#7c2730"},
+    product: {floor:0xd3dfe1, frame:0x395768, wall:0xe2eaea, sign:"#294552"},
+    ir:      {floor:0xc9b59d, frame:0x524439, wall:0xd4c2a5, sign:"#443d35"},
+    esg:     {floor:0xc0b998, frame:0x356252, wall:0x789483, sign:"#294c3e"}
   };
   const repositoryCovers = new Map();
 
@@ -15,7 +15,7 @@
     const {T,site,collider,colliders,roofs} = kit;
     const {width,depth} = hall;
     const half=width/2, mid=-depth/2, back=-depth;
-    const theme=themes[hall.id], top=theme.height;
+    const theme=themes[hall.id], top=3.8;
     const entry=1.55, wing=half-entry;
     const group=new T.Group();
     group.name=hall.title;
@@ -140,19 +140,18 @@
         [top+.45,.10,half-.26,depth*.48,0x658b83]]){
         form("round",0,z,mid,dx,h,dz,c);
       }
-      // A separate monumental compass leaves the mountain sightline open above the entry.
-      const cx=-half+1.18,cz=-.76;
-      box(cx,top+.70,cz,.13,1.08,.14,brass);
-      ring("Compass rose",cx,top+1.34,cz,.72,.053,brass);
-      ring("Compass bezel",cx,top+1.34,cz,.62,.023,cream);
+      // The compass is inset into the facade beneath the shared roofline.
+      const cx=-half+1.18,cy=top-.72,cz=.30;
+      ring("Compass rose",cx,cy,cz,.50,.043,brass);
+      ring("Compass bezel",cx,cy,cz,.42,.020,cream);
       for(let i=0;i<8;i++){
         const a=i*Math.PI/4, dx=Math.sin(a),dy=Math.cos(a);
-        tube([cx+dx*.54,top+1.34+dy*.54,cz],[cx+dx*.66,top+1.34+dy*.66,cz],.021,cream);
+        tube([cx+dx*.35,cy+dy*.35,cz],[cx+dx*.45,cy+dy*.45,cz],.018,cream);
       }
-      for(const side of [-1,1])form("crystal",cx+side*.14,top+1.34+side*.26,cz+.03,.105,.38,.052,
+      for(const side of [-1,1])form("crystal",cx+side*.10,cy+side*.17,cz+.03,.075,.25,.042,
         side<0?cream:magma,[0,0,-.5]);
       suspendedSign(.31,top-.33);
-      // The lobby is arranged around an illuminated terrestrial globe and a real plan of the six rooms.
+      // The lobby plan follows the three facing pairs along the exhibition street.
       const gx=-half+1.32,gz=back+1.67;
       form("round",gx,.18,gz,.84,.24,.84,jade);
       form("round",gx,.67,gz,.29,.78,.29,brass);
@@ -165,10 +164,11 @@
       sign(0,2.70,back+.207,3.54,.52,"유니버스 안내도","",theme.sign);
       const planZ=back+.215;
       const marker=(x,y,w,h,col)=>box(x,y,planZ+.025,w,h,.04,col,null,"light");
-      marker(0,1.60,2.46,.05,brass); marker(0,1.38,.05,.55,brass);
-      for(const [x,y,title,c] of [[0,1.79,"그룹안내소","#b94339"],[-1.30,1.83,"브랜드관","#9c5046"],
-        [1.30,1.83,"제품전시관","#476d82"],[-.72,2.24,"IR 자료관","#74604b"],[.72,2.24,"ESG 정원","#527351"],
-        [-1.16,1.21,"카페 렌토","#785841"],[1.16,1.21,"에데꼬론","#826b50"]]){
+      marker(0,1.61,.05,1.50,brass);
+      for(const y of [1.0,1.43,1.86]) marker(0,y,2.46,.04,brass);
+      for(const [x,y,title,c] of [[0,2.30,"그룹안내소","#b94339"],[-1.30,1.43,"브랜드관","#9c5046"],
+        [1.30,1.43,"제품전시관","#476d82"],[-1.30,1.86,"IR 자료관","#74604b"],[1.30,1.86,"ESG 정원","#527351"],
+        [-1.30,1.0,"카페 렌토","#785841"],[1.30,1.0,"에데꼬론","#826b50"]]){
         sign(x,y,planZ+.055,.94,.24,title,"",c);
       }
       consoleDesk(brass);
@@ -177,10 +177,10 @@
     function brandGallery() {
       wallPair(false,true);
       box(0,top,mid,width+.38,.18,depth+.38,cream);
-      // The red, folded ribbon rises at the two flanks and sweeps across the glazed entrance.
+      // Folded red fascia follows the shared low roofline.
       for(const z of [.28,-1.19]){
-        const folds=[[-half+.22,.18],[-half+.22,top+.93],[-2.85,top+1.04],[-.74,top+.06],
-          [1.15,top+.08],[half-.05,top+1.15],[half-.05,.18]];
+        const folds=[[-half+.22,.18],[-half+.22,top+.28],[-2.85,top+.33],[-.74,top-.08],
+          [1.15,top-.06],[half-.05,top+.33],[half-.05,.18]];
         for(let i=1;i<folds.length;i++){
           const [a,b]=[folds[i-1],folds[i]];
           beam(...a,...b,z,.34,z>0 ? .48 : .17,z>0 ? magma : 0xa6302f);
@@ -213,15 +213,16 @@
       const frame=theme.frame,cyan=0x89bbcb;
       for(let i=0;i<3;i++){
         const left=-half-.15+i*(width+.30)/3, right=left+(width+.30)/3;
-        beam(left,top,right-.22,top+1.01,mid,.12,depth+.23,0xe2e8df);
-        pane(right-.14,top+.46,mid,depth+.12,.86,Math.PI/2);
+        beam(left,top,right-.22,top+.42,mid,.12,depth+.23,0xe2e8df);
+        pane(right-.14,top+.20,mid,depth+.12,.36,Math.PI/2);
+        box(right-.22,4.28,mid,.15,.04,depth+.23,frame);
         for(const z of [.12,back-.10]) {
-          beam(left,top,right-.22,top+1.01,z,.14,.19,frame);
-          box(right-.15,top+.48,z,.12,1.02,.17,frame);
+          beam(left,top,right-.22,top+.42,z,.14,.19,frame);
+          box(right-.15,top+.21,z,.12,.42,.17,frame);
         }
         for(let rib=0;rib<4;rib++){
           const z=back+rib*depth/3;
-          box(right-.17,top+.51,z,.09,1.03,.06,frame);
+          box(right-.17,top+.21,z,.09,.42,.06,frame);
         }
       }
       box(0,top-.055,.15,width+.36,.27,.38,0xe0e9e5);
@@ -275,13 +276,13 @@
       const lampGlass=enamel(0xffe3ab);
       lampGlass.userData.nightLamp=true;
       box(0,top+.04,mid,width+.46,.22,depth+.49,sandstone,null,"stone");
-      for(let i=0;i<3;i++)box(0,top+.20+i*.19,mid,width+.56-.56*i,.18,depth+.54-.45*i,
+      for(let i=0;i<3;i++)box(0,top+.12+i*.12,mid,width+.56-.56*i,.16,depth+.54-.45*i,
         i===1?0x887457:sandstone,null,"stone");
       box(0,top-.32,.51,width+.48,.48,.96,theme.frame);
       const gable=new T.Shape();
-      gable.moveTo(-half-.21,0);gable.lineTo(0,1.22);gable.lineTo(half+.21,0);gable.closePath();
-      mesh("Pediment",new T.ExtrudeGeometry(gable,{depth:.27,bevelEnabled:false}),enamel(sandstone),0,top+.15,.38);
-      for(const side of [-1,1])beam(side*(half+.29),top+.13,0,top+1.38,.64,.12,.33,brass);
+      gable.moveTo(-half-.21,0);gable.lineTo(0,.34);gable.lineTo(half+.21,0);gable.closePath();
+      mesh("Pediment",new T.ExtrudeGeometry(gable,{depth:.27,bevelEnabled:false}),enamel(sandstone),0,top+.08,.38);
+      for(const side of [-1,1])beam(side*(half+.29),top+.08,0,top+.44,.64,.12,.33,brass);
       for(const side of [-1,1]){
         const sx=side*1.95;
         box(sx,2.11,.15,.23,.41,.14,brass);
@@ -336,7 +337,7 @@
     }
     function garden() {
       wallPair(true,true);
-      const rise=1.55,ridge=top+rise,g=theme.frame, amber=0xbc9669;
+      const rise=.40,ridge=top+rise,g=theme.frame, amber=0xbc9669;
       for(const side of [-1,1]){
         const panel=pane(0,top+rise/2,mid,Math.hypot(half,rise),depth);
         panel.position.x=side*half/2;

@@ -110,6 +110,23 @@ test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통�
   }
 });
 
+test('브랜드 거리 양쪽의 세 건물 쌍이 같은 간격으로 마주 보고 중앙 길이 열려 있다', () => {
+  const pairs = [['cafe','cologne'], ['brand','product'], ['ir','esg']];
+  let previousZ;
+  for (const [leftId,rightId] of pairs) {
+    const left=world.spaces.find(space=>space.id===leftId);
+    const right=world.spaces.find(space=>space.id===rightId);
+    assert.ok(Math.abs(left.x+right.x)<.001);
+    assert.ok(Math.abs(left.z-right.z)<.001);
+    assert.ok(left.interior.maxX<=left.x+.3 && right.interior.minX>=right.x-.3);
+    if (previousZ !== undefined) assert.ok(Math.abs(previousZ-left.z-16)<.001);
+    previousZ=left.z;
+  }
+  for (let z=world.spawn.z;z>=world.district.minZ;z-=.25) {
+    assert.ok(world.colliders.every(box=>box.minX>=.5 || box.maxX<=-.5 || z<box.minZ || z>box.maxZ), '거리 중앙 z='+z);
+  }
+});
+
 test('야외 전경은 광장을 넓게 보여주고, 전시관에 들어가면 실내 거리로 돌아온다', () => {
   const {player, camera} = createPlayer();
   const cameraDistance = () => {

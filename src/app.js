@@ -307,7 +307,9 @@
       if (arrived?.spaceId === "cafe") openCafe();
       else if (arrived?.record) openRecord(arrived.record);
     }
-    const nearby = inside ? spaces.get(inside.id).title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
+    const district = world.district;
+    const inDistrict = district && p.x >= district.minX && p.x <= district.maxX && p.z >= district.minZ && p.z <= district.maxZ;
+    const nearby = inside ? spaces.get(inside.id).title : inDistrict ? district.title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
     el("gallery-guide").hidden = inside?.id !== "cologne" || station?.id === "cologne";
     if (el("location-name").textContent !== nearby) el("location-name").textContent = nearby;
     const label = station?.action || "";
@@ -428,18 +430,6 @@
     player?.setActive(false); player?.setActive(true);
     updateStatus(); canvas.focus({preventScroll:true});
   });
-  document.addEventListener("keydown",e=>{
-    if (dialog.open || !player || e.isComposing || e.metaKey || e.ctrlKey || e.altKey ||
-      e.target.closest?.("input,select,textarea,[contenteditable=true]")) return;
-    if (e.code === "KeyF" || e.code === "Space") {
-      if (e.code === "Space" && e.target.closest?.("button,a")) return;
-      e.preventDefault();
-      if (!e.repeat) playAction(e.code === "Space" ? "jump" : "firework");
-      return;
-    }
-    if (e.code==="KeyE" && !e.repeat && station) { e.preventDefault(); interact(); }
-    if (/^(Arrow(Up|Down|Left|Right)|Key[WASD])$/.test(e.code)) destination=null;
-  });
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; resetStick(); player?.setActive(false); }
     else { player?.setActive(!dialog.open); resumeRendering(); }
@@ -484,7 +474,7 @@
     scene=new T.Scene();
     camera=new T.PerspectiveCamera(56,1,.06,300);
     world=window.HLBWorld3D.build(scene);
-    timeOfDay=window.HLBTimeOfDay.create(scene);
+    timeOfDay=window.HLBTimeOfDay.create(scene, world.lavaLights);
     let time = "day";
     try { if (localStorage.getItem("hlb-universe-time") === "night") time = "night"; } catch {}
     setTime(time);
@@ -513,6 +503,10 @@
       destination=null;
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
       if (stop) walkToStop(stop, true);
+    },action=>{
+      if (action === "move") destination=null;
+      else if (action === "interact") interact();
+      else playAction(action);
     });
     fireworks=window.HLBFireworks.create(scene, camera, canvas, {
       onBurst: phrase => { el("announcement").textContent = phrase; }
