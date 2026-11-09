@@ -44,6 +44,12 @@ svg:not(.symbols) { width: 20px; height: 20px; flex: none; fill: none; stroke: c
 .error-panel button,.empty button { color:#9c2d22; padding:8px; text-decoration:underline; }
 .lower-controls { position:absolute; bottom:max(22px,env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:grid; gap:8px; justify-items:center; width:max-content; max-width:calc(100% - 32px); pointer-events:none; }
 .lower-controls button { pointer-events:auto; }
+#play-actions { position:absolute; right:max(22px,env(safe-area-inset-right)); bottom:max(20px,env(safe-area-inset-bottom)); display:flex; gap:7px; }
+.play-button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:0 12px; border-radius:14px; font-size:13px; font-weight:700; touch-action:manipulation; }
+.play-button:hover,.play-button:focus-visible { background:#4a3437; }
+.play-button:active { background:#713a38; }
+.play-button kbd { color:#f6d7d0; border-color:#ffe0d94a; font-size:10px; }
+#firework svg { color:#ff9984; }
 .hint,.travel { border-radius:24px; font-size:13px; text-align:center; padding:8px 15px; letter-spacing:-.02em; }
 .hint i { display:inline-block; margin:0 7px 3px; width:3px; height:3px; background:#e7e9d8; border-radius:50%; }
 .travel { display:flex; align-items:center; gap:8px; padding:4px 4px 4px 14px; }
@@ -170,11 +176,17 @@ dialog.reading { width:min(890px,calc(100% - 32px)); max-height:88dvh; scrollbar
   .exhibit-intro .reading-section p { font-size:14px; }
   .gallery-stop img { height:106px; }
 }
+@media (min-width:681px) and (max-width:940px) {
+  .lower-controls { bottom:max(77px,calc(env(safe-area-inset-bottom) + 58px)); }
+}
 @media (pointer:coarse), (max-width:680px) {
   #stick { display:block; }
   .desktop-hint,.interact kbd { display:none; }
   .mobile-hint { display:block; }
-  .lower-controls { left:auto; right:max(12px,env(safe-area-inset-right)); transform:none; max-width:calc(100% - 126px); justify-items:end; }
+  #play-actions { right:max(13px,env(safe-area-inset-right)); bottom:max(22px,env(safe-area-inset-bottom)); }
+  .play-button { flex-direction:column; width:54px; min-height:56px; padding:5px; gap:1px; border-radius:18px; font-size:11px; }
+  .play-button kbd { display:none; }
+  .lower-controls { left:auto; right:max(12px,env(safe-area-inset-right)); bottom:max(89px,calc(env(safe-area-inset-bottom) + 68px)); transform:none; max-width:calc(100% - 126px); justify-items:end; }
   .hint { max-width:208px; padding:7px 12px; font-size:12px; }
 }
 @media (max-width:540px) {

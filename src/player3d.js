@@ -7,7 +7,7 @@
   const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
   // Bake each rigid body part into a single vertex-coloured mesh. The articulated
-  // joints remain independent while hair, jacket seams and backpack share draws.
+  // joints remain independent while fur markings and jacket details share draws.
   function createVisitor(T, scene) {
     const material = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.83 });
     const root = new T.Group();
@@ -58,81 +58,88 @@
       parent.add(mesh);
     }
 
-    // In the rest pose the soles sit at y=0 and the crown at 1.66 m.
-    // The head, from the chin to the crown, is about 0.55 m tall.
-    const hipHeight = 0.572, headHeightAboveHips = 0.812;
+    // A red panda ranger. The soles, chin and ear tips sit near 0, 0.81 and 1.61 m.
+    const hipHeight = .354, headHeightAboveHips = .805;
     const hips = joint(root,0,hipHeight,0);
     const chest = joint(hips,0,0,0);
-    const red = 0xef4136, piping = 0xb32c36, ivory = 0xffebc9;
-    const navy = 0x314355, sole = 0x435365;
-    const skin = 0xffc39d, hair = 0x493138, eye = 0x302532;
+    const red = 0xef4136, piping = 0xb53439, ivory = 0xffefce;
+    const fur = 0xd8794d, amber = 0xe98a57, cocoa = 0x79463d, ink = 0x392d37;
+    const navy = 0x34485a, sole = 0x594b52;
     part(chest,(oval,band,seam) => {
-      oval(navy,0,0.015,0,.224,.153,.153);
-      oval(red,0,.246,0,.264,.266,.19);
-      band(piping,0,.078,0,.228,.213,.053,.75);
-      oval(red,0,.366,0,.257,.145,.174);
-      band(skin,0,.485,-.006,.097,.106,.165,.87);
-      oval(ivory,0,.444,0,.186,.071,.132);
-      // Padded jacket with a cream collar, zipper and two broad shoulder straps.
-      seam(piping,[[0,.081,-.154],[0,.195,-.186],[0,.312,-.185],[0,.433,-.156]],.008);
-      oval(ivory,0,.360,-.186,.014,.026,.009);
+      oval(navy,0,.026,.005,.194,.115,.146);
+      oval(red,0,.211,0,.231,.210,.168);
+      band(piping,0,.104,0,.210,.207,.033,.74);
+      oval(fur,0,.428,0,.126,.114,.114);
+      band(ivory,0,.378,-.008,.137,.153,.054,.83);
+      seam(piping,[[0,.115,-.155],[0,.215,-.169],[0,.293,-.151]],.009);
       for (const s of [-1,1]) {
-        seam(sole,[[s*.129,.104,-.118],[s*.15,.219,-.157],[s*.149,.357,-.151],
-          [s*.146,.453,-.079],[s*.144,.465,.01],[s*.149,.407,.113]],.026);
+        seam(navy,[[s*.126,.131,-.125],[s*.130,.233,-.140],[s*.136,.329,-.098],
+          [s*.127,.371,.006],[s*.135,.313,.111]],.019);
       }
-      // A small red daypack leaves the jacket sleeves visible from behind.
-      oval(piping,0,.243,.151,.174,.195,.094);
-      oval(red,0,.240,.192,.167,.185,.107);
-      oval(ivory,0,.271,.253,.151,.124,.064);
-      oval(red,0,.179,.269,.118,.061,.046);
-      seam(piping,[[-.096,.164,.288],[0,.151,.310],[.096,.164,.288]],.005);
-      for (const s of [-1,1]) oval(0xd49368,s*.101,.265,.307,.012,.012,.006);
+      // Cream triangular neckerchief and its little brass knot.
+      oval(ivory,0,.336,-.111,.071,.065,.031,-.47);
+      oval(0xefb35b,0,.296,-.147,.020,.024,.018);
+      // The layered red satchel is visible in the default, rear-facing camera.
+      oval(piping,0,.199,.140,.150,.157,.080);
+      oval(red,0,.193,.170,.145,.149,.089);
+      oval(ivory,0,.230,.223,.128,.080,.049);
+      for (const s of [-1,1]) oval(0xe8ad63,s*.078,.214,.264,.010,.012,.006);
     });
-    const head = joint(chest,0,headHeightAboveHips,-.014);
+    const head = joint(chest,0,headHeightAboveHips,-.009);
     head.name = "visitor-head";
+    const eyes = joint(head,0,-.024,0);
     part(head,(oval,band,seam,add) => {
-      oval(skin,0,-.037,-.016,.316,.237,.251);
-      oval(hair,0,.058,.036,.322,.208,.241);
-      oval(hair,0,-.007,.092,.315,.168,.194);
-      for (const s of [-1,1]) {
-        oval(skin,s*.301,-.042,.004,.050,.061,.048);
-        oval(0xe59a80,s*.325,-.047,-.022,.020,.032,.024);
-        oval(hair,s*.282,.028,-.071,.046,.080,.082,0,0,-s*.16);
-        // Big dark eyes have a warm iris, upper glint and small lower reflection.
-        oval(eye,s*.101,-.036,-.253,.036,.046,.016,0,-s*.30);
-        oval(0x805345,s*.101,-.057,-.264,.024,.014,.009,0,-s*.30);
-        oval(0xfffcf4,s*.101-.008,-.022,-.268,.012,.013,.008);
-        oval(0xffe8d5,s*.101+.009,-.052,-.270,.005,.006,.004);
-        oval(hair,s*.101,.038,-.239,.042,.012,.014,0,-s*.30,s*.12);
-        oval(0xf3a094,s*.183,-.101,-.211,.046,.020,.010,0,-s*.60,s*.11);
+      oval(fur,0,.005,.008,.424,.359,.323);
+      // Broad lower cheeks give the face its soft, pear-shaped silhouette.
+      oval(fur,0,-.084,-.023,.413,.261,.306);
+      function ear(color,x,y,z,scale,tilt) {
+        const shape = new T.Shape();
+        shape.moveTo(-.105,-.043);
+        shape.quadraticCurveTo(-.128,.026,-.058,.147);
+        shape.quadraticCurveTo(-.020,.210,.028,.161);
+        shape.quadraticCurveTo(.123,.067,.118,-.034);
+        shape.quadraticCurveTo(.084,-.101,0,-.105);
+        shape.quadraticCurveTo(-.076,-.105,-.105,-.043);
+        const geometry = new T.ExtrudeGeometry(shape,{depth:.044,bevelEnabled:true,bevelThickness:.020,bevelSize:.014,bevelSegments:3,curveSegments:8});
+        add(geometry,color,x,y,z,scale,scale,scale,0,0,tilt);
       }
-      oval(0xf2ac8c,0,-.086,-.270,.028,.020,.022);
-      seam(0x9c5753,[[-.048,-.126,-.245],[-.028,-.141,-.243],[0,-.146,-.242],
-        [.028,-.141,-.243],[.048,-.126,-.245]],.008);
-      // An asymmetric fringe peeks out below the short-brimmed baseball cap.
-      oval(hair,-.163,.029,-.166,.140,.035,.092,0,-.16,.075);
-      oval(0x58404a,.155,.031,-.170,.128,.034,.087,0,.21,-.065);
+      for (const s of [-1,1]) {
+        ear(ivory,s*.294,.266,-.008,1,-s*.33);
+        ear(fur,s*.294,.274,.028,.83,-s*.33);
+        ear(cocoa,s*.294,.278,-.027,.78,-s*.33);
+        ear(0xe6a389,s*.294,.279,-.042,.52,-s*.33);
+        // Dark eye markings, buttery brows and the two sweeping cheek patches.
+        oval(cocoa,s*.162,-.055,-.272,.101,.118,.055,0,-s*.43,-s*.23);
+        oval(ivory,s*.171,.095,-.264,.077,.044,.037,0,-s*.42,-s*.29);
+        oval(ivory,s*.283,-.132,-.219,.100,.080,.037,0,-s*.77,s*.38);
+        oval(0xefaa8d,s*.284,-.144,-.251,.042,.021,.014,0,-s*.75,s*.20);
+      }
+      for (const s of [-1,1]) oval(ivory,s*.055,-.142,-.290,.091,.079,.055,0,-s*.12);
+      oval(ink,0,-.098,-.344,.046,.032,.021);
+      oval(0x976b64,-.012,-.089,-.362,.014,.007,.005);
+      seam(cocoa,[[0,-.120,-.346],[0,-.143,-.346]],.006);
+      seam(cocoa,[[-.042,-.152,-.347],[-.027,-.159,-.348],[0,-.143,-.346],
+        [.026,-.159,-.348],[.042,-.152,-.347]],.006);
+      // A small cherry-red beret sits between the ears; its brim clears the brows.
       const crown = new T.SphereGeometry(1,32,16,0,Math.PI*2,0,Math.PI*.53);
-      add(crown,red,0,.107,.003,.341,.163,.279);
-      band(piping,0,.087,.003,.339,.336,.030,.822);
-      oval(piping,0,.071,-.219,.276,.021,.171,.056);
-      oval(red,0,.082,-.222,.274,.018,.171,.057);
-      oval(red,0,.268,.003,.032,.012,.031);
-      // Tailored crown seams and a small open-look adjustment strap at the back.
-      for (const s of [-1,1]) {
-        seam(0xd93834,[[s*.013,.268,.014],[s*.116,.251,.061],[s*.217,.220,.102],
-          [s*.280,.172,.119],[s*.307,.115,.121]],.004);
-      }
-      oval(hair,0,.104,.269,.089,.041,.013);
-      oval(piping,0,.084,.276,.099,.014,.011);
-      oval(ivory,.068,.084,.287,.012,.011,.007);
+      band(piping,0,.248,.001,.303,.299,.036,.862);
+      add(crown,red,0,.261,.002,.313,.137,.269,0,0,-.055);
+      oval(piping,.045,.399,.009,.023,.029,.022,0,0,-.27);
+      oval(red,.061,.418,.011,.025,.014,.018,0,0,-.16);
     });
-    // Both fabric labels share one texture and material; the lettering stays
-    // readable at the closer camera distances inside the exhibits.
+    part(eyes,oval => {
+      for (const s of [-1,1]) {
+        oval(ink,s*.151,0,-.321,.048,.057,.026,0,-s*.35);
+        oval(0x975f49,s*.153,-.020,-.339,.029,.021,.009,0,-s*.34);
+        oval(0xfffcf1,s*.151-.011,.018,-.345,.015,.016,.008);
+        oval(ivory,s*.151+.013,-.019,-.347,.006,.006,.004);
+      }
+    });
+
     const labelCanvas = document.createElement("canvas");
     labelCanvas.width = 256; labelCanvas.height = 112;
     const labelContext = labelCanvas.getContext("2d");
-    labelContext.fillStyle = "#773038";
+    labelContext.fillStyle = "#a73035";
     labelContext.fillRect(0,0,256,112);
     labelContext.font = "bold 96px Arial, sans-serif";
     labelContext.textAlign = "center";
@@ -142,40 +149,71 @@
     const labelMap = new T.CanvasTexture(labelCanvas);
     labelMap.colorSpace = T.SRGBColorSpace;
     const labelMaterial = new T.MeshBasicMaterial({map:labelMap,toneMapped:false});
-    const capLabel = new T.PlaneGeometry(.129,.129*112/256,8,4);
-    const vertices = capLabel.attributes.position;
-    for (let i=0; i<vertices.count; i++) {
-      const x = -vertices.getX(i), y = vertices.getY(i)+.162;
-      const crownDepth = Math.sqrt(1-(x/.341)**2-((y-.107)/.163)**2);
-      vertices.setXYZ(i,x,y,.003-.279*crownDepth-.003);
-    }
-    capLabel.computeVertexNormals();
-    head.add(new T.Mesh(capLabel,labelMaterial));
-    const packLabel = new T.Mesh(new T.PlaneGeometry(.147,.147*112/256),labelMaterial);
-    packLabel.position.set(0,.274,.319);
+    const capLabel = new T.Mesh(new T.PlaneGeometry(.112,.049),labelMaterial);
+    capLabel.rotation.y = Math.PI;
+    capLabel.rotation.x = .34;
+    capLabel.position.set(0,.284,-.266);
+    head.add(capLabel);
+    const packLabel = new T.Mesh(new T.PlaneGeometry(.123,.054),labelMaterial);
+    packLabel.position.set(0,.233,.274);
     chest.add(packLabel);
+
+    // Sweep a tapered tube along the tail so its stripes follow each bend.
+    const tail = joint(hips,0,.040,.112);
+    const tailCurve = new T.CatmullRomCurve3([
+      new T.Vector3(0,0,0), new T.Vector3(.037,-.075,.124),
+      new T.Vector3(.172,-.092,.211), new T.Vector3(.294,-.027,.204),
+      new T.Vector3(.350,.077,.165), new T.Vector3(.354,.136,.136)
+    ]);
+    const tailRings = 36, tailSides = 16;
+    const tube = new T.TubeGeometry(tailCurve,tailRings,1,tailSides,false);
+    const tubeVertices = tube.attributes.position;
+    const tailPoint = new T.Vector3();
+    for (let ring=0; ring<=tailRings; ring++) {
+      const t = ring/tailRings;
+      const center = tailCurve.getPointAt(t);
+      const width = .002 + .096*Math.pow(Math.sin(Math.PI*t),.52);
+      for (let side=0; side<=tailSides; side++) {
+        const i=ring*(tailSides+1)+side;
+        tailPoint.fromBufferAttribute(tubeVertices,i).sub(center).multiplyScalar(width).add(center);
+        tubeVertices.setXYZ(i,tailPoint.x,tailPoint.y,tailPoint.z);
+      }
+    }
+    tube.computeVertexNormals();
+    const stripes = tube.toNonIndexed();
+    tube.dispose();
+    const tailColors = [], stripePaint = [fur,cocoa,amber,cocoa,amber,ivory].map(color=>new T.Color(color));
+    for (let i=0; i<stripes.attributes.position.count; i++) {
+      const ring = Math.floor(i/(tailSides*6));
+      const color = stripePaint[Math.floor(ring*stripePaint.length/tailRings)];
+      tailColors.push(color.r,color.g,color.b);
+    }
+    stripes.setAttribute("color",new T.Float32BufferAttribute(tailColors,3));
+    const plume = new T.Mesh(stripes,material);
+    plume.castShadow = true;
+    tail.add(plume);
+
     const arms = [], legs = [];
     for (const s of [-1,1]) {
-      const arm = joint(chest,s*.237,.365,.005);
-      arm.rotation.z = s*.105;
-      const elbow = joint(arm,0,-.174,0);
-      part(arm,oval => oval(red,0,-.062,0,.084,.133,.092));
+      const arm = joint(chest,s*.196,.295,0);
+      arm.rotation.z = s*.14;
+      const elbow = joint(arm,0,-.111,0);
+      part(arm,oval => oval(red,0,-.043,0,.082,.107,.085));
       part(elbow,(oval,band) => {
-        oval(red,0,-.040,0,.074,.106,.082);
-        band(ivory,0,-.110,0,.066,.064,.036);
-        oval(skin,0,-.166,-.012,.061,.074,.065);
-        oval(skin,-s*.043,-.150,-.052,.032,.043,.031);
+        oval(red,0,-.025,0,.070,.076,.074);
+        band(ivory,0,-.064,0,.067,.064,.027);
+        oval(cocoa,0,-.110,-.010,.070,.070,.066);
+        oval(cocoa,-s*.044,-.104,-.049,.034,.040,.030);
       });
-      const thigh = joint(hips,s*.115,-.013,0);
-      const shin = joint(thigh,0,-.240,0);
-      part(thigh,oval => oval(navy,0,-.095,0,.112,.178,.124));
+      const thigh = joint(hips,s*.104,-.005,0);
+      const shin = joint(thigh,0,-.131,0);
+      part(thigh,oval => oval(navy,0,-.038,0,.107,.113,.109));
       part(shin,(oval,band) => {
-        oval(0x3e5264,0,-.103,0,.089,.143,.092);
-        band(navy,0,-.169,0,.087,.083,.043);
-        oval(ivory,0,-.236,-.040,.104,.074,.148);
-        oval(sole,0,-.281,-.048,.107,.036,.151);
-        oval(red,0,-.224,.068,.088,.034,.035);
-        for (const y of [0,.024]) oval(0xb5a89a,0,-.207+y,-.129+y,.043,.006,.012);
+        oval(cocoa,0,-.067,0,.077,.086,.084);
+        band(ivory,0,-.085,0,.078,.078,.036);
+        oval(0xe3a079,0,-.151,-.035,.091,.064,.124);
+        oval(sole,0,-.191,-.038,.093,.027,.125);
+        oval(ivory,0,-.144,-.105,.074,.033,.062);
       });
       arms.push({arm,elbow}); legs.push({thigh,shin});
     }
@@ -192,20 +230,30 @@
     shadow.name = "visitor-shadow";
     shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.018; root.add(shadow);
     let phase = 0, weight = 0, elapsed = 0;
-    function animate(dt, travelled, reducedMotion) {
+    function animate(dt, travelled, reducedMotion, jumpHeight = 0) {
       elapsed += dt;
-      phase += travelled * 9.2;
+      phase += travelled * 7.2;
       weight += ((travelled > 0.0002 ? 1 : 0) - weight) * (1 - Math.exp(-dt * 15));
-      hips.position.y = hipHeight + weight * .004 * (1 + Math.cos(phase * 2));
-      chest.rotation.z = Math.sin(phase) * weight * 0.035;
+      const inAir = clamp(jumpHeight / .53,0,1);
+      const stride = weight * (1-inAir);
+      hips.position.y = hipHeight + jumpHeight + stride * .010 * (1 + Math.cos(phase * 2));
+      chest.rotation.z = Math.sin(phase) * stride * .058;
       head.rotation.z = -chest.rotation.z * 0.6;
+      head.rotation.x = -.055 * inAir;
       head.position.y = headHeightAboveHips + (reducedMotion ? 0 : Math.sin(elapsed * 2.0) * 0.004 * (1 - weight));
+      const blinkTime = (elapsed + .7) % 4.1;
+      eyes.scale.y = reducedMotion ? 1 : clamp(Math.abs(blinkTime-.095)/.095,.075,1);
+      tail.rotation.y = reducedMotion ? 0 : Math.sin(phase) * stride * .21 + Math.sin(elapsed * 2) * .07;
+      tail.rotation.x = -.22*inAir;
+      shadow.scale.setScalar(1-.30*inAir);
+      shadowMaterial.opacity = 1-.46*inAir;
       for (let i = 0; i < 2; i++) {
-        const swing = Math.sin(phase + i * Math.PI) * weight;
-        legs[i].thigh.rotation.x = swing * 0.60;
-        legs[i].shin.rotation.x = -Math.max(0,swing) * 0.66;
-        arms[i].arm.rotation.x = -swing * 0.45;
-        arms[i].elbow.rotation.x = 0.18 + Math.max(0,-swing) * 0.32;
+        const swing = Math.sin(phase + i * Math.PI) * stride;
+        legs[i].thigh.rotation.x = swing * .78 + inAir * (i ? .54 : .31);
+        legs[i].shin.rotation.x = -Math.max(0,swing)*.70 - inAir*.70;
+        arms[i].arm.rotation.x = -swing*.63 + inAir*.25;
+        arms[i].arm.rotation.z = (i ? 1 : -1) * (.14 + inAir*.99);
+        arms[i].elbow.rotation.x = .16 + Math.max(0,-swing)*.32 + inAir*.22;
       }
     }
     function dispose() {
@@ -343,9 +391,12 @@
     const firstDoor = world.spaces.find(space => space.id === "group") || world.spaces[0];
     const focus = arrival?.lookAt || firstDoor;
     const entryYaw = Math.atan2(position.x-focus.x,position.z-focus.z);
-    visitor.root.rotation.y = entryYaw;
+    visitor.root.rotation.y = arrival ? entryYaw : entryYaw + Math.PI;
     const entryPitch=.17; // Leave headroom above the summit to see the drifting ash.
     let active=true, yaw=entryYaw, pitch=entryPitch, zoom=1, cameraDistance=7.6;
+    const jumpDuration = .68, jumpPeak = .82;
+    let jumpTime = jumpDuration;
+    let jumpHeight = 0;
     const baseFov=camera.fov;
     let route=[], pinchGap=0, touchingMultiple=false;
     const cameraBoxes = (world.cameraColliders || world.colliders).map(b=>new T.Box3(
@@ -385,6 +436,11 @@
       canvas.classList.remove("camera-dragging");
     }
     function setActive(value) { active=Boolean(value); if (!active) release(); }
+    function jump() {
+      if (!active || jumpTime < jumpDuration) return false;
+      jumpTime = 0;
+      return true;
+    }
     function setStick(x,y) {
       if (!active) return;
       stick.x=clamp(x,-1,1); stick.y=clamp(y,-1,1);
@@ -466,7 +522,10 @@
         visitor.root.rotation.y+=turn*(1-Math.exp(-dt*18));
         visitor.root.position.set(position.x,roomAt(position) ? 0.086 : 0.025,position.z);
       }
-      visitor.animate(dt,travelled,reducedMotion.matches);
+      if (active) jumpTime = Math.min(jumpDuration, jumpTime + dt);
+      const jumpPhase = jumpTime / jumpDuration;
+      jumpHeight = 4 * jumpPeak * jumpPhase * (1 - jumpPhase);
+      visitor.animate(dt,travelled,reducedMotion.matches,jumpHeight);
       updateCamera(dt);
       return position;
     }
@@ -565,7 +624,10 @@
       release(); listeners.abort(); visitor.dispose();
       marker.removeFromParent(); marker.geometry.dispose(); markerMaterial.dispose();
     }
-    return {update,setActive,setStick,walkTo,getPosition:()=>({x:position.x,z:position.z}),resetView,facePoint,dispose};
+    function getPosition() {
+      return {x:position.x, y:visitor.root.position.y + jumpHeight, z:position.z};
+    }
+    return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,dispose};
   }
 
   globalThis.HLBPlayer3D={create};

@@ -48,6 +48,17 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
+test('정상 로고는 수직축을 중심으로 시계 방향으로 돌고 모션 감소 설정에서는 정면에 머문다', () => {
+  const logo = scene.getObjectByName('HLB summit logo');
+  const step = 1 / 30;
+  for (let i = 0; i < 165; i++) world.update(step);
+  assert.ok(Math.abs(logo.rotation.y + Math.PI / 2) < .001);
+  assert.equal(logo.rotation.x, 0);
+  assert.equal(logo.rotation.z, 0);
+  world.update(step, true);
+  assert.equal(logo.rotation.y, 0);
+});
+
 function visit(player, space) {
   assert.ok(player.walkTo(space.station), space.id + ' 길찾기 실패');
   // A finite simulated time limit catches blocked routes without a wall clock.
@@ -115,7 +126,7 @@ test('열람대를 떠나 다른 건물의 내부로 연속해서 이동할 수 
   }
 });
 
-test('방문객은 실제 머리 높이의 약 세 배이고 앞뒤에서 HLB 마그마 레드가 보인다', () => {
+test('레서판다 방문객은 실제 머리 높이의 약 두 배이고 앞뒤에서 HLB 마그마 레드가 보인다', () => {
   const {player} = createPlayer();
   try {
     const avatar = scene.getObjectByName('campus-visitor');
@@ -129,7 +140,7 @@ test('방문객은 실제 머리 높이의 약 세 배이고 앞뒤에서 HLB �
     const height = bounds.max.y - bounds.min.y;
     const headBounds = new THREE.Box3().setFromObject(head, true);
     const ratio = height / (headBounds.max.y - headBounds.min.y);
-    assert.ok(ratio >= 2.85 && ratio <= 3.15, `실제 전신/머리 비율: ${ratio.toFixed(2)}`);
+    assert.ok(ratio >= 1.90 && ratio <= 2.10, `실제 전신/머리 비율: ${ratio.toFixed(2)}`);
 
     // Sample the foremost surface across each silhouette so paint hidden
     // inside the body or a single red vertex cannot satisfy the brand check.
@@ -188,6 +199,34 @@ test('자료가 열린 동안 이동을 멈추고, 자료를 닫아도 이전 �
     player.setActive(true);
     for (let i = 0; i < 15; i++) player.update(1 / 30);
     assert.ok(distance(moved, player.getPosition()) < 0.01, '닫고 돌아온 자리에서 멈춰야 함');
+  } finally {
+    player.dispose();
+  }
+});
+
+test('달리면서 한 번 점프하고 바닥에 착지한 뒤 다시 점프할 수 있다', () => {
+  const {player} = createPlayer();
+  try {
+    const avatar = scene.getObjectByName('campus-visitor');
+    const head = avatar.getObjectByName('visitor-head');
+    const shadow = avatar.getObjectByName('visitor-shadow');
+    const height = part => part.getWorldPosition(new THREE.Vector3()).y;
+    const start = player.getPosition();
+    const standing = height(head), ground = height(shadow);
+    player.setStick(0, 1);
+    assert.ok(player.jump());
+    for (let frame = 0; frame < 10; frame++) player.update(1 / 30);
+    assert.ok(height(head) > standing + .6);
+    assert.ok(distance(player.getPosition(), start) > .5);
+    assert.equal(height(shadow), ground);
+    assert.equal(player.jump(), false);
+    player.setStick(0, 0);
+    for (let frame = 0; frame < 25; frame++) player.update(1 / 30);
+    assert.ok(Math.abs(height(head) - standing) < .06);
+    player.setActive(false);
+    assert.equal(player.jump(), false);
+    player.setActive(true);
+    assert.ok(player.jump());
   } finally {
     player.dispose();
   }

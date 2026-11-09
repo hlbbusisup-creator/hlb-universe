@@ -7,7 +7,7 @@
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
   const fields = {space:el("space-filter"), type:el("type-filter"), language:el("language-filter"), year:el("year-filter")};
   let records = [];
-  let world, player, renderer, camera, scene;
+  let world, player, renderer, camera, scene, fireworks;
   let station = null, destination = null, localCollection = "";
   let returnRow = null, listScroll = 0;
   const stillScenery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -249,8 +249,9 @@
     const dt = previousTime ? Math.min(.08,(now-previousTime)/1000) : 1/60;
     previousTime = now;
     if (!dialog.open) {
-      if (!stillScenery.matches) world.update?.(dt);
+      world.update(dt, stillScenery.matches);
       player.update(dt);
+      fireworks.update(dt);
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
     }
     renderer.render(scene,camera);
@@ -328,13 +329,31 @@
     if(player) canvas.focus({preventScroll:true});
   });
   el("interact").addEventListener("click",interact);
+  function playAction(action) {
+    if (!player || dialog.open || document.hidden || el("play-actions").hidden) return;
+    if (action === "jump") player.jump();
+    else fireworks.launch(player.getPosition(), stillScenery.matches);
+  }
+  for (const action of ["jump", "firework"]) {
+    el(action).addEventListener("click", event => {
+      playAction(action);
+      if (event.detail > 0) canvas.focus({preventScroll:true});
+    });
+  }
   el("cancel-travel").addEventListener("click",()=>{
     destination=null;
     player?.setActive(false); player?.setActive(true);
     updateStatus(); canvas.focus({preventScroll:true});
   });
   document.addEventListener("keydown",e=>{
-    if (dialog.open || !player || e.metaKey || e.ctrlKey || e.altKey || e.target.closest("input,select,textarea")) return;
+    if (dialog.open || !player || e.isComposing || e.metaKey || e.ctrlKey || e.altKey ||
+      e.target.closest?.("input,select,textarea,[contenteditable=true]")) return;
+    if (e.code === "KeyF" || e.code === "Space") {
+      if (e.code === "Space" && e.target.closest?.("button,a")) return;
+      e.preventDefault();
+      if (!e.repeat) playAction(e.code === "Space" ? "jump" : "firework");
+      return;
+    }
     if (e.code==="KeyE" && !e.repeat && station) { e.preventDefault(); interact(); }
     if (/^(Arrow(Up|Down|Left|Right)|Key[WASD])$/.test(e.code)) destination=null;
   });
@@ -350,6 +369,7 @@
     el("graphics-reason").textContent=message;
     el("hint").hidden=true;
     stick.hidden=true;
+    el("play-actions").hidden=true;
   }
 
   async function start() {
@@ -394,14 +414,19 @@
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
       if (stop) walkToStop(stop, true);
     });
+    fireworks=window.HLBFireworks.create(scene, camera, canvas, {
+      onBurst: phrase => { el("announcement").textContent = phrase; }
+    });
     player.setActive(true);
     resize();
     new ResizeObserver(resize).observe(canvas);
     canvas.addEventListener("webglcontextlost",event=>{
       event.preventDefault(); cancelAnimationFrame(frame); frame=0; player.setActive(false);
+      fireworks.dispose();
       showError("그래픽 연결이 끊겼습니다. ‘다시 시도’를 눌러 HLB 유니버스에 입장하세요.");
     });
     el("loading").hidden=true;
+    el("play-actions").hidden=false;
     updateStatus();
     // Retain existing bookmarks to a specific collection.
     if (location.hash.startsWith("#/library")) {

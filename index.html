@@ -19,6 +19,7 @@
   <script defer src="src/cologne-gallery.js"></script>
   <script defer src="src/world3d.js"></script>
   <script defer src="src/player3d.js"></script>
+  <script defer src="src/fireworks.js"></script>
   <script defer src="src/app.js"></script>
 </head>
 <body>
@@ -30,10 +31,12 @@
     <symbol id="book-icon" viewBox="0 0 24 24"><path d="M12 5.7C9.5 4 6.3 3.6 3 4.5v14c3.2-.9 6.3-.5 9 1.4 2.7-1.9 5.8-2.3 9-1.4v-14c-3.3-.9-6.5-.5-9 1.2Zm0 0v14"/></symbol>
     <symbol id="pin-icon" viewBox="0 0 24 24"><path d="M19 9.7c0 5-7 11.1-7 11.1S5 14.7 5 9.7a7 7 0 1 1 14 0Z"/><circle cx="12" cy="9.7" r="2.1"/></symbol>
     <symbol id="arrow-icon" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="jump-icon" viewBox="0 0 24 24"><path d="M6 10.5 12 4l6 6.5M12 4v11M5 18.5c3 2 11 2 14 0"/></symbol>
+    <symbol id="firework-icon" viewBox="0 0 24 24"><path d="m4 21 5.5-8M14.5 4V1.8M18 5.5l2.2-2.2M19.5 9H22M17.8 12.5l1.8 1.8M14 13.5v2M10.5 6 8.7 4.2M9 9H6.5"/><path d="m14.5 6.8.7 1.5 1.6.7-1.6.7-.7 1.5-.7-1.5-1.6-.7 1.6-.7z"/></symbol>
   </svg>
   <main id="experience" aria-label="HLB 유니버스">
     <canvas id="world" tabindex="0" aria-label="HLB 유니버스에서 캐릭터 움직이기" aria-describedby="walk-instructions"></canvas>
-    <p id="walk-instructions" class="sr">방향키나 WASD 또는 바닥 클릭으로 이동하고 드래그로 둘러봅니다. 열람대 가까이에서 E 키를 누르면 자료가 열립니다.</p>
+    <p id="walk-instructions" class="sr">방향키나 WASD 또는 바닥 클릭으로 이동하고 드래그로 둘러봅니다. 스페이스바로 점프하고 F 키로 폭죽을 쏩니다. 열람대 가까이에서 E 키를 누르면 자료가 열립니다.</p>
     <div class="top-hud">
       <header class="identity glass"><span lang="en" class="hlb">HLB</span> <span class="identity-text">유니버스</span></header>
       <nav class="tools glass" aria-label="HLB 유니버스 메뉴">
@@ -49,6 +52,10 @@
       <button type="button" id="fallback-search">자료 검색 열기</button>
     </section>
     <div id="stick" aria-label="이동 조이스틱"><span class="stick-thumb"></span></div>
+    <div id="play-actions" role="group" aria-label="캐릭터 동작" hidden>
+      <button type="button" id="jump" class="play-button glass" aria-keyshortcuts="Space"><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>점프</span><kbd>Space</kbd></button>
+      <button type="button" id="firework" class="play-button glass" aria-keyshortcuts="F"><svg aria-hidden="true"><use href="#firework-icon"/></svg><span>폭죽</span><kbd>F</kbd></button>
+    </div>
     <div class="lower-controls">
       <div id="travel" class="travel glass" hidden><span id="travel-text"></span><button type="button" id="cancel-travel" aria-label="길 안내 해제"><svg><use href="#close-icon"/></svg></button></div>
       <button type="button" class="interact" id="interact" hidden><svg><use href="#book-icon"/></svg><span></span><kbd>E</kbd></button>
@@ -68,6 +75,8 @@
         <dl class="help-list">
           <div><dt>걷기</dt><dd>WASD · 방향키 · 바닥 클릭</dd></div>
           <div><dt>모바일에서 걷기</dt><dd>왼쪽 조이스틱 또는 바닥 터치</dd></div>
+          <div><dt>점프</dt><dd>스페이스바 또는 오른쪽 아래 점프 버튼</dd></div>
+          <div><dt>폭죽 쏘기</dt><dd>F 키 또는 오른쪽 아래 폭죽 버튼</dd></div>
           <div><dt>둘러보기</dt><dd>화면 드래그</dd></div>
           <div><dt>카메라 거리</dt><dd>마우스 휠 · 두 손가락 확대와 축소</dd></div>
           <div><dt>자료 열기</dt><dd>열람대 앞에서 E 또는 자료 보기 버튼</dd></div>

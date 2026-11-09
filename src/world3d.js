@@ -90,9 +90,10 @@
     // A triangulated, eroded stratovolcano. The lava follows the very same
     // triangles as the crust, including the channels below the crater rim.
     const flowVerts=[],flowColors=[];
+    const summit = {x:-10, z:-80};
     const mountainMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:1,side:T.DoubleSide,flatShading:true});
     function volcano() {
-      const centerX=-10,centerZ=-80,segments=72;
+      const centerX=summit.x,centerZ=summit.z,segments=72;
       const radii=[.035,.105,.151,.208,.27,.35,.47,.6,.76,1];
       const heights=[15.9,16.3,21.6,17.6,14.7,12.6,9.6,6.0,3.2,-.5];
       const stone=[0x99483c,0x8f4940,0x935447,0x6d4844,0x855b53,0x624749,0x846862,0x665657,0x6b5d5d];
@@ -154,6 +155,59 @@
         face(flowVerts,flowColors,a1,b1,b2,hot);face(flowVerts,flowColors,a1,b2,a2,hot);
       }
       place("round",0xff732c,centerX,15.99,centerZ,3.4,.1,3.3,null,"light");
+    }
+
+    function makeSummitLogo() {
+      // H, L and B follow the outlined wordmark on the Korean group brochure.
+      // Its two narrow counters are cut through the B, including the bevel.
+      const h = [[33.5,1],[33,0],[32,0],[31.5,.5],[24.5,11.5],[23,12],[9.5,12],[9,11.5],
+        [2,.5],[1,0],[0,.5],[0,28.5],[.5,29.5],[1.5,29.5],[2,29],[9,18],[10.5,17.5],
+        [24,17.5],[31.5,29],[32,29.5],[33,29.5],[33.5,28.5]];
+      const l = [[73,1.5],[70,6],[69,7],[45,7],[44.5,7.5],[44,8.5],[46.5,13],[46.5,22.5],
+        [42.5,29],[42,29.5],[41,29],[41,7.5],[41,6.5],[45,.5],[46.5,0],[72,0],[73,.5]];
+      const b = [[108.5,23],[105,28],[103.5,29.5],[79,29.5],[78,29],[77.5,28.5],[77,27.5],
+        [77,8],[77.5,6.5],[81,1],[82.5,0],[106.5,0],[107.5,.5],[108.5,1],[108.5,2]];
+      const upper = [[105.5,21],[103.5,17],[102,16.5],[84,16.5],[83.5,16.5],[83,17],
+        [83,21.5],[84,22.5],[105,22.5],[106,22]];
+      const lower = [[106,7.5],[105,7],[84,7],[83,8],[83,12.5],[83.5,13],[84,13],
+        [102,13],[103.5,12.5],[106,8.5]];
+      const points = outline => outline.map(([x,y]) => new T.Vector2((x-54.25)*.126,(y-14.75)*.126));
+      const letters = [h,l,b].map(outline => new T.Shape(points(outline)));
+      letters[2].holes.push(new T.Path(points(upper)), new T.Path(points(lower)));
+      const lettering = new T.ExtrudeGeometry(letters, {
+        depth:.22, bevelEnabled:true, bevelSegments:1, bevelSize:.028, bevelThickness:.035
+      });
+      const enamelFace = new T.MeshBasicMaterial({color:0xfffaf1,toneMapped:false});
+      const enamelEdge = new T.MeshStandardMaterial({color:0xfbc9a9,roughness:.45});
+      const rotor = new T.Group();
+      rotor.name="HLB summit logo";
+      rotor.position.set(summit.x+.8,25.1,summit.z);
+      site.add(rotor);
+
+      // Three outward-facing signs keep the mark readable even mid-turn.
+      const radius = 9.1;
+      function drum(top,bottom,height,y,material) {
+        const body = new T.Mesh(new T.CylinderGeometry(top,bottom,height,3,1,false,-Math.PI/3),material);
+        body.position.y=y;
+        rotor.add(body);
+      }
+      const painted = new T.MeshStandardMaterial({color:red,roughness:.69,emissive:0x74130c,emissiveIntensity:.36,flatShading:true});
+      const trim = new T.MeshStandardMaterial({color:0x642724,roughness:.68,flatShading:true});
+      drum(radius,radius,4.55,0,painted);
+      drum(radius*.96,radius,.18,2.36,trim);
+      drum(radius,radius*.92,.30,-2.42,trim);
+      for(let i=0;i<3;i++) {
+        const angle = i*TAU/3;
+        const mark = new T.Mesh(lettering,[enamelFace,enamelEdge]);
+        mark.rotation.y=angle;
+        mark.position.set(Math.sin(angle)*(radius/2+.025),0,Math.cos(angle)*(radius/2+.025));
+        rotor.add(mark);
+      }
+      const x=rotor.position.x, z=rotor.position.z;
+      place("round",0x41353a,x,19.65,z,2.3,5.8,2.3,null,"steel");
+      place("round",red,x,22.31,z,2.68,.22,2.68,null,"light");
+      place("round",0x513d40,x,22.53,z,3.18,.25,3.18,null,"steel");
+      return rotor;
     }
 
     function landscape() {
@@ -502,6 +556,7 @@
 
     landscape();
     volcano();
+    const summitLogo=makeSummitLogo();
     halls.forEach(buildHall);
     siteDetail();
     spaces.push(globalThis.HLBCologneGallery.build({T,site,box,place,collider,colliders,roofs}));
@@ -513,7 +568,18 @@
       mesh.castShadow=finish!=="light";mesh.receiveShadow=finish!=="light";
       site.add(mesh);
     }
-    const update=makeAtmosphere();
+    const updateAtmosphere=makeAtmosphere();
+    let angle=0;
+    function update(dt=0,reducedMotion=false) {
+      if (reducedMotion) {
+        summitLogo.rotation.y=0;
+        return;
+      }
+      // Negative yaw is clockwise when the caldera is viewed from above.
+      angle=(angle+Math.max(0,dt)*TAU/22)%TAU;
+      summitLogo.rotation.y=-angle;
+      updateAtmosphere(dt);
+    }
     return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,spawn:{x:1.55,z:10},update};
   }
   globalThis.HLBWorld3D={build};
