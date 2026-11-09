@@ -32,6 +32,23 @@
     return u.protocol==="https:" && !u.port && providers[u.hostname]?.test(u.pathname) ? u : null;
   }
   const normalize = value => String(value ?? "").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
+  const compactColumns = new Set(["회사 · 사업장","사업장","법인","구분","채널","브랜드","Brand","슬로건","대표 전화","팩스"]);
+  function columnClass(label, index) {
+    if (/^금액(?:\s|$)/.test(label)) return "col-amount";
+    if (["쪽","Page","Pages"].includes(label)) return "col-page";
+    if (label === "주소") return "col-address";
+    if (label === "구성") return "col-part";
+    if (["비전","목표","기능","카트리지 조합"].includes(label)) return "col-detail";
+    return index === 0 || compactColumns.has(label) ? "col-label" : "col-text";
+  }
+  const tableObserver = typeof ResizeObserver === "function" ? new ResizeObserver(entries => {
+    for (const {target} of entries) {
+      const overflow = target.clientWidth > 0 && target.scrollWidth > target.clientWidth + 1;
+      target.previousElementSibling.hidden = !overflow;
+      if (overflow) target.tabIndex = 0;
+      else target.removeAttribute("tabindex");
+    }
+  }) : null;
   function exhibitPhoto(photo) {
     const img = node("img", "exhibit-photo");
     img.src = photo.url;
@@ -90,6 +107,7 @@
 
   function drawText() {
     const body=el("reader-body");
+    tableObserver?.disconnect();
     const blocks=document.createDocumentFragment();
     const query=normalize(el("reader-find").value);
     const matches=value=>normalize(value).includes(query);
@@ -106,28 +124,43 @@
       const [headers=[],...data]=part.rows || [];
       const rows=data.filter(row=>whole || matches(row.join(" ")));
       if (rows.length) {
+        const hint=node("div","table-scroll-hint","↔ 좌우로 스크롤");
+        hint.hidden=true;
         const wrap=node("div","reading-grid");
+        wrap.tabIndex=0;
+        wrap.setAttribute("role","region");
+        wrap.setAttribute("aria-label",(part.heading || "자료 표")+" 스크롤 영역");
         const table=node("table"), head=table.createTHead().insertRow(), content=table.createTBody();
         table.setAttribute("aria-label",part.heading || "자료 표");
-        for (const label of headers) {
-          const cell=node("th","",label); cell.scope="col"; head.append(cell);
+        if (headers.length >= 3) table.className="multi-column";
+        const columns=headers.map(columnClass);
+        for (const [i,label] of headers.entries()) {
+          const cell=node("th",columns[i],label); cell.scope="col"; head.append(cell);
         }
         for (const row of rows) {
           const r=content.insertRow();
-          for (const value of row) {
-            const cell=r.insertCell(); cell.textContent=value;
-            if ((/^https?:\/\//i).test(value) && navigator.clipboard?.writeText) {
+          for (const [i,value] of row.entries()) {
+            const cell=r.insertCell(); cell.className=columns[i];
+            if (!(/^https?:\/\//i).test(value)) {
+              cell.textContent=value;
+              continue;
+            }
+            const address=node("div","channel-address");
+            address.append(node("span","address-value",value));
+            if (navigator.clipboard?.writeText) {
               const copy=node("button","copy-address","복사"); copy.type="button";
               copy.setAttribute("aria-label",row[0]+" "+row[1]+" 주소 복사");
               copy.addEventListener("click",async()=>{
                 try { await navigator.clipboard.writeText(value); copy.textContent="복사됨"; }
                 catch { copy.textContent="주소를 선택해 복사하세요"; }
               });
-              cell.append(" ",copy);
+              address.append(copy);
             }
+            cell.append(address);
           }
         }
-        wrap.append(table); section.append(wrap);
+        wrap.append(table); section.append(hint,wrap);
+        tableObserver?.observe(wrap);
       }
       if (section.childNodes.length) {
         if (part.heading) section.prepend(node("h2","",part.heading));
@@ -144,6 +177,8 @@
   }
   function mode(original) {
     const box=el("reader-media");
+    const wideTable=entry?.sections.some(section=>(section.rows?.[0]?.length || 0) >= 3);
+    el("panel").classList.toggle("wide-tables", !original && Boolean(wideTable));
     releasePDF();
     box.replaceChildren();  // Also stops audio and releases the previous document.
     el("reader-text").hidden=original;
@@ -182,6 +217,8 @@
   }
   function clear() {
     releasePDF();
+    tableObserver?.disconnect();
+    el("panel").classList.remove("wide-tables");
     entry=null; mediaURL=null;
     el("reader-pane").classList.remove("exhibit-reader");
     el("reader-media").replaceChildren(); el("reader-body").replaceChildren();
