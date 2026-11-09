@@ -331,20 +331,20 @@
         path(side*10.5,-16.1,side*10.5,-19.48,2.33);
       }
       path(-7.35,-13.72,7.35,-13.72,2.25);
-      path(0,13.82,8.50,13.82,2.46);
+      path(-8.87,13.82,8.50,13.82,2.46);
       // Protected geothermal fissures flank the arrival path.
       vent(-6.05,8.85,1.82,3.0);
       vent(6.03,7.46,1.35,2.58);
       vent(0,-18.32,2.04,1.62);
       vent(18.65,-15.25,1.28,2.12);
-      const clusters=[[-7.83,6.65,1.43],[-4.69,11.42,.7],[5.15,5.12,.76],[7.07,10.24,.67],[-11.28,-2.04,.86],
+      const clusters=[[-4.69,11.42,.7],[5.15,5.12,.76],[7.07,10.24,.67],[-11.28,-2.04,.86],
         [11.2,-1.78,.9],[-20.90,-12.5,1.89],[21.94,-7.8,2.12],[-3.38,-17.26,1.23],[3.06,-9.85,.86],
-        [-16.01,-15.24,1.04],[16.61,-17.01,.73],[-.70,-25.48,1.74],[-19.75,8.5,2.12]];
+        [-16.01,-15.24,1.04],[16.61,-17.01,.73],[-.70,-25.48,1.74]];
       for(const [xx,zz,s] of clusters)outcrop(xx,zz,s);
       for(let i=0;i<87;i++){
         const a=TAU*i/87+random()*.035,r=30+random()*12;
         const x=Math.sin(a)*r,z=Math.cos(a)*r-5,scale=1+random()*2.75;
-        if (x>7 && x<22+scale && z>3 && z<18+scale) continue;
+        if (Math.abs(x)>7 && Math.abs(x)<22+scale && z>3 && z<18+scale) continue;
         outcrop(x,z,scale,false);
       }
       for(let i=0;i<360;i++){
@@ -353,8 +353,8 @@
           (Math.abs(Math.abs(x)-7.35)<1.48 && z<2.1 && z>-15.4) ||
           (Math.abs(Math.abs(x)-14.4)<1.61 && z<2.1 && z>-4.8) ||
           (z<-12.1 && z>-20.0) ||
-          (x>8 && x<22.1 && z>3.8 && z<17.5) ||
-          (x>0 && x<8.7 && Math.abs(z-13.82)<1.4) ||
+          (Math.abs(x)>8 && Math.abs(x)<22.1 && z>3.8 && z<17.5) ||
+          (Math.abs(x)<8.9 && Math.abs(z-13.82)<1.4) ||
           halls.some(h=>Math.abs(x-h.x)<h.width*.5+.42 && z<h.front+.8 && z>h.front-h.depth-.5))continue;
         const s=.08+random()*.21;
         place("rock",choose(basalt),x,s*.16,z,s,.36*s,s*(.75+random()),[.06,random()*TAU,.05],"stone");
@@ -437,6 +437,7 @@
     for(const hall of halls) spaces.push(globalThis.HLBHalls.build(hallKit,hall));
     siteDetail();
     spaces.push(globalThis.HLBCologneGallery.build({T,site,box,place,collider,colliders,roofs}));
+    spaces.push(globalThis.HLBCafe.build(hallKit));
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));
     for(const {shape,finish,matrices,colors} of batches.values()){
       const mesh=new T.InstancedMesh(forms[shape],materials[finish],matrices.length);

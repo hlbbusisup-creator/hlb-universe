@@ -2,6 +2,9 @@
   "use strict";
   const el = id => document.getElementById(id);
   const canvas = el("world");
+  // The 3D picker handles pointerup. A compatibility click from the same tap
+  // can otherwise activate a menu button underneath a newly opened dialog.
+  canvas.addEventListener("touchend", event => event.preventDefault(), {passive:false});
   const dialog = el("panel");
   const catalog = window.HLBCatalog;
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
@@ -15,6 +18,13 @@
   let lastActionLabel = "", hasWalked = false;
   const bySpace = new Map();
   const readingStops = [];
+  const cafeCounterRadius = 1.8;
+  const archiveSpaces = new Set();
+  const cafeMenu = [
+    {item:"coffee", hand:"오른손", action:"커피 마시기", progress:"마시는 중", received:"커피를 오른손에 들었어요.", button:el("drink-coffee")},
+    {item:"bread", hand:"왼손", action:"빵 먹기", progress:"먹는 중", received:"빵을 왼손에 들었어요.", button:el("eat-bread")}
+  ];
+  let lastCarryState = "";
   const visitId = new URLSearchParams(location.search).get("visit");
   const dayButton = el("set-day"), nightButton = el("set-night");
   const overview = el("overview");
@@ -90,9 +100,10 @@
     resetStick();
     destination = null;
     el("travel").hidden = true;
-    for (const pane of ["guide", "gallery", "library", "help", "reader"]) el(pane + "-pane").hidden = pane !== name;
+    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader"]) el(pane + "-pane").hidden = pane !== name;
     const reading=name==="reader";
     dialog.classList.toggle("reading",reading);
+    dialog.classList.toggle("cafe-order",name==="cafe");
     el("reader-back").hidden=!reading;
     el("panel-title").textContent = title;
     if (!dialog.open) dialog.showModal();
@@ -108,6 +119,7 @@
   }
 
   function openLibrary(spaceId = "") {
+    if (!archiveSpaces.has(spaceId)) spaceId = "";
     localCollection = spaceId;
     resetFilters();
     const space = spaces.get(spaceId);
@@ -162,10 +174,59 @@
 
   function interact() {
     if (!station) return;
-    if (station.record) openRecord(station.record);
+    if (station.spaceId === "cafe") openCafe();
+    else if (station.record) openRecord(station.record);
     else if (station.spaceId === "cologne") openGallery();
     else openLibrary(station.spaceId);
   }
+
+  function atCafeCounter() {
+    const cafe = bySpace.get("cafe");
+    if (!cafe || !player) return false;
+    const p = player.getPosition(), room = cafe.interior;
+    return p.x >= room.minX && p.x <= room.maxX && p.z >= room.minZ && p.z <= room.maxZ &&
+      distance(p, cafe.station) <= cafeCounterRadius;
+  }
+
+  function syncCafeActions() {
+    const held = player.getCafeState();
+    const key = [held.coffee, held.bread, held.consuming].join("/");
+    if (key === lastCarryState) return;
+    lastCarryState = key;
+    const carrying = held.coffee || held.bread;
+    el("carry-actions").hidden = !carrying;
+    el("experience").classList.toggle("carrying",carrying);
+    for (const {item, hand, action, progress, button} of cafeMenu) {
+      button.hidden = !held[item];
+      button.disabled = Boolean(held.consuming);
+      button.querySelector("span").textContent = held.consuming === item ? progress : action;
+      const order = el("order-" + item);
+      order.disabled = held[item];
+      order.querySelector("small").textContent = held[item] ? hand + "에 들고 있음" : hand;
+    }
+  }
+
+  function openCafe() {
+    if (!atCafeCounter()) return;
+    syncCafeActions();
+    el("order-status").textContent = "";
+    openPane("cafe","Café Lento 1975");
+  }
+
+  for (const {item, received, button} of cafeMenu) {
+    el("order-" + item).addEventListener("click", () => {
+      if (!dialog.open || el("cafe-pane").hidden || !atCafeCounter() || !player.orderCafeItem(item)) return;
+      syncCafeActions();
+      el("order-status").textContent = received;
+      (el("cafe-pane").querySelector(".cafe-menu button:enabled") || el("leave-counter")).focus({preventScroll:true});
+    });
+    button.addEventListener("click", () => {
+      if (!player || dialog.open || document.hidden || !player.consumeCafeItem(item)) return;
+      syncCafeActions();
+      canvas.focus({preventScroll:true});
+    });
+  }
+  el("leave-counter").addEventListener("click", () => dialog.close());
 
   function renderRecords() {
     const results = catalog.searchResources(records, {
@@ -194,7 +255,7 @@
     for (const [name, select] of Object.entries(fields)) {
       select.add(new Option(defaults[name], ""));
       if (name === "space") {
-        for (const space of spaces.values()) select.add(new Option(space.title, space.id));
+        for (const space of spaces.values()) if (archiveSpaces.has(space.id)) select.add(new Option(space.title, space.id));
       } else {
         const values = [...new Set(records.map(record => record[name]).filter(Boolean))];
         if (name === "year") values.sort((a,b) => b-a);
@@ -208,9 +269,10 @@
     for (const space of spaces.values()) {
       const button = make("button", "guide-row");
       button.type = "button";
+      if (space.id === "cafe") { button.id = "visit-cafe"; button.disabled = true; }
       const copy = make("span", "guide-copy");
       copy.append(make("strong", "", space.title), make("small", "", space.subtitle));
-      button.append(icon("pin"), copy, icon("arrow"));
+      button.append(icon(space.id === "cafe" ? "coffee" : "pin"), copy, icon("arrow"));
       button.addEventListener("click", () => {
         const hall = bySpace.get(space.id);
         if (!hall || !player) { openLibrary(space.id); return; }
@@ -225,6 +287,7 @@
 
   function updateStatus() {
     if (!world || !player) return;
+    syncCafeActions();
     const p = player.getPosition();
     const inside = world.spaces.find(({interior}) => interior && p.x >= interior.minX &&
       p.x <= interior.maxX && p.z >= interior.minZ && p.z <= interior.maxZ);
@@ -238,9 +301,10 @@
     if (station && station.id !== previous?.id) el("announcement").textContent = station.title + "에 도착했습니다.";
     if (destination && distance(p, destination.station) < .12) {
       if (destination.lookAt) player.facePoint(destination.lookAt);
-      const record = destination.inspectOnArrival && destination.record;
+      const arrived = destination.inspectOnArrival ? destination : null;
       destination = null;
-      if (record) openRecord(record);
+      if (arrived?.spaceId === "cafe") openCafe();
+      else if (arrived?.record) openRecord(arrived.record);
     }
     const nearby = inside ? spaces.get(inside.id).title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
     el("gallery-guide").hidden = inside?.id !== "cologne" || station?.id === "cologne";
@@ -248,6 +312,7 @@
     const label = station?.action || "";
     if (label !== lastActionLabel) {
       el("interact").querySelector("span").textContent = label;
+      el("interact").querySelector("use").setAttribute("href", station?.spaceId === "cafe" ? "#coffee-icon" : "#book-icon");
       lastActionLabel = label;
     }
     el("interact").hidden = !station;
@@ -389,10 +454,12 @@
     el("play-actions").hidden=true;
     el("day-night").hidden=true;
     overview.hidden=true;
+    if (el("visit-cafe")) el("visit-cafe").disabled=true;
   }
 
   async function start() {
     records=await catalog.loadResources();
+    for (const record of records) archiveSpaces.add(record.space);
     prepareLibrary();
     const T=window.THREE;
     if (!T || !window.HLBWorld3D || !window.HLBPlayer3D) throw new Error("missing 3D resources");
@@ -420,6 +487,11 @@
     for (const hall of world.spaces) {
       const space = spaces.get(hall.id);
       bySpace.set(hall.id, {...hall, title:space.title});
+      if (hall.id === "cafe") {
+        const counter = hall.exhibits.find(exhibit => exhibit.id === "cafe-counter");
+        readingStops.push({...counter, spaceId:hall.id, action:"카페 주문하기", radius:cafeCounterRadius, indoorOnly:true});
+        continue;
+      }
       const gallery = Boolean(hall.exhibits?.length);
       readingStops.push({
         id:hall.id, spaceId:hall.id, title:space.title, station:hall.station,
@@ -431,7 +503,7 @@
         if (record) readingStops.push({...exhibit, record, spaceId:hall.id, action:exhibit.title+" 살펴보기", radius:2, indoorOnly:true});
       }
     }
-    const arrival = visitId === "cologne" ? bySpace.get(visitId) : null;
+    const arrival = ["cologne","cafe"].includes(visitId) ? bySpace.get(visitId) : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
       destination=null;
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
@@ -441,6 +513,7 @@
       onBurst: phrase => { el("announcement").textContent = phrase; }
     });
     player.setActive(true);
+    el("visit-cafe").disabled=false;
     resize();
     new ResizeObserver(resize).observe(canvas);
     canvas.addEventListener("webglcontextlost",event=>{

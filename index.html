@@ -7,9 +7,9 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=pavilions">
+  <link rel="stylesheet" href="styles.css?v=cafe">
   <script defer src="assets/vendor/three.min.js"></script>
-  <script defer src="src/catalog-data.js"></script>
+  <script defer src="src/catalog-data.js?v=cafe"></script>
   <script defer src="src/catalog.js"></script>
   <script defer src="src/reading-data.js"></script>
   <script defer src="src/report-reading-data.js"></script>
@@ -17,13 +17,14 @@
   <script defer src="src/pdf-viewer.js"></script>
   <script defer src="src/reader.js"></script>
   <script defer src="src/cologne-gallery.js?v=pavilions"></script>
-  <script defer src="src/hall-designs.js"></script>
-  <script defer src="src/world3d.js?v=pavilions"></script>
-  <script defer src="src/player3d.js?v=overview"></script>
+  <script defer src="src/hall-designs.js?v=cafe"></script>
+  <script defer src="src/cafe.js"></script>
+  <script defer src="src/world3d.js?v=cafe"></script>
+  <script defer src="src/player3d.js?v=cafe"></script>
   <script defer src="src/time-of-day.js"></script>
   <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js?v=pavilions"></script>
+  <script defer src="src/app.js?v=cafe"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -33,6 +34,8 @@
     <symbol id="help-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9c.4-2.8 5.7-2.7 5.5.4-.1 1.7-3 2-3 4.5m0 2.8v.1"/></symbol>
     <symbol id="book-icon" viewBox="0 0 24 24"><path d="M12 5.7C9.5 4 6.3 3.6 3 4.5v14c3.2-.9 6.3-.5 9 1.4 2.7-1.9 5.8-2.3 9-1.4v-14c-3.3-.9-6.5-.5-9 1.2Zm0 0v14"/></symbol>
     <symbol id="pin-icon" viewBox="0 0 24 24"><path d="M19 9.7c0 5-7 11.1-7 11.1S5 14.7 5 9.7a7 7 0 1 1 14 0Z"/><circle cx="12" cy="9.7" r="2.1"/></symbol>
+    <symbol id="coffee-icon" viewBox="0 0 24 24"><path d="M5 8.5h14l-1.6 12H6.6L5 8.5ZM3.8 8.5V5.8h16.4v2.7ZM6.4 5.8 7.2 3h9.6l.8 2.8M5.6 12h12.8m-12.3 5h11.6"/></symbol>
+    <symbol id="bread-icon" viewBox="0 0 24 24"><path d="M2.3 18.6c-.3-2.9.5-6 2.6-8.1l2.4-1.1 1-2.3a7.4 7.4 0 0 1 7.4 0l1 2.3 2.4 1.1c2.1 2.1 2.9 5.2 2.6 8.1-.1.6-.6.8-1.1.4L17 16.2l-2.7-1.4a6 6 0 0 0-4.6 0L7 16.2 3.4 19c-.5.4-1 .2-1.1-.4ZM7.3 9.4l2.4 5.4m7-5.4-2.4 5.4m-9.4-4.3L7 16.2m12.1-5.7L17 16.2"/></symbol>
     <symbol id="arrow-icon" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
     <symbol id="jump-icon" viewBox="0 0 24 24"><path d="M6 10.5 12 4l6 6.5M12 4v11M5 18.5c3 2 11 2 14 0"/></symbol>
     <symbol id="sun-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
@@ -79,6 +82,10 @@
     </section>
     <div id="stick" aria-label="이동 조이스틱"><span class="stick-thumb"></span></div>
     <div id="play-actions" role="group" aria-label="캐릭터 동작" hidden>
+      <div id="carry-actions" hidden>
+        <button type="button" id="drink-coffee" class="play-button glass" hidden><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 마시기</span></button>
+        <button type="button" id="eat-bread" class="play-button glass" hidden><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 먹기</span></button>
+      </div>
       <button type="button" id="jump" class="play-button glass" aria-keyshortcuts="Space"><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>점프</span><kbd>Space</kbd></button>
       <button type="button" id="firework" class="play-button glass" aria-keyshortcuts="F"><svg aria-hidden="true"><use href="#firework-icon"/></svg><span>폭죽</span><kbd>F</kbd></button>
     </div>
@@ -92,7 +99,16 @@
   <dialog id="panel" aria-labelledby="panel-title">
     <div class="panel-inner">
       <header class="panel-head"><div class="panel-heading"><button type="button" id="reader-back" hidden>← 자료 목록</button><h1 id="panel-title" tabindex="-1"></h1></div><button type="button" id="close-panel" class="icon-button" aria-label="HLB 유니버스로 돌아가기"><svg><use href="#close-icon"/></svg></button></header>
-      <section id="guide-pane" hidden><p class="panel-desc">방문할 공간을 고르면 캐릭터가 열람대까지 걸어갑니다.</p><div class="guide-list" id="guide-list"></div></section>
+      <section id="guide-pane" hidden><p class="panel-desc">방문할 공간을 고르면 캐릭터가 그곳까지 걸어갑니다.</p><div class="guide-list" id="guide-list"></div></section>
+      <section id="cafe-pane" hidden>
+        <p class="panel-desc">메뉴를 골라 주세요. 두 가지 모두 가져갈 수 있어요.</p>
+        <div class="cafe-menu">
+          <button type="button" id="order-coffee"><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 주문하기</span><small>오른손</small></button>
+          <button type="button" id="order-bread"><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 주문하기</span><small>왼손</small></button>
+        </div>
+        <p id="order-status" role="status"></p>
+        <button type="button" class="leave-counter" id="leave-counter">주문대 떠나기 <svg aria-hidden="true"><use href="#arrow-icon"/></svg></button>
+      </section>
       <section id="gallery-pane" hidden>
         <p class="panel-desc">AI de cologne의 두 전시대 중 방문할 곳을 선택하세요.</p>
         <div class="gallery-stops" id="gallery-stops"></div>
@@ -108,6 +124,7 @@
           <div><dt>분위기</dt><dd>낮과 밤을 바꿀 수 있습니다. 화면을 처음 조작하면 음악이 시작되고, 음향에서 음량과 음소거를 조절할 수 있습니다.</dd></div>
           <div><dt>자료 열기</dt><dd>열람대 앞에서 E 또는 자료 보기 버튼</dd></div>
           <div><dt>에데꼬론 전시품</dt><dd>제품을 클릭하거나 터치하면 전시대까지 걸어가 설명을 엽니다.</dd></div>
+          <div><dt>카페 렌토</dt><dd>주문대를 누르거나 가까이서 E를 눌러 주문하세요. 산책 중 ‘커피 마시기’나 ‘빵 먹기’를 누르면 해당 손에 든 메뉴를 즐길 수 있습니다.</dd></div>
           <div><dt>열람 종료</dt><dd>Esc로 한 단계 뒤로, 닫기 버튼으로 HLB 유니버스에 복귀</dd></div>
         </dl>
       </section>

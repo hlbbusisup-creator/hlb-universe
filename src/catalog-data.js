@@ -37,6 +37,12 @@
       title: "에데꼬론 상품관",
       subtitle: "AI de cologne · 디퓨저와 향 카트리지",
       description: "AI de cologne의 퍼스널 디퓨저와 아홉 가지 향 카트리지를 전시합니다."
+    },
+    {
+      id: "cafe",
+      title: "카페 렌토",
+      subtitle: "Café Lento 1975 · 커피와 빵",
+      description: "칼데라 광장 서쪽에 있는 카페입니다. 주문대에서 커피와 빵을 받아 산책할 수 있습니다."
     }
   ];
 

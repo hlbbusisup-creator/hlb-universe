@@ -8,7 +8,8 @@ const resources = await loadResources();
 
 test('모든 자료에는 고유 ID, 전시관, 온라인 또는 로컬 원본 주소가 있다', () => {
   const spaceIds = new Set(spaces.map(space => space.id));
-  assert.equal(spaceIds.size, 6);
+  assert.equal(spaceIds.size, spaces.length);
+  assert.ok(spaceIds.has('cafe'));
   assert.equal(new Set(resources.map(item => item.id)).size, resources.length);
   for (const item of resources) {
     assert.ok(item.id && item.title.trim());
@@ -16,6 +17,7 @@ test('모든 자료에는 고유 ID, 전시관, 온라인 또는 로컬 원본 �
     assert.ok(/^https:\/\//.test(item.url) || /^assets\/reading\/[\w/-]+\.pdf$/.test(item.url), item.id);
   }
   for (const space of spaceIds) {
+    if (space === 'cafe') continue;
     assert.ok(resources.some(item => item.space === space), space);
   }
 });

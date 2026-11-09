@@ -29,7 +29,7 @@ page.performance = performance;
 page.matchMedia = () => ({matches: false});
 page.AbortController = AbortController;
 const context = createContext(page);
-for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/world3d.js', 'src/player3d.js']) {
+for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/cafe.js', 'src/world3d.js', 'src/player3d.js']) {
   const file = new URL('../' + path, import.meta.url);
   runInContext(await readFile(file, 'utf8'), context, { filename: path });
 }
@@ -37,11 +37,12 @@ const {THREE, HLBWorld3D, HLBPlayer3D} = page;
 const scene = new THREE.Scene();
 const world = HLBWorld3D.build(scene);
 
-function createPlayer() {
+function createPlayer(onScenePick = null) {
   const camera = new THREE.PerspectiveCamera(55, 1.6, 0.1, 200);
-  const player = HLBPlayer3D.create(scene, camera, makeCanvas(), world);
+  const canvas = makeCanvas();
+  const player = HLBPlayer3D.create(scene, camera, canvas, world, null, onScenePick);
   player.setActive(true);
-  return { player, camera };
+  return { player, camera, canvas };
 }
 
 function distance(a, b) {
@@ -74,8 +75,8 @@ function visit(player, space) {
   assert.fail(space.id + ' 열람대까지 도달할 수 없음');
 }
 
-test('산책 시작점에서 여섯 건물의 열람대까지 벽을 통과하지 않고 걸어갈 수 있다', () => {
-  assert.deepEqual(Array.from(world.spaces, space => space.id).sort(), ['brand', 'cologne', 'esg', 'group', 'ir', 'product']);
+test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통과하지 않고 걸어갈 수 있다', () => {
+  assert.deepEqual(Array.from(world.spaces, space => space.id).sort(), ['brand', 'cafe', 'cologne', 'esg', 'group', 'ir', 'product']);
   for (const space of world.spaces) {
     const room = space.interior;
     assert.ok(space.station.x > room.minX && space.station.x < room.maxX &&
@@ -148,6 +149,96 @@ test('열람대를 떠나 다른 건물의 내부로 연속해서 이동할 수 
     for (const id of ['esg', 'brand', 'ir', 'product', 'group']) {
       visit(player, world.spaces.find(space => space.id === id));
     }
+  } finally {
+    player.dispose();
+  }
+});
+
+test('카페 안으로 걸어가 주문대를 화면에서 눌러 선택할 수 있다', () => {
+  const cafe = world.spaces.find(space => space.id === 'cafe');
+  const counter = cafe.exhibits[0];
+  assert.equal(counter.id, 'cafe-counter');
+  let picked = null;
+  const {player, camera, canvas} = createPlayer(exhibit => { picked = exhibit; });
+  try {
+    visit(player, counter);
+    const {minX, maxX, minZ, maxZ} = cafe.interior;
+    const {x, z} = player.getPosition();
+    assert.ok(x > minX && x < maxX && z > minZ && z < maxZ, '주문 위치가 카페 내부에 있어야 함');
+    player.facePoint(counter.lookAt);
+    camera.updateMatrixWorld();
+    const box = counter.hitBox;
+    const point = new THREE.Vector3((box.minX+box.maxX)/2, (box.minY+box.maxY)/2, (box.minZ+box.maxZ)/2).project(camera);
+    assert.ok(Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1, '주문대가 카메라 시야 안에 있어야 함');
+    canvas.getBoundingClientRect = () => ({left:0, top:0, width:800, height:500});
+    canvas.focus = () => {};
+    canvas.setPointerCapture = () => {};
+    canvas.hasPointerCapture = () => false;
+    for (const type of ['pointerdown', 'pointerup']) {
+      canvas.dispatchEvent(Object.assign(new Event(type), {
+        pointerId:1, pointerType:'mouse', button:0, clientX:(1+point.x)*400, clientY:(1-point.y)*250
+      }));
+    }
+    assert.equal(picked, counter);
+  } finally {
+    player.dispose();
+  }
+});
+
+test('커피와 빵을 각 손에 들고 이동하며 먹거나 마신 손에 다시 주문할 수 있다', () => {
+  const cafe = world.spaces.find(space => space.id === 'cafe');
+  const counter = cafe.exhibits[0];
+  const {player} = createPlayer();
+  const avatar = scene.getObjectByName('campus-visitor');
+  const mouth = avatar.getObjectByName('visitor-mouth');
+  const rightHand = avatar.getObjectByName('visitor-right-hand');
+  const leftHand = avatar.getObjectByName('visitor-left-hand');
+  const position = part => part.getWorldPosition(new THREE.Vector3());
+  try {
+    visit(player, counter);
+    assert.deepEqual({...player.getCafeState()}, {coffee:false, bread:false, consuming:null});
+    assert.equal(player.consumeCafeItem('coffee'), false);
+    assert.equal(player.orderCafeItem('coffee'), true);
+    assert.equal(player.orderCafeItem('bread'), true);
+    assert.equal(player.orderCafeItem('coffee'), false);
+    assert.deepEqual({...player.getCafeState()}, {coffee:true, bread:true, consuming:null});
+    const cup = rightHand.getObjectByName('cafe-coffee');
+    const pastry = leftHand.getObjectByName('cafe-bread');
+    visit(player, {id:'광장', station:world.spawn});
+    assert.equal(cup.parent, rightHand);
+    assert.equal(pastry.parent, leftHand);
+    assert.ok(avatar.worldToLocal(position(cup)).x > 0 && avatar.worldToLocal(position(pastry)).x < 0,
+      '광장까지 커피는 캐릭터 오른손(+X), 빵은 왼손(-X)에 있어야 함');
+
+    function consume(item, prop, other, otherProp) {
+      for (let i=0; i<20; i++) player.update(1/30);
+      const atRest = position(prop).distanceTo(position(mouth));
+      assert.equal(player.consumeCafeItem(item), true);
+      assert.equal(player.consumeCafeItem(other), false);
+      let nearest = atRest;
+      for (let i=0; i<120 && player.getCafeState().consuming; i++) {
+        assert.equal(player.getCafeState().consuming, item);
+        assert.equal(player.getCafeState()[item], true);
+        assert.equal(avatar.getObjectByName(prop.name), prop);
+        nearest = Math.min(nearest, position(prop).distanceTo(position(mouth)));
+        player.update(1/30);
+      }
+      assert.ok(nearest < atRest * .72, item + '을 입으로 가져가는 모션이 있어야 함');
+      assert.equal(player.getCafeState().consuming, null);
+      assert.equal(player.getCafeState()[item], false);
+      assert.equal(avatar.getObjectByName(prop.name), undefined);
+      assert.equal(player.consumeCafeItem(item), false);
+      assert.equal(player.getCafeState()[other], true);
+      assert.equal(avatar.getObjectByName(otherProp.name), otherProp);
+    }
+
+    consume('coffee', cup, 'bread', pastry);
+    visit(player, counter);
+    assert.equal(player.orderCafeItem('coffee'), true);
+    const secondCup = rightHand.getObjectByName('cafe-coffee');
+    consume('bread', pastry, 'coffee', secondCup);
+    assert.equal(player.orderCafeItem('bread'), true);
+    assert.deepEqual({...player.getCafeState()}, {coffee:true, bread:true, consuming:null});
   } finally {
     player.dispose();
   }

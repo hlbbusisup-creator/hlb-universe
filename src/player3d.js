@@ -94,9 +94,6 @@
         oval(hair,s*.138,.091,-.278,.061,.017,.012,0,-s*.38,-s*.1);
       }
       oval(0xf1ad8f,0,-.081,-.298,.040,.032,.039);
-      seam(0x9a5455,[[-.056,-.159,-.276],[-.027,-.176,-.275],
-        [0,-.181,-.274],[.030,-.174,-.275],[.054,-.157,-.276]],.008);
-
       // A swept fringe follows the forehead at the front and the nape at the back.
       // Trimming each meridian separately leaves the round human ears exposed.
       function hairline(a) {
@@ -160,6 +157,12 @@
         oval(0xfffbef,s*.139-.013,.027,-.317,.013,.014,.006);
       }
     });
+    const mouth = joint(head,0,-.168,-.275);
+    mouth.name = "visitor-mouth";
+    part(mouth,(oval,band,seam) => {
+      seam(0x9a5455,[[-.056,.009,-.001],[-.027,-.008,0],
+        [0,-.013,.001],[.030,-.006,0],[.054,.011,-.001]],.008);
+    });
 
     const labelCanvas = document.createElement("canvas");
     labelCanvas.width = 256; labelCanvas.height = 112;
@@ -191,8 +194,13 @@
       part(elbow,(oval,band) => {
         oval(red,0,-.025,0,.070,.076,.074);
         band(ivory,0,-.064,0,.067,.064,.027);
-        oval(skin,0,-.114,-.010,.067,.082,.054);
-        oval(skin,-s*.047,-.106,-.040,.028,.043,.027);
+      });
+      const hand = joint(elbow,0,-.114,-.010);
+      // The face points towards -Z, so the visitor's right is local +X.
+      hand.name = s === 1 ? "visitor-right-hand" : "visitor-left-hand";
+      part(hand,oval => {
+        oval(skin,0,0,0,.067,.082,.054);
+        oval(skin,-s*.047,.008,-.030,.028,.043,.027);
       });
       const thigh = joint(hips,s*.104,-.005,0);
       const shin = joint(thigh,0,-.131,0);
@@ -204,8 +212,78 @@
         oval(sole,0,-.191,-.038,.093,.027,.125);
         oval(red,0,-.131,-.102,.060,.011,.033);
       });
-      arms.push({arm,elbow}); legs.push({thigh,shin});
+      arms.push({arm,elbow,hand}); legs.push({thigh,shin});
     }
+    const treats = {coffee:null, bread:null};
+    let consuming = null, consumeTime = 0;
+    function orderCafeItem(item) {
+      if ((item !== "coffee" && item !== "bread") || treats[item]) return false;
+      const prop = new T.Group();
+      prop.name = "cafe-" + item;
+      if (item === "coffee") {
+        // The narrow waist lies in the palm; the tall lid clears the thumb.
+        part(prop,(oval,band) => {
+          const x=.040, z=-.049;
+          band(0xffebca,x,.028,z,.084,.061,.208);
+          band(0xab7650,x,.028,z,.079,.069,.100);
+          band(0xe9cb9c,x,.076,z,.081,.080,.007);
+          band(0x563c32,x,.135,z,.093,.093,.019);
+          band(0x775244,x,.151,z,.079,.089,.020);
+          band(0x634136,x,.164,z,.074,.079,.008);
+          oval(0x352a28,x,.169,z+.052,.018,.0025,.007);
+          // A small cream turtle stamp on both sides of the kraft sleeve.
+          for (const face of [-1,1]) {
+            const faceZ = z+face*.075;
+            oval(ivory,x,.030,faceZ,.031,.018,.003);
+            oval(ivory,x+.028,.035,faceZ-face*.004,.011,.009,.004);
+            for (const foot of [-1,1]) oval(ivory,x+foot*.017,.016,faceZ,.005,.009,.003);
+          }
+        });
+        arms[1].hand.add(prop);
+      } else {
+        // Sweep the pastry along a crescent; narrow, toasted grooves follow
+        // each wrap of dough around the growing and tapering cross sections.
+        const vertices=[], colors=[], indices=[];
+        const rings=64, sides=20;
+        const toast=new T.Color(0xb96529), honey=new T.Color(0xf2af55), color=new T.Color();
+        for (let i=0;i<=rings;i++) {
+          const t=i/rings, u=t*2-1, a=u*1.75;
+          const crown=Math.sin(Math.PI*t);
+          const x=-.029+.157*Math.sin(a), z=-.026-.090*(1-Math.cos(a));
+          const dx=.157*Math.cos(a), dz=-.090*Math.sin(a), span=Math.hypot(dx,dz);
+          for (let j=0;j<=sides;j++) {
+            const angle=j/sides*Math.PI*2, sn=Math.sin(angle), cs=Math.cos(angle);
+            const line=(1+Math.cos(t*Math.PI*14 + sn*.85))*.5;
+            const crease=line**9;
+            const radius=(.002+.077*crown**.64)*(1-.16*crease);
+            vertices.push(x-dz/span*cs*radius,.045+.020*crown+sn*radius*.88,z+dx/span*cs*radius);
+            color.copy(toast).lerp(honey,clamp(.39+.36*sn+.24*crown-.42*crease,0,1));
+            colors.push(color.r,color.g,color.b);
+            if (i<rings && j<sides) {
+              const k=i*(sides+1)+j;
+              indices.push(k,k+sides+1,k+1,k+1,k+sides+1,k+sides+2);
+            }
+          }
+        }
+        const geometry=new T.BufferGeometry();
+        geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));
+        geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+        geometry.setIndex(indices); geometry.computeVertexNormals();
+        const pastry=new T.Mesh(geometry,material);
+        pastry.castShadow=true; prop.add(pastry); arms[0].hand.add(prop);
+      }
+      treats[item]=prop;
+      return true;
+    }
+    function consumeCafeItem(item) {
+      if ((item !== "coffee" && item !== "bread") || consuming || !treats[item]) return false;
+      consuming=item; consumeTime=0;
+      return true;
+    }
+    function getCafeState() {
+      return {coffee:Boolean(treats.coffee), bread:Boolean(treats.bread), consuming};
+    }
+    const wrist = new T.Quaternion(), tilt = new T.Euler();
     const softShadow = document.createElement("canvas");
     softShadow.width = softShadow.height = 64;
     const ctx = softShadow.getContext("2d");
@@ -221,6 +299,22 @@
     let phase = 0, weight = 0, elapsed = 0;
     function animate(dt, travelled, reducedMotion, jumpHeight = 0) {
       elapsed += dt;
+      let reach=0, chew=0;
+      if (consuming) {
+        const drink=consuming==="coffee";
+        consumeTime += dt;
+        const t=consumeTime/(reducedMotion ? .92 : drink ? 1.76 : 1.56);
+        const smooth=T.MathUtils.smoothstep;
+        reach=smooth(t,0,.32)*(1-smooth(t,.65,1));
+        if (!drink && !reducedMotion) chew=Math.sin(t*Math.PI*15)*smooth(t,.38,.55)*(1-smooth(t,.78,.99));
+        if (t>=1) {
+          const prop=treats[consuming];
+          prop.removeFromParent();
+          prop.traverse(object=>object.geometry?.dispose());
+          treats[consuming]=null;
+          consuming=null;
+        }
+      }
       phase += travelled * 7.2;
       weight += ((travelled > 0.0002 ? 1 : 0) - weight) * (1 - Math.exp(-dt * 15));
       const inAir = clamp(jumpHeight / .53,0,1);
@@ -228,7 +322,8 @@
       hips.position.y = hipHeight + jumpHeight + stride * .010 * (1 + Math.cos(phase * 2));
       chest.rotation.z = Math.sin(phase) * stride * .058;
       head.rotation.z = -chest.rotation.z * 0.6;
-      head.rotation.x = -.055 * inAir;
+      head.rotation.x = -.055 * inAir - reach*.30 + chew*.025;
+      mouth.scale.y = 1 + Math.max(0,chew)*.55;
       head.position.y = headHeightAboveHips + (reducedMotion ? 0 : Math.sin(elapsed * 2.0) * 0.004 * (1 - weight));
       const blinkTime = (elapsed + .7) % 4.1;
       eyes.scale.y = reducedMotion ? 1 : clamp(Math.abs(blinkTime-.095)/.095,.075,1);
@@ -238,10 +333,27 @@
         const swing = Math.sin(phase + i * Math.PI) * stride;
         legs[i].thigh.rotation.x = swing * .78 + inAir * (i ? .54 : .31);
         legs[i].shin.rotation.x = -Math.max(0,swing)*.70 - inAir*.70;
-        arms[i].arm.rotation.x = -swing*.63 + inAir*.25;
-        arms[i].arm.rotation.z = (i ? 1 : -1) * (.14 + inAir*.99);
-        arms[i].elbow.rotation.x = .16 + Math.max(0,-swing)*.32 + inAir*.22;
+        const {arm,elbow}=arms[i], side=i ? 1 : -1;
+        const drink=i===1, item=drink ? "coffee" : "bread", prop=treats[item];
+        const lift=consuming===item ? reach : 0;
+        // Swing an empty arm freely. Carry an order slightly to the side with
+        // the wrist level, even while running or jumping.
+        const swingX=prop ? .48-swing*.15+inAir*.12 : -swing*.63+inAir*.25;
+        const spread=prop ? .45+inAir*.30 : .14+inAir*.99;
+        // Bring the cup's sipping edge and the croissant's inner tip to the lips.
+        arm.position.set(side*(.202+(drink ? -.050 : .030)*lift),
+          .366+(drink ? .069 : .045)*lift,-(drink ? .131 : .062)*lift);
+        arm.rotation.set(T.MathUtils.lerp(swingX,1.80,lift),side*.60*lift,
+          side*T.MathUtils.lerp(spread,-.30,lift));
+        const bend=prop ? .68 : .16+Math.max(0,-swing)*.32+inAir*.22;
+        elbow.rotation.x=T.MathUtils.lerp(bend,.40,lift);
+        if (prop) {
+          tilt.set((drink ? .95 : .14)*lift,drink ? 0 : -1.29*lift,(drink ? .60 : .50)*lift);
+          wrist.copy(arm.quaternion).multiply(elbow.quaternion).invert();
+          prop.quaternion.setFromEuler(tilt).premultiply(wrist);
+        }
       }
+      return consuming ? reach : null;
     }
     function dispose() {
       root.removeFromParent();
@@ -249,7 +361,7 @@
       material.dispose(); shadowMap.dispose(); shadowMaterial.dispose();
       labelMap.dispose(); labelMaterial.dispose();
     }
-    return {root,animate,dispose};
+    return {root,animate,dispose,orderCafeItem,consumeCafeItem,getCafeState};
   }
 
   function segmentHits(a,b,box) {
@@ -385,6 +497,7 @@
     const jumpDuration = .68, jumpPeak = .82;
     let jumpTime = jumpDuration;
     let jumpHeight = 0;
+    let cafeTurn = null;
     const baseFov=camera.fov;
     let route=[], pinchGap=0, touchingMultiple=false;
     const cameraBoxes = (world.cameraColliders || world.colliders).map(b=>new T.Box3(
@@ -440,6 +553,16 @@
       if (!active) return;
       stick.x=clamp(x,-1,1); stick.y=clamp(y,-1,1);
       if (Math.hypot(x,y)>0.08) stopRoute();
+    }
+    function consumeCafeItem(item) {
+      if (!active || !visitor.consumeCafeItem(item)) return false;
+      if (!route.length && !held.size && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
+        const from=visitor.root.rotation.y;
+        const toCamera=yaw+Math.PI+(item==="coffee" ? .32 : -.32);
+        const delta=Math.atan2(Math.sin(toCamera-from),Math.cos(toCamera-from));
+        cafeTurn={from,delta};
+      }
+      return true;
     }
     function changeZoom(factor) {
       if (roomAt(position)) indoorZoom=clamp(indoorZoom*factor,.55,1.3);
@@ -508,7 +631,7 @@
       if (checkRoof || obstacleLift) allowed=boomClearance(elevation+obstacleLift,desired);
       cameraDistance=allowed<cameraDistance ? allowed : T.MathUtils.lerp(cameraDistance,allowed,1-Math.exp(-dt*7));
       camera.position.copy(target).addScaledVector(direction,cameraDistance);
-      // Frame the six halls together once the boom is clear of nearby buildings.
+      // Frame the halls together once the boom is clear of nearby buildings.
       const framing=overview*T.MathUtils.smoothstep(cameraDistance,12,35);
       lookAt.copy(target).lerp(campusCenter,framing);
       lookAt.y+=1.8*framing*(1-narrow);
@@ -517,6 +640,7 @@
     }
     function resetView() { yaw=entryYaw; pitch=entryPitch; outdoorZoom=indoorZoom=1; cameraDistance=8; obstacleLift=0; updateCamera(1); }
     function facePoint(point) {
+      cafeTurn=null;
       yaw = Math.atan2(position.x - point.x, position.z - point.z);
       visitor.root.rotation.y = yaw;
       pitch = entryPitch;
@@ -550,6 +674,7 @@
         marker.visible=route.length>0;
       }
       const travelled=distance(prev,position);
+      if (active && (travelled>0.0001 || intensity>.04 || route.length)) cafeTurn=null;
       if (travelled>0.0001) {
         const heading=Math.atan2(prev.x-position.x,prev.z-position.z);
         const turn=Math.atan2(Math.sin(heading-visitor.root.rotation.y),Math.cos(heading-visitor.root.rotation.y));
@@ -559,7 +684,14 @@
       if (active) jumpTime = Math.min(jumpDuration, jumpTime + dt);
       const jumpPhase = jumpTime / jumpDuration;
       jumpHeight = 4 * jumpPeak * jumpPhase * (1 - jumpPhase);
-      visitor.animate(dt,travelled,reducedMotion.matches,jumpHeight);
+      const reach=visitor.animate(active ? dt : 0,travelled,reducedMotion.matches,jumpHeight);
+      if (active && cafeTurn) {
+        // Present the active hand to the current viewpoint. Following the hand's
+        // reach also restores the original heading as the arm comes down.
+        const turn=reach===null ? 0 : reducedMotion.matches ? 1 : reach;
+        visitor.root.rotation.y=cafeTurn.from+cafeTurn.delta*turn;
+        if (reach===null) cafeTurn=null;
+      }
       updateCamera(dt);
       return position;
     }
@@ -661,7 +793,8 @@
     function getPosition() {
       return {x:position.x, y:visitor.root.position.y + jumpHeight, z:position.z};
     }
-    return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose};
+    return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose,
+      getCafeState:visitor.getCafeState, orderCafeItem:visitor.orderCafeItem,consumeCafeItem};
   }
 
   globalThis.HLBPlayer3D={create};
