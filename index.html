@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#30282d">
+  <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
+  <title>HLB 유니버스</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="assets/vendor/three.min.js"></script>
+  <script defer src="src/catalog-data.js"></script>
+  <script defer src="src/catalog.js"></script>
+  <script defer src="src/reading-data.js"></script>
+  <script defer src="src/report-reading-data.js"></script>
+  <script defer src="src/cologne-reading.js"></script>
+  <script defer src="src/pdf-viewer.js"></script>
+  <script defer src="src/reader.js"></script>
+  <script defer src="src/cologne-gallery.js"></script>
+  <script defer src="src/world3d.js"></script>
+  <script defer src="src/player3d.js"></script>
+  <script defer src="src/app.js"></script>
+</head>
+<body>
+  <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="guide-icon" viewBox="0 0 24 24"><path d="m3 5.5 6-2.2 6 2.4 6-2.2v15l-6 2.2-6-2.4-6 2.2zM9 3.3v15M15 5.7v15"/></symbol>
+    <symbol id="search-icon" viewBox="0 0 24 24"><circle cx="10.3" cy="10.3" r="6.2"/><path d="m15 15 5 5"/></symbol>
+    <symbol id="close-icon" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="help-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9c.4-2.8 5.7-2.7 5.5.4-.1 1.7-3 2-3 4.5m0 2.8v.1"/></symbol>
+    <symbol id="book-icon" viewBox="0 0 24 24"><path d="M12 5.7C9.5 4 6.3 3.6 3 4.5v14c3.2-.9 6.3-.5 9 1.4 2.7-1.9 5.8-2.3 9-1.4v-14c-3.3-.9-6.5-.5-9 1.2Zm0 0v14"/></symbol>
+    <symbol id="pin-icon" viewBox="0 0 24 24"><path d="M19 9.7c0 5-7 11.1-7 11.1S5 14.7 5 9.7a7 7 0 1 1 14 0Z"/><circle cx="12" cy="9.7" r="2.1"/></symbol>
+    <symbol id="arrow-icon" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+  </svg>
+  <main id="experience" aria-label="HLB 유니버스">
+    <canvas id="world" tabindex="0" aria-label="HLB 유니버스에서 캐릭터 움직이기" aria-describedby="walk-instructions"></canvas>
+    <p id="walk-instructions" class="sr">방향키나 WASD 또는 바닥 클릭으로 이동하고 드래그로 둘러봅니다. 열람대 가까이에서 E 키를 누르면 자료가 열립니다.</p>
+    <div class="top-hud">
+      <header class="identity glass"><span lang="en" class="hlb">HLB</span> <span class="identity-text">유니버스</span></header>
+      <nav class="tools glass" aria-label="HLB 유니버스 메뉴">
+        <button type="button" id="open-guide"><svg><use href="#guide-icon"/></svg><span>공간 안내</span></button>
+        <button type="button" id="open-search"><svg><use href="#search-icon"/></svg><span>자료 검색</span></button>
+        <button type="button" id="open-help" aria-label="조작 방법"><svg><use href="#help-icon"/></svg></button>
+      </nav>
+    </div>
+    <div class="location glass"><svg><use href="#pin-icon"/></svg><span id="location-name">칼데라 광장</span><button type="button" id="gallery-guide" hidden>전시 안내</button></div>
+    <div id="loading" role="status">HLB 유니버스에 들어가는 중…</div>
+    <section id="no-graphics" class="error-panel" hidden>
+      <h1>HLB 유니버스를 열 수 없습니다</h1><p id="graphics-reason"></p><button type="button" id="retry">다시 시도</button>
+      <button type="button" id="fallback-search">자료 검색 열기</button>
+    </section>
+    <div id="stick" aria-label="이동 조이스틱"><span class="stick-thumb"></span></div>
+    <div class="lower-controls">
+      <div id="travel" class="travel glass" hidden><span id="travel-text"></span><button type="button" id="cancel-travel" aria-label="길 안내 해제"><svg><use href="#close-icon"/></svg></button></div>
+      <button type="button" class="interact" id="interact" hidden><svg><use href="#book-icon"/></svg><span></span><kbd>E</kbd></button>
+      <p class="hint glass" id="hint"><span class="desktop-hint">방향키로 걷기 <i></i> 드래그로 둘러보기 <i></i> 바닥 클릭으로 이동</span><span class="mobile-hint">왼쪽 원으로 걷고 화면을 밀어 둘러보세요</span></p>
+    </div>
+    <div class="sr" id="announcement" role="status" aria-live="polite"></div>
+  </main>
+  <dialog id="panel" aria-labelledby="panel-title">
+    <div class="panel-inner">
+      <header class="panel-head"><div class="panel-heading"><button type="button" id="reader-back" hidden>← 자료 목록</button><h1 id="panel-title" tabindex="-1"></h1></div><button type="button" id="close-panel" class="icon-button" aria-label="HLB 유니버스로 돌아가기"><svg><use href="#close-icon"/></svg></button></header>
+      <section id="guide-pane" hidden><p class="panel-desc">방문할 공간을 고르면 캐릭터가 열람대까지 걸어갑니다.</p><div class="guide-list" id="guide-list"></div></section>
+      <section id="gallery-pane" hidden>
+        <p class="panel-desc">AI de cologne의 두 전시대 중 방문할 곳을 선택하세요.</p>
+        <div class="gallery-stops" id="gallery-stops"></div>
+      </section>
+      <section id="help-pane" hidden>
+        <dl class="help-list">
+          <div><dt>걷기</dt><dd>WASD · 방향키 · 바닥 클릭</dd></div>
+          <div><dt>모바일에서 걷기</dt><dd>왼쪽 조이스틱 또는 바닥 터치</dd></div>
+          <div><dt>둘러보기</dt><dd>화면 드래그</dd></div>
+          <div><dt>카메라 거리</dt><dd>마우스 휠 · 두 손가락 확대와 축소</dd></div>
+          <div><dt>자료 열기</dt><dd>열람대 앞에서 E 또는 자료 보기 버튼</dd></div>
+          <div><dt>에데꼬론 전시품</dt><dd>제품을 클릭하거나 터치하면 전시대까지 걸어가 설명을 엽니다.</dd></div>
+          <div><dt>열람 종료</dt><dd>Esc로 한 단계 뒤로, 닫기 버튼으로 HLB 유니버스에 복귀</dd></div>
+        </dl>
+      </section>
+      <section id="reader-pane" hidden>
+        <p id="reader-meta"></p>
+        <div id="reader-modes" class="reader-modes" role="group" aria-label="열람 방식" hidden>
+          <button id="reader-text-mode" type="button" aria-pressed="true">자료 내용</button>
+          <button id="reader-original-mode" type="button" aria-pressed="false">원본 보기</button>
+        </div>
+        <div id="reader-text">
+          <label class="search-field" id="reader-find-label" hidden><svg><use href="#search-icon"/></svg><input type="search" id="reader-find" placeholder="이 자료 안에서 찾기" aria-label="이 자료 안에서 찾기" maxlength="120"></label>
+          <div id="reader-body"></div>
+        </div>
+        <div id="reader-media" hidden></div>
+      </section>
+      <section id="library-pane" hidden>
+        <p class="panel-desc" id="library-desc"></p>
+        <label class="search-field"><svg><use href="#search-icon"/></svg><input type="search" id="query" placeholder="자료명 또는 그룹사명" aria-label="자료 검색어" maxlength="120"></label>
+        <div class="filter-list"><select id="space-filter" aria-label="공간"></select><select id="type-filter" aria-label="유형"></select><select id="language-filter" aria-label="언어"></select><select id="year-filter" aria-label="연도"></select></div>
+        <p class="result-count" id="count" aria-live="polite"></p><ul class="resources" id="resources"></ul>
+        <div class="empty" id="empty" hidden>일치하는 자료가 없습니다. <button id="clear-filters" type="button">검색 조건 지우기</button></div>
+      </section>
+    </div>
+  </dialog>
+  <noscript>HLB 유니버스에서 전시관을 방문하고 자료를 열람하려면 브라우저에서 자바스크립트를 켜주세요.</noscript>
+</body>
+</html>
