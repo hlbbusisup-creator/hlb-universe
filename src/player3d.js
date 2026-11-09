@@ -7,7 +7,7 @@
   const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
   // Bake each rigid body part into a single vertex-coloured mesh. The articulated
-  // joints remain independent while fur markings and jacket details share draws.
+  // joints remain independent while facial features and clothing share draws.
   function createVisitor(T, scene) {
     const material = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.83 });
     const root = new T.Group();
@@ -58,88 +58,113 @@
       parent.add(mesh);
     }
 
-    // A red panda ranger. The soles, chin and ear tips sit near 0, 0.81 and 1.61 m.
-    const hipHeight = .354, headHeightAboveHips = .805;
+    const hipHeight = .354, headHeightAboveHips = .82;
     const hips = joint(root,0,hipHeight,0);
     const chest = joint(hips,0,0,0);
-    const red = 0xef4136, piping = 0xb53439, ivory = 0xffefce;
-    const fur = 0xd8794d, amber = 0xe98a57, cocoa = 0x79463d, ink = 0x392d37;
-    const navy = 0x34485a, sole = 0x594b52;
+    const red = 0xef4136, piping = 0xb53439, ivory = 0xfff1d7;
+    const skin = 0xf5bc99, rose = 0xe69884, hair = 0x49332f, ink = 0x392c32;
+    const navy = 0x34485a, sole = 0x544b53;
     part(chest,(oval,band,seam) => {
       oval(navy,0,.026,.005,.194,.115,.146);
-      oval(red,0,.211,0,.231,.210,.168);
+      oval(red,0,.228,0,.240,.226,.169);
+      // The shoulders extend under the chin. Both move with the same chest joint.
+      oval(red,0,.395,0,.248,.122,.161);
       band(piping,0,.104,0,.210,.207,.033,.74);
-      oval(fur,0,.428,0,.126,.114,.114);
-      band(ivory,0,.378,-.008,.137,.153,.054,.83);
-      seam(piping,[[0,.115,-.155],[0,.215,-.169],[0,.293,-.151]],.009);
+      seam(piping,[[0,.115,-.148],[0,.224,-.171],[0,.344,-.152]],.009);
+      oval(ivory,0,.300,-.166,.015,.021,.008);
       for (const s of [-1,1]) {
-        seam(navy,[[s*.126,.131,-.125],[s*.130,.233,-.140],[s*.136,.329,-.098],
-          [s*.127,.371,.006],[s*.135,.313,.111]],.019);
+        seam(navy,[[s*.146,.132,-.121],[s*.154,.243,-.137],[s*.161,.344,-.113],
+          [s*.159,.427,-.057],[s*.162,.460,.035],[s*.150,.348,.117]],.018);
       }
-      // Cream triangular neckerchief and its little brass knot.
-      oval(ivory,0,.336,-.111,.071,.065,.031,-.47);
-      oval(0xefb35b,0,.296,-.147,.020,.024,.018);
-      // The layered red satchel is visible in the default, rear-facing camera.
-      oval(piping,0,.199,.140,.150,.157,.080);
-      oval(red,0,.193,.170,.145,.149,.089);
-      oval(ivory,0,.230,.223,.128,.080,.049);
-      for (const s of [-1,1]) oval(0xe8ad63,s*.078,.214,.264,.010,.012,.006);
+      oval(piping,0,.235,.144,.167,.161,.096);
+      oval(red,0,.227,.173,.161,.148,.100);
+      seam(0xf47760,[[-.136,.242,.223],[-.093,.271,.255],[0,.278,.268],
+        [.093,.271,.255],[.136,.242,.223]],.006);
     });
+
     const head = joint(chest,0,headHeightAboveHips,-.009);
     head.name = "visitor-head";
-    const eyes = joint(head,0,-.024,0);
+    const eyes = joint(head,0,-.022,0);
     part(head,(oval,band,seam,add) => {
-      oval(fur,0,.005,.008,.424,.359,.323);
-      // Broad lower cheeks give the face its soft, pear-shaped silhouette.
-      oval(fur,0,-.084,-.023,.413,.261,.306);
-      function ear(color,x,y,z,scale,tilt) {
-        const shape = new T.Shape();
-        shape.moveTo(-.105,-.043);
-        shape.quadraticCurveTo(-.128,.026,-.058,.147);
-        shape.quadraticCurveTo(-.020,.210,.028,.161);
-        shape.quadraticCurveTo(.123,.067,.118,-.034);
-        shape.quadraticCurveTo(.084,-.101,0,-.105);
-        shape.quadraticCurveTo(-.076,-.105,-.105,-.043);
-        const geometry = new T.ExtrudeGeometry(shape,{depth:.044,bevelEnabled:true,bevelThickness:.020,bevelSize:.014,bevelSegments:3,curveSegments:8});
-        add(geometry,color,x,y,z,scale,scale,scale,0,0,tilt);
-      }
+      oval(skin,0,0,0,.373,.388,.303);
       for (const s of [-1,1]) {
-        ear(ivory,s*.294,.266,-.008,1,-s*.33);
-        ear(fur,s*.294,.274,.028,.83,-s*.33);
-        ear(cocoa,s*.294,.278,-.027,.78,-s*.33);
-        ear(0xe6a389,s*.294,.279,-.042,.52,-s*.33);
-        // Dark eye markings, buttery brows and the two sweeping cheek patches.
-        oval(cocoa,s*.162,-.055,-.272,.101,.118,.055,0,-s*.43,-s*.23);
-        oval(ivory,s*.171,.095,-.264,.077,.044,.037,0,-s*.42,-s*.29);
-        oval(ivory,s*.283,-.132,-.219,.100,.080,.037,0,-s*.77,s*.38);
-        oval(0xefaa8d,s*.284,-.144,-.251,.042,.021,.014,0,-s*.75,s*.20);
+        oval(skin,s*.362,-.053,.006,.076,.094,.069,0,0,-s*.13);
+        oval(rose,s*.395,-.055,-.042,.029,.043,.016,0,-s*.39,-s*.09);
+        oval(0xf2a695,s*.225,-.112,-.229,.059,.028,.010,0,-s*.60,s*.09);
+        oval(hair,s*.138,.091,-.278,.061,.017,.012,0,-s*.38,-s*.1);
       }
-      for (const s of [-1,1]) oval(ivory,s*.055,-.142,-.290,.091,.079,.055,0,-s*.12);
-      oval(ink,0,-.098,-.344,.046,.032,.021);
-      oval(0x976b64,-.012,-.089,-.362,.014,.007,.005);
-      seam(cocoa,[[0,-.120,-.346],[0,-.143,-.346]],.006);
-      seam(cocoa,[[-.042,-.152,-.347],[-.027,-.159,-.348],[0,-.143,-.346],
-        [.026,-.159,-.348],[.042,-.152,-.347]],.006);
-      // A small cherry-red beret sits between the ears; its brim clears the brows.
-      const crown = new T.SphereGeometry(1,32,16,0,Math.PI*2,0,Math.PI*.53);
-      band(piping,0,.248,.001,.303,.299,.036,.862);
-      add(crown,red,0,.261,.002,.313,.137,.269,0,0,-.055);
-      oval(piping,.045,.399,.009,.023,.029,.022,0,0,-.27);
-      oval(red,.061,.418,.011,.025,.014,.018,0,0,-.16);
+      oval(0xf1ad8f,0,-.081,-.298,.040,.032,.039);
+      seam(0x9a5455,[[-.056,-.159,-.276],[-.027,-.176,-.275],
+        [0,-.181,-.274],[.030,-.174,-.275],[.054,-.157,-.276]],.008);
+
+      // A swept fringe follows the forehead at the front and the nape at the back.
+      // Trimming each meridian separately leaves the round human ears exposed.
+      function hairline(a) {
+        const bump = (center, width) => Math.exp(-(((a-center)/width)**2));
+        return 1.80 - .50*Math.cos(a) + .17*bump(-.22,.38) - .25*bump(.49,.18)
+          - .13*bump(-.70,.13) + .36*bump(-1.14,.21) + .30*bump(1.15,.20);
+      }
+      function hairPoint(a, angle, lift = 0) {
+        const wave = .008*Math.cos(7*a + angle*2.1)*Math.sin(angle);
+        const ring = Math.sin(angle);
+        return [.386*Math.sin(a)*ring*(1+wave+lift),
+          .015+(.403 + lift*.27)*Math.cos(angle),
+          .011-.322*Math.cos(a)*ring*(1+wave+lift)];
+      }
+      const cap = new T.SphereGeometry(1,48,22,0,Math.PI*2,0,Math.PI/2);
+      const p = cap.attributes.position;
+      for (let i=0; i<p.count; i++) {
+        const a = Math.atan2(p.getX(i),-p.getZ(i));
+        const latitude = Math.acos(clamp(p.getY(i),0,1))/(Math.PI/2);
+        // Turn the last ring into the face to close the visible hairline in profile.
+        const angle = Math.min(1, latitude*22/21) * hairline(a);
+        p.setXYZ(i,...hairPoint(a,angle,latitude > .999 ? -.12 : 0));
+      }
+      cap.computeVertexNormals();
+      add(cap,hair,0,0,0,1,1,1);
+      // Soft, tapered raised locks give the haircut a part from every view.
+      function lock(from, to, width, color) {
+        const verts=[], indices=[];
+        for (let j=0; j<=20; j++) {
+          const t=j/20, ease=t*t*(3-2*t), arc=from+(to-from)*ease;
+          const angle=.30+(hairline(to)-.35)*t;
+          const taper=Math.sin(Math.PI*t)**.72;
+          for (let k=0; k<9; k++) {
+            const u=(k-4)/4;
+            const lift=-.030+.081*(1-u*u)*taper;
+            verts.push(...hairPoint(arc+u*width*taper,angle,lift));
+          }
+          if (j>0) for (let k=0; k<8; k++) {
+            const n=j*9+k;
+            indices.push(n-9,n-8,n,n-8,n+1,n);
+          }
+        }
+        const geometry=new T.BufferGeometry();
+        geometry.setAttribute("position",new T.Float32BufferAttribute(verts,3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        add(geometry,color,0,0,0,1,1,1);
+      }
+      lock(.57,-.56,.27,0x583b33);
+      lock(.28,-1.06,.20,0x503731);
+      lock(1.10,1.33,.24,0x533832);
+      lock(1.75,2.40,.20,0x513731);
+      lock(-2.45,-2.95,.25,0x563a32);
     });
     part(eyes,oval => {
       for (const s of [-1,1]) {
-        oval(ink,s*.151,0,-.321,.048,.057,.026,0,-s*.35);
-        oval(0x975f49,s*.153,-.020,-.339,.029,.021,.009,0,-s*.34);
-        oval(0xfffcf1,s*.151-.011,.018,-.345,.015,.016,.008);
-        oval(ivory,s*.151+.013,-.019,-.347,.006,.006,.004);
+        oval(0xfff6e7,s*.143,0,-.275,.070,.072,.022,0,-s*.39);
+        oval(ink,s*.139,.004,-.292,.049,.063,.021,0,-s*.38);
+        oval(0x89573f,s*.139,-.017,-.308,.031,.031,.008,0,-s*.38);
+        oval(ink,s*.139,.007,-.310,.026,.040,.009,0,-s*.38);
+        oval(0xfffbef,s*.139-.013,.027,-.317,.013,.014,.006);
       }
     });
 
     const labelCanvas = document.createElement("canvas");
     labelCanvas.width = 256; labelCanvas.height = 112;
     const labelContext = labelCanvas.getContext("2d");
-    labelContext.fillStyle = "#a73035";
+    labelContext.fillStyle = "#b93431";
     labelContext.fillRect(0,0,256,112);
     labelContext.font = "bold 96px Arial, sans-serif";
     labelContext.textAlign = "center";
@@ -149,71 +174,35 @@
     const labelMap = new T.CanvasTexture(labelCanvas);
     labelMap.colorSpace = T.SRGBColorSpace;
     const labelMaterial = new T.MeshBasicMaterial({map:labelMap,toneMapped:false});
-    const capLabel = new T.Mesh(new T.PlaneGeometry(.112,.049),labelMaterial);
-    capLabel.rotation.y = Math.PI;
-    capLabel.rotation.x = .34;
-    capLabel.position.set(0,.284,-.266);
-    head.add(capLabel);
-    const packLabel = new T.Mesh(new T.PlaneGeometry(.123,.054),labelMaterial);
-    packLabel.position.set(0,.233,.274);
+    const chestLabel = new T.Mesh(new T.PlaneGeometry(.115,.050),labelMaterial);
+    chestLabel.rotation.set(.17,Math.PI+.22,0);
+    chestLabel.position.set(-.076,.277,-.165);
+    chest.add(chestLabel);
+    const packLabel = new T.Mesh(new T.PlaneGeometry(.126,.054),labelMaterial);
+    packLabel.position.set(0,.212,.274);
     chest.add(packLabel);
-
-    // Sweep a tapered tube along the tail so its stripes follow each bend.
-    const tail = joint(hips,0,.040,.112);
-    const tailCurve = new T.CatmullRomCurve3([
-      new T.Vector3(0,0,0), new T.Vector3(.037,-.075,.124),
-      new T.Vector3(.172,-.092,.211), new T.Vector3(.294,-.027,.204),
-      new T.Vector3(.350,.077,.165), new T.Vector3(.354,.136,.136)
-    ]);
-    const tailRings = 36, tailSides = 16;
-    const tube = new T.TubeGeometry(tailCurve,tailRings,1,tailSides,false);
-    const tubeVertices = tube.attributes.position;
-    const tailPoint = new T.Vector3();
-    for (let ring=0; ring<=tailRings; ring++) {
-      const t = ring/tailRings;
-      const center = tailCurve.getPointAt(t);
-      const width = .002 + .096*Math.pow(Math.sin(Math.PI*t),.52);
-      for (let side=0; side<=tailSides; side++) {
-        const i=ring*(tailSides+1)+side;
-        tailPoint.fromBufferAttribute(tubeVertices,i).sub(center).multiplyScalar(width).add(center);
-        tubeVertices.setXYZ(i,tailPoint.x,tailPoint.y,tailPoint.z);
-      }
-    }
-    tube.computeVertexNormals();
-    const stripes = tube.toNonIndexed();
-    tube.dispose();
-    const tailColors = [], stripePaint = [fur,cocoa,amber,cocoa,amber,ivory].map(color=>new T.Color(color));
-    for (let i=0; i<stripes.attributes.position.count; i++) {
-      const ring = Math.floor(i/(tailSides*6));
-      const color = stripePaint[Math.floor(ring*stripePaint.length/tailRings)];
-      tailColors.push(color.r,color.g,color.b);
-    }
-    stripes.setAttribute("color",new T.Float32BufferAttribute(tailColors,3));
-    const plume = new T.Mesh(stripes,material);
-    plume.castShadow = true;
-    tail.add(plume);
 
     const arms = [], legs = [];
     for (const s of [-1,1]) {
-      const arm = joint(chest,s*.196,.295,0);
+      const arm = joint(chest,s*.202,.366,0);
       arm.rotation.z = s*.14;
-      const elbow = joint(arm,0,-.111,0);
-      part(arm,oval => oval(red,0,-.043,0,.082,.107,.085));
+      const elbow = joint(arm,0,-.137,0);
+      part(arm,oval => oval(red,0,-.047,0,.091,.124,.093));
       part(elbow,(oval,band) => {
         oval(red,0,-.025,0,.070,.076,.074);
         band(ivory,0,-.064,0,.067,.064,.027);
-        oval(cocoa,0,-.110,-.010,.070,.070,.066);
-        oval(cocoa,-s*.044,-.104,-.049,.034,.040,.030);
+        oval(skin,0,-.114,-.010,.067,.082,.054);
+        oval(skin,-s*.047,-.106,-.040,.028,.043,.027);
       });
       const thigh = joint(hips,s*.104,-.005,0);
       const shin = joint(thigh,0,-.131,0);
       part(thigh,oval => oval(navy,0,-.038,0,.107,.113,.109));
       part(shin,(oval,band) => {
-        oval(cocoa,0,-.067,0,.077,.086,.084);
+        oval(navy,0,-.067,0,.077,.086,.084);
         band(ivory,0,-.085,0,.078,.078,.036);
-        oval(0xe3a079,0,-.151,-.035,.091,.064,.124);
+        oval(ivory,0,-.151,-.035,.091,.064,.124);
         oval(sole,0,-.191,-.038,.093,.027,.125);
-        oval(ivory,0,-.144,-.105,.074,.033,.062);
+        oval(red,0,-.131,-.102,.060,.011,.033);
       });
       arms.push({arm,elbow}); legs.push({thigh,shin});
     }
@@ -243,8 +232,6 @@
       head.position.y = headHeightAboveHips + (reducedMotion ? 0 : Math.sin(elapsed * 2.0) * 0.004 * (1 - weight));
       const blinkTime = (elapsed + .7) % 4.1;
       eyes.scale.y = reducedMotion ? 1 : clamp(Math.abs(blinkTime-.095)/.095,.075,1);
-      tail.rotation.y = reducedMotion ? 0 : Math.sin(phase) * stride * .21 + Math.sin(elapsed * 2) * .07;
-      tail.rotation.x = -.22*inAir;
       shadow.scale.setScalar(1-.30*inAir);
       shadowMaterial.opacity = 1-.46*inAir;
       for (let i = 0; i < 2; i++) {

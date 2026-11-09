@@ -126,7 +126,7 @@ test('열람대를 떠나 다른 건물의 내부로 연속해서 이동할 수 
   }
 });
 
-test('레서판다 방문객은 실제 머리 높이의 약 두 배이고 앞뒤에서 HLB 마그마 레드가 보인다', () => {
+test('사람 캐릭터는 실제 머리 높이의 약 두 배이고 앞뒤에서 HLB 마그마 레드가 보인다', () => {
   const {player} = createPlayer();
   try {
     const avatar = scene.getObjectByName('campus-visitor');
@@ -171,6 +171,51 @@ test('레서판다 방문객은 실제 머리 높이의 약 두 배이고 앞뒤
       }
       assert.ok(visible && magma / visible >= 0.08, `${side < 0 ? '앞' : '뒤'}에서 보이는 HLB 레드: ${magma}/${visible}`);
     }
+  } finally {
+    player.dispose();
+  }
+});
+
+test('서기·걷기·점프 자세 모두에서 턱이 옷의 양쪽 어깨와 맞닿는다', () => {
+  const {player} = createPlayer();
+  try {
+    const avatar = scene.getObjectByName('campus-visitor');
+    const head = avatar.getObjectByName('visitor-head');
+    const headMeshes = [];
+    head.traverse(part => { if (part.isMesh) headMeshes.push(part); });
+    const bodyMeshes = [];
+    avatar.traverse(part => { if (part.isMesh && !headMeshes.includes(part)) bodyMeshes.push(part); });
+    const up = new THREE.Vector3(0, 1, 0), down = new THREE.Vector3(0, -1, 0);
+    const sampler = new THREE.Raycaster();
+    const color = new THREE.Color();
+
+    function checkContact(pose) {
+      avatar.updateWorldMatrix(true, true);
+      const center = head.getWorldPosition(new THREE.Vector3());
+      // Intersect the actual chin from below and the red jacket from above in
+      // the same columns. Disjoint rounded surfaces can share a bounding box.
+      // Offset samples a few millimetres from sphere poles and triangle seams.
+      for (const [x, z] of [[.003, .002], [-.08, .002], [.08, .002], [.003, -.055], [.003, .055]]) {
+        const origin = new THREE.Vector3(x, 0, z).applyQuaternion(avatar.quaternion).add(center);
+        sampler.set(origin.clone().addScaledVector(up, -1), up);
+        const [chin] = sampler.intersectObjects(headMeshes, false);
+        sampler.set(origin.clone().addScaledVector(up, 1), down);
+        const jacket = sampler.intersectObjects(bodyMeshes, false).find(hit => {
+          const colors = hit.object.geometry.getAttribute('color');
+          return colors && color.fromBufferAttribute(colors, hit.face.a).getHex() === 0xef4136;
+        });
+        assert.ok(chin && jacket, `${pose} 자세 (${x}, ${z})에서 턱 ${Boolean(chin)}, 상의 ${Boolean(jacket)}`);
+        const gap = chin.point.y - jacket.point.y;
+        assert.ok(gap <= .001, `${pose} 자세 (${x}, ${z})에서 턱과 옷 사이 간격 ${gap.toFixed(3)}m`);
+      }
+    }
+    checkContact('서기');
+    player.setStick(1, 0);
+    for (let frame = 0; frame < 6; frame++) player.update(1 / 30);
+    checkContact('걷기');
+    player.jump();
+    for (let frame = 0; frame < 10; frame++) player.update(1 / 30);
+    checkContact('점프');
   } finally {
     player.dispose();
   }
