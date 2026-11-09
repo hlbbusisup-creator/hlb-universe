@@ -238,6 +238,7 @@
       const row = make("li");
       const link = make("button", "resource-link");
       link.type = "button";
+      link.dataset.recordId = record.id;
       link.addEventListener("click", () => openRecord(record, link));
       const copy = make("span", "resource-copy");
       copy.append(make("strong", "", record.title), make("small", "", [record.company, record.type, record.language, record.year].filter(Boolean).join(" · ")));
@@ -461,6 +462,10 @@
     records=await catalog.loadResources();
     for (const record of records) archiveSpaces.add(record.space);
     prepareLibrary();
+    if (location.hash === "#/products") {
+      openLibrary("product");
+      el("resources").querySelector('[data-record-id="products-ko"]')?.click();
+    }
     const T=window.THREE;
     if (!T || !window.HLBWorld3D || !window.HLBPlayer3D) throw new Error("missing 3D resources");
     try {
@@ -512,7 +517,7 @@
     fireworks=window.HLBFireworks.create(scene, camera, canvas, {
       onBurst: phrase => { el("announcement").textContent = phrase; }
     });
-    player.setActive(true);
+    player.setActive(!dialog.open);
     el("visit-cafe").disabled=false;
     resize();
     new ResizeObserver(resize).observe(canvas);

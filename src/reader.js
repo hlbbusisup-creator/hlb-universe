@@ -105,13 +105,71 @@
     return section;
   }
 
+  function productDirectory(part, searchText) {
+    const language = part.productLanguage;
+    const english = language === "en";
+    const products = globalThis.HLBProducts?.[language] || [];
+    const section = node("section", "product-directory");
+    section.lang = language;
+    const heading = node("header", "product-list-head");
+    const count = node("span", "product-list-count");
+    count.setAttribute("role", "status");
+    heading.append(node("h2", "", part.heading), count);
+    section.append(heading, node("p", "product-list-help", part.text));
+    const labels = english ? ["Product", "Brand / Company", "Description and use", "Catalog price"] : ["제품명", "브랜드 · 법인", "제품 설명 및 용도", "카탈로그 가격"];
+    const columns = node("div", "product-columns");
+    columns.setAttribute("aria-hidden", "true");
+    for (const label of labels) columns.append(node("span", "", label));
+    const list = node("ul", "product-rows");
+    list.setAttribute("aria-label", part.heading);
+    const terms = searchText.trim().split(/\s+/).filter(Boolean).map(normalize);
+    for (const [index, product] of products.entries()) {
+      if (terms.length) {
+        const fields = [product.name, product.brand, product.company, product.category, product.description, product.price,
+          ...(product.details || []).map(pair => pair[1])].map(normalize);
+        if (!terms.every(term => fields.some(field => field.includes(term)))) continue;
+      }
+      const item = node("li");
+      const button = node("button", "product-row");
+      button.type = "button";
+      button.setAttribute("aria-label", product.name);
+      button.setAttribute("aria-haspopup", "dialog");
+      const title = node("span", "product-row-title");
+      title.append(node("strong", "", product.name));
+      if (product.category) title.append(node("small", "", product.category));
+      const maker = node("span", "product-row-maker");
+      if (product.brand) maker.append(node("span", "", product.brand));
+      if (product.company && product.company !== product.brand) maker.append(node("small", "", product.company));
+      const description = node("span", "product-row-description", product.description);
+      const price = node("span", "product-row-price", product.price || "—");
+      const arrow = node("span", "product-row-arrow", "›");
+      arrow.setAttribute("aria-hidden", "true");
+      button.append(title, maker, description, price, arrow);
+      button.addEventListener("click", () => globalThis.HLBProductBook.open(products, index, button, language));
+      item.append(button);
+      list.append(item);
+    }
+    const total = products.length, shown = list.childElementCount;
+    count.textContent = english
+      ? (terms.length ? shown + " of " + total : total) + " products"
+      : (terms.length ? "검색 " + shown + "개 / 전체 " : "전체 ") + total + "개";
+    if (shown) section.append(columns, list);
+    else section.append(node("p", "reading-empty", english ? "No products found." : "일치하는 제품이 없습니다."));
+    return section;
+  }
+
   function drawText() {
     const body=el("reader-body");
     tableObserver?.disconnect();
     const blocks=document.createDocumentFragment();
-    const query=normalize(el("reader-find").value);
+    const searchText=el("reader-find").value;
+    const query=normalize(searchText);
     const matches=value=>normalize(value).includes(query);
     for (const [index, part] of (entry?.sections || []).entries()) {
+      if (part.productLanguage) {
+        blocks.append(productDirectory(part, searchText));
+        continue;
+      }
       const section=node("section","reading-section");
       const whole=matches(part.heading);
       if (part.text && (whole || matches(part.text))) section.append(node("p","",part.text));
@@ -177,7 +235,7 @@
   }
   function mode(original) {
     const box=el("reader-media");
-    const wideTable=entry?.sections.some(section=>(section.rows?.[0]?.length || 0) >= 3);
+    const wideTable=entry?.sections.some(section=>section.productLanguage || (section.rows?.[0]?.length || 0) >= 3);
     el("panel").classList.toggle("wide-tables", !original && Boolean(wideTable));
     releasePDF();
     box.replaceChildren();  // Also stops audio and releases the previous document.
@@ -216,6 +274,7 @@
       : "원본이 표시되지 않는 브라우저에서는 ‘자료 내용’에서 읽을 수 있습니다."));
   }
   function clear() {
+    globalThis.HLBProductBook?.close();
     releasePDF();
     tableObserver?.disconnect();
     el("panel").classList.remove("wide-tables");
@@ -228,9 +287,14 @@
     el("reader-pane").classList.toggle("exhibit-reader", Boolean(entry?.photo));
     mediaURL=mediaLocation(entry?.media);
     el("reader-meta").textContent=[spaceName,record.company,record.type,record.language,record.year].filter(Boolean).join("  ·  ");
-    el("reader-find").value="";
+    const productLanguage = entry?.sections.find(section => section.productLanguage)?.productLanguage;
+    const prompt = productLanguage === "ko" ? "제품명 · 브랜드 · 설명 검색" : productLanguage === "en" ? "Search products, brands or descriptions" : "이 자료 안에서 찾기";
+    const find = el("reader-find");
+    find.value="";
+    find.placeholder=prompt;
+    find.setAttribute("aria-label", prompt);
     const count=entry?.sections.reduce((sum,s)=>sum+(s.rows?.length || 0)+(s.items?.length || 0),0) || 0;
-    el("reader-find-label").hidden=count<10 || Boolean(entry?.fragrances);
+    el("reader-find-label").hidden=!productLanguage && (count<10 || Boolean(entry?.fragrances));
     el("reader-modes").hidden=!mediaURL;
     const label=mediaURL?.hostname || "";
     el("reader-original-mode").textContent=label.includes("youtube") || label==="drive.google.com" || entry?.media?.type==="video"

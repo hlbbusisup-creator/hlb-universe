@@ -337,25 +337,10 @@
       ] }
     ]),
     "products-ko": publication("products-ko", "3a5eaf846c", "HLB그룹 제품 리스트 · 국문", [
-      { heading: "제품 카탈로그", text: "17쪽 분량의 국문 목록입니다. 제품별 사진, 가격, 용도, 구매처를 법인과 브랜드 단위로 정리했습니다." },
-      { heading: "제품 찾아보기", rows: [
-        ["쪽", "브랜드", "수록 제품"],
-        ["2", "CARMIM", "차량용 풀커버 도어 가드, 울트라 엔진 에디티브 연료첨가제"],
-        ["3", "SPA:R", "포터블 종아리 마사지기"], ["5", "PURPLISH", "톤온부스터, 쉬폰 블루밍 리퀴드 하이라이터"],
-        ["7", "I’M ALIVE", "정성 우린 호지차 340ml"], ["8", "ELISHACOY", "비비 올인원 클렌저 200ml"],
-        ["9", "TETRAFORCE", "시카 스팟 젤 15g"], ["10", "콴첼", "콴첼 MSM 120정"],
-        ["12", "에프에이", "이올스왑, 드라이 스왑"]
-      ] }
+      { heading: "제품 찾아보기", productLanguage: "ko", text: "제품명을 선택하면 책이 펼쳐집니다. 사진과 설명을 보고 양옆의 화살표로 다음 제품을 둘러보세요." }
     ]),
     "products-en": publication("products-en", "e07b6087e1", "HLB Group Product List · English", [
-      { heading: "Group product catalog", text: "The English edition spans 16 pages, with product images, descriptions, prices and purchasing information arranged by company and brand." },
-      { heading: "Selected entries", rows: [
-        ["Page", "Brand", "Product"],
-        ["2", "CARMIM", "Full-Cover Door Guards"], ["3", "SPA:R", "Portable Calf Massager"],
-        ["4", "HEY BRAND", "Non-Slip Full-Height Holder"], ["5", "PURPLISH", "Lotus Blur Sun Skin"],
-        ["7", "I’M ALIVE", "Team Alive 250ml Sliding Gift Set"], ["8", "ELISHACOY", "Skin Refining Snail Cream (50g)"],
-        ["10", "Quanzel", "Calcium, Magnesium, Vitamin D, Zinc (180 tablets)"]
-      ] }
+      { heading: "Browse products", productLanguage: "en", text: "Select a product to open the book. Use the arrows to turn the pages and explore the collection." }
     ]),
     "brand-film-ko": {
       source: "https://www.youtube.com/watch?v=vI5Rn3avG6A",
