@@ -18,6 +18,7 @@
     const gallery = new T.Group();
     gallery.position.set(centerX,0,northZ);
     gallery.name = "AI de cologne · 에데꼬론 상품관";
+    gallery.userData.hallId="cologne";
     site.add(gallery);
     const ivory = 0xf3eada;
     const plaster = 0xe9d9c2;
@@ -106,6 +107,7 @@
     piece(halfWidth,height/2,depth/2,.25,height,depth,ivory,"stone");
     solid(halfWidth,depth/2,.25,depth,height);
     const doorStart=7.25,doorEnd=11.7;
+    gallery.userData.nightEntrance={x:-halfWidth,z:(doorStart+doorEnd)/2,yaw:-Math.PI/2};
     for(const [from,to] of [[0,doorStart],[doorEnd,depth]]) {
       piece(-halfWidth,height/2,(from+to)/2,.24,height,to-from,ivory,"stone");
       solid(-halfWidth,(from+to)/2,.24,to-from,height);
@@ -121,6 +123,7 @@
     piece(0,4.13,depth,13.28,1.04,.24,ivory,"stone");
     const glazing=new T.MeshPhysicalMaterial({color:0xe0d4cc,transparent:true,opacity:.16,
       roughness:.18,side:T.DoubleSide,depthWrite:false});
+    glazing.userData.nightWindow=true;
     const windows=addMesh(new T.PlaneGeometry(12.9,2.88),glazing,0,2.18,depth,"Panoramic glazing");
     windows.castShadow=false;
     for(const x of [-6.45,-4.30,-2.15,0,2.15,4.30,6.45]) piece(x,2.18,depth,.065,3.13,.20,brass);
@@ -145,6 +148,32 @@
 
     const archStone=plain(0xf2e5ce);
     const archMetal=plain(brass,.34,.44);
+    // A faceted amber-glass roof lantern borrows its profile from a perfume flacon.
+    const lanternX=-3.64, lanternZ=2.66;
+    drum(lanternX,height+.26,lanternZ,1.62,.20,espresso);
+    drum(lanternX,height+.40,lanternZ,1.56,.13,brass);
+    const profile=[[1.18,0],[1.39,.16],[1.39,.85],[1.28,1.00],[.59,1.26],[.52,1.34],[.52,1.47]];
+    const lanternGlass=new T.MeshPhysicalMaterial({color:0xe1b684,roughness:.24,metalness:.12,
+      transparent:true,opacity:.74,side:T.DoubleSide,depthWrite:false,flatShading:true});
+    lanternGlass.userData.nightWindow=true;
+    const lantern=addMesh(new T.LatheGeometry(profile.map(([r,y])=>new T.Vector2(r,y)),8),
+      lanternGlass,lanternX,height+.45,lanternZ,"Flacon skylight");
+    lantern.castShadow=false;
+    drum(lanternX,height+1.91,lanternZ,.64,.18,brass);
+    drum(lanternX,height+2.11,lanternZ,.70,.25,espresso);
+    drum(lanternX,height+2.26,lanternZ,.68,.058,brass);
+    // Tall arched niches turn the formerly blank west wall into a scent-strip display.
+    for(const [index,z] of [1.78,4.78].entries()){
+      arch(-halfWidth-.21,.26,z,.92,1.62,.13,archStone).rotation.y=-Math.PI/2;
+      arch(-halfWidth-.32,.28,z,.80,1.61,.035,archMetal).rotation.y=-Math.PI/2;
+      for(let strip=0;strip<3;strip++){
+        const tint=index ? [0xb5a7c2,0xd8c8d1,0xcc9e96][strip] : [0xaabd9d,0xceba92,0xbaa98c][strip];
+        piece(-halfWidth-.20,1.31,z+(strip-1)*.31,.06,.98+strip*.11,.16,tint);
+      }
+    }
+    arch(-halfWidth-.23,.12,(doorStart+doorEnd)/2,2.30,1.48,.13,archMetal).rotation.y=-Math.PI/2;
+    piece(-halfWidth-.34,3.54,(doorStart+doorEnd)/2,.90,.12,4.83,espresso);
+    piece(-halfWidth-.80,3.55,(doorStart+doorEnd)/2,.03,.11,4.84,brass);
     for(const x of [-3.45,3.45]){
       arch(x,.14,.19,2.48,1.10,.17,archStone);
       arch(x,.15,.301,2.31,1.10,.025,archMetal);

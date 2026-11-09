@@ -3,11 +3,11 @@
 
   // Positions are in metres. All entrances face positive Z.
   const halls = [
-    {id:"group", title:"그룹안내소", en:"GROUP INFORMATION", x:0, front:0, width:10.6, depth:6.7, trim:0xef4136},
-    {id:"brand", title:"브랜드관", en:"BRAND ARCHIVE", x:-14.4, front:-4.5, width:9.2, depth:6.2, trim:0xab5142},
-    {id:"product", title:"제품전시관", en:"PRODUCT LAB", x:14.4, front:-4.5, width:9.2, depth:6.3, trim:0x648a91},
-    {id:"ir", title:"IR 자료관", en:"INVESTOR RELATIONS", x:-10.5, front:-19.5, width:10, depth:6.2, trim:0x6e778b},
-    {id:"esg", title:"ESG 정원", en:"SUSTAINABILITY", x:10.5, front:-19.5, width:9.2, depth:6.2, trim:0x628274}
+    {id:"group", title:"그룹안내소", en:"GROUP INFORMATION", x:0, front:0, width:10.6, depth:6.7},
+    {id:"brand", title:"브랜드관", en:"BRAND ARCHIVE", x:-14.4, front:-4.5, width:9.2, depth:6.2},
+    {id:"product", title:"제품전시관", en:"PRODUCT LAB", x:14.4, front:-4.5, width:9.2, depth:6.3},
+    {id:"ir", title:"IR 자료관", en:"INVESTOR RELATIONS", x:-10.5, front:-19.5, width:10, depth:6.2},
+    {id:"esg", title:"ESG 정원", en:"SUSTAINABILITY", x:10.5, front:-19.5, width:9.2, depth:6.2}
   ];
 
   function build(scene) {
@@ -21,14 +21,15 @@
     function random() { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; }
     const choose = array => array[Math.floor(random() * array.length)];
     const TAU = Math.PI * 2;
-    const dark = 0x343338, iron = 0x51545a, enamel = 0xe4dace, red = 0xef4136;
+    const dark = 0x343338, iron = 0x51545a, red = 0xef4136;
     const up = new T.Vector3(0,1,0);
     const forms = {
       box:new T.BoxGeometry(1,1,1),
       round:new T.CylinderGeometry(1,1,1,18),
       column:new T.CylinderGeometry(.90,1,1,6),
       rock:new T.DodecahedronGeometry(1,0),
-      crystal:new T.OctahedronGeometry(1)
+      crystal:new T.OctahedronGeometry(1),
+      leaf:new T.SphereGeometry(1,8,6)
     };
     const grainData = new Uint8Array(64*64*4);
     for (let i=0;i<grainData.length;i+=4) {
@@ -267,131 +268,6 @@
       }
     }
 
-    function plaque(x,y,z,w,h,title,english,background="#252a2d",display=null) {
-      const canvas=document.createElement("canvas");
-      canvas.width=1024;canvas.height=Math.max(134,Math.round(1024*h/w));
-      const ctx=canvas.getContext("2d"), ch=canvas.height;
-      ctx.fillStyle=background;ctx.fillRect(0,0,1024,ch);
-      ctx.fillStyle="#EF4136";ctx.fillRect(0,0,14,ch);
-      ctx.textBaseline="middle";ctx.textAlign="left";ctx.fillStyle="#fff6e7";
-      let font=Math.min(186,ch*.54);
-      if (display) {
-        ctx.fillStyle="#b3a7a6";
-        ctx.font="600 32px Arial,sans-serif";
-        ctx.fillText("FIELD ARCHIVE    /    "+display,54,ch*.15,700);
-        for(let i=0;i<6;i++) {
-          ctx.fillStyle=i<2?"#ef4136":"#675754";
-          ctx.fillRect(815+i*24,ch*.12,14,14);
-        }
-        ctx.fillStyle="#fff6e7";
-        font=Math.min(112,ch*.36);
-      }
-      ctx.font='700 '+font+'px "Malgun Gothic",sans-serif';
-      ctx.fillText(title,52,ch*(display ? .49 : .41),918);
-      ctx.font='600 '+Math.min(display?34:55,ch*.20)+'px Arial,sans-serif';
-      ctx.fillStyle="#f3c49b";ctx.fillText(english,54,ch*(display ? .76 : .81),904);
-      const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;
-      map.anisotropy=4;
-      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map,toneMapped:false}));
-      mesh.position.set(x,y,z);site.add(mesh);
-    }
-
-    // Detail is instanced after assembly. The glass is a dark ceramic-coated
-    // band so both the exterior glazing and the indoor displays read clearly.
-    function buildHall(h,index) {
-      const {x,front,width,depth}=h, left=x-width/2,right=x+width/2,back=front-depth,cz=(front+back)/2;
-      const top=h.id==="group"?3.54:3.32, jamb=1.48,stationZ=back+2.3;
-      box(x,.018,cz,width+.40,.12,depth+.34,0x595658,null,"stone");
-      box(x,.081,cz,width-.18,.04,depth-.08,0x9e9287,null,"stone");
-      // Inset threshold tracks run directly into the reading station.
-      for(const side of [-1,1])box(x+side*.88,.109,cz,.05,.015,depth-.28,0xcf9a78);
-      box(x,top/2,back,width,top,.22,enamel);
-      colliders.push(collider(x,back,width,.22,top));
-      for(const side of [-1,1]){
-        const edge=x+side*(width/2-.12);
-        box(edge,top/2,cz,.24,top,depth,dark);
-        colliders.push(collider(edge,cz,.25,depth,top));
-        for(let i=0;i<5;i++){
-          const z=back+(i+.5)*depth/5;
-          box(edge+side*.145,.71,z,.07,1.28,depth/5-.035,0xbeb6a9);
-          box(edge+side*.15,1.94,z,.08,.98,depth/5-.06,choose([0x52656b,0x63797c,0x596d74]),null,"glass");
-          box(edge+side*.148,2.83,z,.07,.62,depth/5-.04,enamel);
-        }
-        const wing=width/2-jamb,wx=x+side*(jamb+wing/2);
-        box(wx,top/2,front,wing,top,.20,dark);
-        colliders.push(collider(wx,front,wing,.23,top));
-        box(wx,.67,front+.14,wing-.12,1.10,.10,side===-1?h.trim:enamel);
-        box(wx,2.77,front+.13,wing-.08,.71,.10,enamel);
-        for(let i=0;i<3;i++){
-          const bx=wx-wing*.5+(i+.5)*wing/3;
-          box(bx,1.83,front+.138,wing/3-.07,1.05,.08,choose([0x4d646b,0x57727a,0x536c74]),null,"glass");
-          box(bx,2.26,front+.19,wing/3-.16,.034,.025,0xa0b6b5);
-        }
-        box(x+side*(jamb+.08),1.55,front+.17,.16,3.02,.28,iron);
-        box(x+side*(jamb+.08),1.60,front+.327,.047,2.69,.02,0xffdbad,null,"light");
-        box(x+side*(width/2-.16),1.52,front+.14,.18,2.96,.26,iron);
-      }
-      // Folded caps, separated fascia and bolted roof panels leave the
-      // silhouette low enough to frame the active caldera from the entry path.
-      box(x,top+.04,cz,width+.59,.24,depth+.52,dark);
-      box(x,top+.185,cz,width+.47,.068,depth+.40,enamel);
-      for(let i=0;i<7;i++){
-        const xx=left+(i+.5)*width/7;
-        box(xx,top+.24,cz,width/7-.045,.085,depth+.22,choose([0x71747b,0x747a7e,0x808486]));
-      }
-      roofs.push(collider(x,cz,width+.55,depth+.52,top+.3,top-.09));
-      box(x,top-.34,front+.22,3.36,.75,.45,dark);
-      plaque(x,top-.34,front+.455,3.29,.71,h.title,h.en);
-      box(x,top+.13,front+.46,3.68,.13,.85,h.trim);
-      box(x,top-.115,cz,1.25,.07,depth-.6,0xffdfaf,null,"light");
-      // A screen at the far wall, with a low reading console in front of it.
-      box(x,1.92,back+.15,4.64,2.12,.13,dark);
-      const deskNames=["그룹사 찾기","브랜드 자료","제품 카탈로그","투자자 자료","지속가능경영"];
-      plaque(x,1.92,back+.221,4.46,1.94,deskNames[index],"HLB  /  READING DESK","#352e32","0"+(index+1));
-      box(x,.56,back+1.03,2.52,.92,.60,iron);
-      box(x,1.05,back+1.04,2.74,.13,.77,h.trim);
-      box(x,1.19,back+1.02,1.21,.11,.46,0x7cabb1,[-.21,0,0],"glass");
-      colliders.push(collider(x,back+1.03,2.74,.77,1.24));
-      for(const side of [-1,1]){
-        box(x+side*1.05,.13,stationZ,.13,.035,.55,0xef7354,null,"light");
-        const rx=x+side*(width/2-.58);
-        box(rx,.49,back+1.45,.81,.77,1.68,0xb5aca2);
-        box(rx,.91,back+1.45,.91,.12,1.79,dark);
-        colliders.push(collider(rx,back+1.45,.89,1.78,1.20));
-        for(let i=0;i<3;i++)place("crystal",choose([0xbb7562,0xb8ad8f,0x665664]),rx,1.14,back+.95+i*.47,.19,.28,.17,[.25,i,.1],"stone");
-      }
-      if(h.id==="group"){
-        const tx=left+.83, tz=front-1.12;
-        box(tx,top+.66,tz,1.17,.88,1.56,0xb6b2ad);
-        box(tx,top+1.16,tz,1.31,.14,1.66,iron);
-        tube([tx,top+1.19,tz],[tx,top+2.22,tz],.04,iron);
-        tube([tx-.40,top+1.74,tz],[tx+.42,top+1.92,tz],.032,iron);
-        place("round",red,tx,top+2.24,tz,.072,.10,.072,null,"light");
-      }else if(h.id==="brand"){
-        for(let i=0;i<5;i++)box(left+.77+i*.28,top+.56,cz,.12,.75,depth*.55,h.trim,[0,0,-.35]);
-      }else if(h.id==="product"){
-        for(const offset of [.85,2.02]){
-          place("round",0x9aacac,right-offset,top+.64,cz,.49,.78,.49);
-          place("round",iron,right-offset,top+1.05,cz,.53,.12,.53);
-        }
-      }else if(h.id==="ir"){
-        for(let i=0;i<2;i++){
-          const xx=left+1.0+i*1.27;
-          box(xx,top+.52,cz,1.02,.52,1.29,iron);
-          for(let k=0;k<5;k++)box(xx,top+.80,cz-.44+k*.22,.82,.04,.08,0xaaa8a3);
-        }
-      }else{
-        for(let i=0;i<4;i++){
-          box(right-1.50,top+.49,cz-1.9+i*1.05,2.11,.08,.96,0x4a656c,[0,0,-.15],"glass");
-          box(right-1.50,top+.545,cz-1.9+i*1.05,2.09,.012,.04,0x9eaeb1,[0,0,-.15]);
-        }
-      }
-      // Identification plate on the facade stays visible from side paths.
-      plaque(left+1.22,.75,front+.202,2.02,.63,"HLB 유니버스","HLB UNIVERSE","#3b3435");
-      spaces.push({id:h.id,x,z:front+.25,station:{x,z:stationZ},label:{x,y:top+.34,z:front+.60},
-        interior:{minX:left,maxX:right,minZ:back,maxZ:front+.55,ceilingY:top-.10}});
-    }
-
     const basalt=[0x453f48,0x514951,0x5f5559,0x473f43,0x675551,0x554949];
     function outcrop(x,z,scale,block=true) {
       const count=6;
@@ -557,7 +433,8 @@
     landscape();
     volcano();
     const summitLogo=makeSummitLogo();
-    halls.forEach(buildHall);
+    const hallKit={T,site,box,place,tube,collider,colliders,roofs};
+    for(const hall of halls) spaces.push(globalThis.HLBHalls.build(hallKit,hall));
     siteDetail();
     spaces.push(globalThis.HLBCologneGallery.build({T,site,box,place,collider,colliders,roofs}));
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));

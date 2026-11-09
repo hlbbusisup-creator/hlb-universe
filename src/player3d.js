@@ -380,7 +380,8 @@
     const entryYaw = Math.atan2(position.x-focus.x,position.z-focus.z);
     visitor.root.rotation.y = arrival ? entryYaw : entryYaw + Math.PI;
     const entryPitch=.17; // Leave headroom above the summit to see the drifting ash.
-    let active=true, yaw=entryYaw, pitch=entryPitch, zoom=1, cameraDistance=7.6;
+    let active=true, yaw=entryYaw, pitch=entryPitch, outdoorZoom=1, indoorZoom=1;
+    let cameraDistance=7.6, obstacleLift=0;
     const jumpDuration = .68, jumpPeak = .82;
     let jumpTime = jumpDuration;
     let jumpHeight = 0;
@@ -390,10 +391,17 @@
       new T.Vector3(b.minX-0.17,(b.minY??0)-0.12,b.minZ-0.17),
       new T.Vector3(b.maxX+0.17,(b.maxY??3)+0.12,b.maxZ+0.17)));
     const ray = new T.Ray(), hit = new T.Vector3(), target = new T.Vector3(), direction = new T.Vector3();
+    const lookAt = new T.Vector3();
+    const terrain = ["Eroded caldera escarpments","Layered basalt cone and breached summit"]
+      .map(name=>scene.getObjectByName(name)).filter(Boolean);
+    const terrainRay = new T.Raycaster(), terrainHits = [];
     const raycaster = new T.Raycaster(), ndc = new T.Vector2(), floor = new T.Plane(new T.Vector3(0,1,0),0);
     const indoors = world.spaces.filter(s=>s.interior).map(s=>({space:s,box:new T.Box3(
       new T.Vector3(s.interior.minX,0,s.interior.minZ),
       new T.Vector3(s.interior.maxX,s.interior.ceilingY || 3.6,s.interior.maxZ))}));
+    const campusBounds=new T.Box3();
+    for (const room of indoors) campusBounds.union(room.box);
+    const campusCenter=campusBounds.getCenter(new T.Vector3());
     const exhibitBoxes = world.spaces.flatMap(space => (space.exhibits || []).filter(exhibit => exhibit.hitBox).map(exhibit => {
       const b = exhibit.hitBox;
       return {space, exhibit, bounds:new T.Box3(new T.Vector3(b.minX,b.minY,b.minZ), new T.Vector3(b.maxX,b.maxY,b.maxZ))};
@@ -433,42 +441,81 @@
       stick.x=clamp(x,-1,1); stick.y=clamp(y,-1,1);
       if (Math.hypot(x,y)>0.08) stopRoute();
     }
+    function changeZoom(factor) {
+      if (roomAt(position)) indoorZoom=clamp(indoorZoom*factor,.55,1.3);
+      else outdoorZoom=clamp(outdoorZoom*factor,.34,6);
+    }
+    function isOverview() { return !roomAt(position) && outdoorZoom>=5.7; }
+    function toggleOverview() {
+      if (!active || roomAt(position)) return;
+      outdoorZoom=isOverview() ? 1 : 6;
+    }
+    function boomClearance(elevation,desired) {
+      direction.set(Math.sin(yaw)*Math.cos(elevation),Math.sin(elevation),Math.cos(yaw)*Math.cos(elevation));
+      ray.set(target,direction);
+      let limit=desired;
+      for (const box of cameraBoxes) {
+        if (ray.intersectBox(box,hit)) limit=Math.min(limit,hit.distanceTo(target)-.06);
+      }
+      if (direction.y<0) limit=Math.min(limit,(target.y-.2)/-direction.y);
+      // Only a low orbit outside the plateau can meet the distant ridges.
+      if (elevation<.42 && limit>0 && Math.hypot(target.x,target.z+4)+limit>25) {
+        terrainRay.set(target,direction);
+        terrainRay.far=limit;
+        terrainHits.length=0;
+        terrainRay.intersectObjects(terrain,false,terrainHits);
+        if (terrainHits.length) limit=terrainHits[0].distance-.18;
+      }
+      return Math.max(.1,limit);
+    }
     function updateCamera(dt) {
       const room=roomAt(position);
+      const zoom=room ? indoorZoom : outdoorZoom;
+      const overview=room ? 0 : T.MathUtils.smoothstep(zoom,1.2,4.8);
       // Pull back and widen the lens in portrait to keep the side routes visible.
       const narrow=clamp((1.65-camera.aspect)/1.17,0,1);
-      let fieldOfView = baseFov + 5*narrow;
-      if (room?.space.exhibits?.length && camera.aspect < 1) {
-        // Keep the two display bays in view when the phone is upright.
-        const minimumHorizontalAngle = 45 * Math.PI / 180;
+      let fieldOfView = baseFov + 5*narrow + 8*(1-narrow)*overview;
+      if ((overview>0 || room?.space.exhibits?.length) && camera.aspect < 1) {
+        // Leave room for both exhibit bays indoors and the outlying halls in the overview.
+        const minimumHorizontalAngle = (room ? 45 : 51) * Math.PI / 180;
         const portraitFov = 2 * Math.atan(Math.tan(minimumHorizontalAngle / 2) / camera.aspect) * 180 / Math.PI;
-        fieldOfView = Math.min(92, Math.max(fieldOfView, portraitFov));
+        const wideFov = Math.min(room ? 92 : 96, Math.max(fieldOfView, portraitFov));
+        fieldOfView = T.MathUtils.lerp(fieldOfView,wideFov,room ? 1 : overview);
       }
       if (camera.fov !== fieldOfView) {
         camera.fov=fieldOfView;
         camera.updateProjectionMatrix();
       }
-      const elevation=room ? Math.min(pitch,0.24) : pitch+0.035*narrow;
-      const outsideDistance=(7.1+0.9*narrow)*zoom;
-      const desired=room ? Math.min(outsideDistance,4.4) : outsideDistance;
+      const elevation=room ? Math.min(pitch,.24) :
+        T.MathUtils.lerp(pitch+.035*narrow,.73+.40*pitch,overview);
+      const desired=(room ? 4.4 : 7.1+(.9+.4*overview)*narrow)*zoom;
       const walkingFocus = room ? 1.32 : 1.53;
-      const closeUp = clamp((1 - zoom) / (1 - .34), 0, 1);
+      const closeUp = clamp((1 - zoom) / (1 - (room ? .55 : .34)), 0, 1);
       target.set(position.x, T.MathUtils.lerp(walkingFocus, 1.05, closeUp), position.z);
-      direction.set(Math.sin(yaw)*Math.cos(elevation),Math.sin(elevation),Math.cos(yaw)*Math.cos(elevation));
-      ray.set(target,direction);
-      let allowed=desired;
-      for (const box of cameraBoxes) {
-        if (!ray.intersectBox(box,hit)) continue;
-        const stop=hit.distanceTo(target)-0.06;
-        if (stop<allowed) allowed=Math.max(0.1,stop);
+      let allowed=boomClearance(elevation,desired), bestLift=0;
+      // As the visitor pulls out beside a hall, find a clear angle over its roof.
+      const checkRoof=overview>.04 && allowed<desired-.15;
+      if (checkRoof) {
+        let best=allowed;
+        for (let angle=elevation+.13;angle<=1.47;angle+=.13) {
+          const clearance=boomClearance(angle,desired);
+          if (clearance>best+.15) { best=clearance; bestLift=angle-elevation; }
+          if (best>=desired-.15) break;
+        }
       }
-      if (direction.y<0) allowed=Math.min(allowed,(target.y-0.2)/-direction.y);
+      obstacleLift=room ? 0 : T.MathUtils.lerp(obstacleLift,bestLift,1-Math.exp(-dt*11));
+      if (obstacleLift<.001) obstacleLift=0;
+      if (checkRoof || obstacleLift) allowed=boomClearance(elevation+obstacleLift,desired);
       cameraDistance=allowed<cameraDistance ? allowed : T.MathUtils.lerp(cameraDistance,allowed,1-Math.exp(-dt*7));
       camera.position.copy(target).addScaledVector(direction,cameraDistance);
-      camera.lookAt(target);
+      // Frame the six halls together once the boom is clear of nearby buildings.
+      const framing=overview*T.MathUtils.smoothstep(cameraDistance,12,35);
+      lookAt.copy(target).lerp(campusCenter,framing);
+      lookAt.y+=1.8*framing*(1-narrow);
+      camera.lookAt(lookAt);
       visitor.root.visible=cameraDistance>0.69;
     }
-    function resetView() { yaw=entryYaw; pitch=entryPitch; zoom=1; cameraDistance=8; updateCamera(1); }
+    function resetView() { yaw=entryYaw; pitch=entryPitch; outdoorZoom=indoorZoom=1; cameraDistance=8; obstacleLift=0; updateCamera(1); }
     function facePoint(point) {
       yaw = Math.atan2(position.x - point.x, position.z - point.z);
       visitor.root.rotation.y = yaw;
@@ -571,7 +618,7 @@
       p.x=event.clientX; p.y=event.clientY;
       if (pointers.size>=2) {
         const [a,b]=pointers.values(), gap=Math.hypot(a.x-b.x,a.y-b.y);
-        if (gap>2 && pinchGap>2) zoom=clamp(zoom*pinchGap/gap,0.34,1.5);
+        if (gap>2 && pinchGap>2) changeZoom(pinchGap/gap);
         pinchGap=gap; return;
       }
       if (!p.drag && Math.hypot(p.x-p.startX,p.y-p.startY)<5) return;
@@ -594,7 +641,7 @@
       if (!active) return;
       event.preventDefault();
       const pixels=event.deltaY*(event.deltaMode===1 ? 16 : event.deltaMode===2 ? 600 : 1);
-      zoom=clamp(zoom*Math.exp(clamp(pixels,-900,900)*0.0012),0.34,1.5);
+      changeZoom(Math.exp(clamp(pixels,-900,900)*.0012));
     }
     const listeners = new AbortController();
     const options={signal:listeners.signal};
@@ -614,7 +661,7 @@
     function getPosition() {
       return {x:position.x, y:visitor.root.position.y + jumpHeight, z:position.z};
     }
-    return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,dispose};
+    return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose};
   }
 
   globalThis.HLBPlayer3D={create};

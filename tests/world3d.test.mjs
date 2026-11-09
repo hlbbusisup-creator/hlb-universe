@@ -29,7 +29,7 @@ page.performance = performance;
 page.matchMedia = () => ({matches: false});
 page.AbortController = AbortController;
 const context = createContext(page);
-for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/world3d.js', 'src/player3d.js']) {
+for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/world3d.js', 'src/player3d.js']) {
   const file = new URL('../' + path, import.meta.url);
   runInContext(await readFile(file, 'utf8'), context, { filename: path });
 }
@@ -89,6 +89,33 @@ test('산책 시작점에서 여섯 건물의 열람대까지 벽을 통과하�
     } finally {
       player.dispose();
     }
+  }
+});
+
+test('야외 전경은 광장을 넓게 보여주고, 전시관에 들어가면 실내 거리로 돌아온다', () => {
+  const {player, camera} = createPlayer();
+  const cameraDistance = () => {
+    const p = player.getPosition();
+    return Math.hypot(camera.position.x-p.x, camera.position.y-1.53, camera.position.z-p.z);
+  };
+  function settle() { for (let i=0; i<60; i++) player.update(1/30); }
+  try {
+    const walkingDistance = cameraDistance();
+    player.toggleOverview();
+    settle();
+    assert.ok(player.isOverview() && cameraDistance() > walkingDistance * 4);
+    visit(player, world.spaces.find(hall => hall.id === 'group'));
+    settle();
+    assert.equal(player.isOverview(), false);
+    assert.ok(cameraDistance() < 6);
+    visit(player, {id:'광장', station:world.spawn});
+    settle();
+    assert.ok(player.isOverview() && cameraDistance() > walkingDistance * 4);
+    player.toggleOverview();
+    settle();
+    assert.ok(Math.abs(cameraDistance() - walkingDistance) < .2);
+  } finally {
+    player.dispose();
   }
 });
 

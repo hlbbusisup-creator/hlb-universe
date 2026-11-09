@@ -7,7 +7,7 @@
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
   const fields = {space:el("space-filter"), type:el("type-filter"), language:el("language-filter"), year:el("year-filter")};
   let records = [];
-  let world, player, renderer, camera, scene, fireworks;
+  let world, player, renderer, camera, scene, fireworks, timeOfDay;
   let station = null, destination = null, localCollection = "";
   let returnRow = null, listScroll = 0;
   const stillScenery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -16,6 +16,57 @@
   const bySpace = new Map();
   const readingStops = [];
   const visitId = new URLSearchParams(location.search).get("visit");
+  const dayButton = el("set-day"), nightButton = el("set-night");
+  const overview = el("overview");
+  overview.addEventListener("click", () => {
+    player?.toggleOverview();
+    updateStatus();
+  });
+  function setTime(mode) {
+    timeOfDay.setMode(mode);
+    dayButton.setAttribute("aria-pressed", String(mode === "day"));
+    nightButton.setAttribute("aria-pressed", String(mode === "night"));
+  }
+  for (const [button, mode] of [[dayButton, "day"], [nightButton, "night"]]) {
+    button.addEventListener("click", () => {
+      setTime(mode);
+      try { localStorage.setItem("hlb-universe-time", mode); } catch {}
+    });
+  }
+
+  const volume = el("music-volume"), mute = el("mute-music");
+  const soundButton = el("sound-button"), soundPanel = el("sound-panel");
+  function syncSound({volume: level, muted, available}) {
+    const percent = Math.round(level * 100);
+    volume.value = String(percent);
+    el("volume-value").value = percent + "%";
+    volume.setAttribute("aria-valuetext", percent + "%");
+    mute.setAttribute("aria-pressed", String(muted));
+    soundButton.querySelector("use").setAttribute("href", muted || !percent ? "#mute-icon" : "#volume-icon");
+    soundButton.disabled = !available;
+    if (!available) soundButton.title = "이 브라우저에서는 배경음악을 재생할 수 없습니다.";
+  }
+  const music = window.HLBChamberMusic.create({onChange:syncSound});
+  syncSound(music.getState());
+  function setSoundPanel(open) {
+    soundPanel.hidden = !open;
+    soundButton.setAttribute("aria-expanded", String(open));
+  }
+  soundButton.addEventListener("click", () => setSoundPanel(soundPanel.hidden));
+  volume.addEventListener("input", () => music.setVolume(Number(volume.value) / 100));
+  mute.addEventListener("click", () => music.setMuted(!music.getState().muted));
+  document.addEventListener("pointerdown", event => {
+    if (!soundPanel.hidden && !el("sound-tools").contains(event.target)) setSoundPanel(false);
+  });
+  document.addEventListener("focusin", event => {
+    if (!soundPanel.hidden && !el("sound-tools").contains(event.target)) setSoundPanel(false);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !soundPanel.hidden) {
+      setSoundPanel(false);
+      soundButton.focus({preventScroll:true});
+    }
+  });
 
   function make(tag, className, text) {
     const element = document.createElement(tag);
@@ -34,6 +85,7 @@
   }
 
   function openPane(name, title) {
+    setSoundPanel(false);
     player?.setActive(false);
     resetStick();
     destination = null;
@@ -168,43 +220,6 @@
     }
   }
 
-  function lightWorld() {
-    const T = window.THREE;
-    scene.background = new T.Color(0xe6b29e);
-    scene.fog = new T.FogExp2(0xe5b6aa, .0053);
-    const sky = new T.Mesh(new T.SphereGeometry(195,32,16), new T.ShaderMaterial({
-      side:T.BackSide, depthWrite:false, fog:false,
-      uniforms:{
-        top:{value:new T.Color(0x7f8cae)}, bottom:{value:new T.Color(0xf4caba)},
-        sun:{value:new T.Vector3(-.56,.72,.37).normalize()}
-      },
-      vertexShader:"varying vec3 dir; void main(){dir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}",
-      fragmentShader:[
-        "varying vec3 dir; uniform vec3 top; uniform vec3 bottom; uniform vec3 sun;",
-        "float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}",
-        "float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);",
-        "return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}",
-        "void main(){vec3 d=normalize(dir);float h=smoothstep(-.04,.49,d.y);",
-        "vec3 c=mix(bottom,top,pow(h,.66));float g=max(dot(d,sun),0.);",
-        "vec2 p=d.xz*3.0/max(.12,d.y+.16);float w=.55*noise2(p)+.30*noise2(p*2.1)+.15*noise2(p*4.1);",
-        "c=mix(c,vec3(.83,.70,.70),smoothstep(.57,.78,w)*smoothstep(.03,.21,d.y)*.44);",
-        "c+=vec3(.8,.52,.25)*pow(g,65.)*.34;c=mix(c,vec3(1.0,.94,.74),smoothstep(.9994,.9998,g));",
-        "gl_FragColor=vec4(c,1.0);", "#include <colorspace_fragment>", "}"
-      ].join("\n")
-    }));
-    sky.renderOrder = -10;
-    scene.add(sky);
-    scene.add(new T.HemisphereLight(0xf3e9f3,0xb1867b,1.68));
-    const sun = new T.DirectionalLight(0xffddd0, 2.18);
-    sun.position.set(-24,42,22);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048,2048);
-    Object.assign(sun.shadow.camera,{left:-48,right:48,bottom:-45,top:45,near:.3,far:125});
-    sun.shadow.camera.updateProjectionMatrix();
-    sun.shadow.normalBias = .032;
-    sun.shadow.bias = -.00025;
-    scene.add(sun);
-  }
 
   function distance(a,b) { return Math.hypot(a.x-b.x,a.z-b.z); }
 
@@ -213,6 +228,8 @@
     const p = player.getPosition();
     const inside = world.spaces.find(({interior}) => interior && p.x >= interior.minX &&
       p.x <= interior.maxX && p.z >= interior.minZ && p.z <= interior.maxZ);
+    overview.hidden = Boolean(inside);
+    overview.setAttribute("aria-pressed", String(player.isOverview()));
     const eligible = readingStops.filter(stop => !stop.indoorOnly || inside?.id === stop.spaceId);
     const nearest = eligible.reduce((a,b) => distance(p,a.station) < distance(p,b.station) ? a : b);
     const nearDistance = distance(p, nearest.station);
@@ -370,6 +387,8 @@
     el("hint").hidden=true;
     stick.hidden=true;
     el("play-actions").hidden=true;
+    el("day-night").hidden=true;
+    overview.hidden=true;
   }
 
   async function start() {
@@ -392,8 +411,12 @@
     renderer.toneMappingExposure=1.02;
     scene=new T.Scene();
     camera=new T.PerspectiveCamera(56,1,.06,300);
-    lightWorld();
     world=window.HLBWorld3D.build(scene);
+    timeOfDay=window.HLBTimeOfDay.create(scene);
+    let time = "day";
+    try { if (localStorage.getItem("hlb-universe-time") === "night") time = "night"; } catch {}
+    setTime(time);
+    el("day-night").hidden=false;
     for (const hall of world.spaces) {
       const space = spaces.get(hall.id);
       bySpace.set(hall.id, {...hall, title:space.title});

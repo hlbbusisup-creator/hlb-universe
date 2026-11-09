@@ -7,7 +7,7 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=pavilions">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js"></script>
   <script defer src="src/catalog.js"></script>
@@ -16,11 +16,14 @@
   <script defer src="src/cologne-reading.js"></script>
   <script defer src="src/pdf-viewer.js"></script>
   <script defer src="src/reader.js"></script>
-  <script defer src="src/cologne-gallery.js"></script>
-  <script defer src="src/world3d.js"></script>
-  <script defer src="src/player3d.js?v=ac3bc457"></script>
+  <script defer src="src/cologne-gallery.js?v=pavilions"></script>
+  <script defer src="src/hall-designs.js"></script>
+  <script defer src="src/world3d.js?v=pavilions"></script>
+  <script defer src="src/player3d.js?v=overview"></script>
+  <script defer src="src/time-of-day.js"></script>
+  <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js"></script>
+  <script defer src="src/app.js?v=pavilions"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -32,6 +35,11 @@
     <symbol id="pin-icon" viewBox="0 0 24 24"><path d="M19 9.7c0 5-7 11.1-7 11.1S5 14.7 5 9.7a7 7 0 1 1 14 0Z"/><circle cx="12" cy="9.7" r="2.1"/></symbol>
     <symbol id="arrow-icon" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
     <symbol id="jump-icon" viewBox="0 0 24 24"><path d="M6 10.5 12 4l6 6.5M12 4v11M5 18.5c3 2 11 2 14 0"/></symbol>
+    <symbol id="sun-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="moon-icon" viewBox="0 0 24 24"><path d="M19.8 14.1A8.2 8.2 0 0 1 9.9 4.2 8.3 8.3 0 1 0 19.8 14.1Z"/><path d="M17.5 3.7v3.6M15.7 5.5h3.6"/></symbol>
+    <symbol id="overview-icon" viewBox="0 0 24 24"><path d="m2 18 6.4-8 4.2 5.2 3.5-4.2L22 18H2Z"/><circle cx="16" cy="6" r="1.7"/></symbol>
+    <symbol id="volume-icon" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM15.4 9a4.1 4.1 0 0 1 0 6m2.7-9a8 8 0 0 1 0 12"/></symbol>
+    <symbol id="mute-icon" viewBox="0 0 24 24"><path d="M3 9h4l5-4v14l-5-4H3zM16 9l5 6m0-6-5 6"/></symbol>
     <symbol id="firework-icon" viewBox="0 0 24 24"><path d="m4 21 5.5-8M14.5 4V1.8M18 5.5l2.2-2.2M19.5 9H22M17.8 12.5l1.8 1.8M14 13.5v2M10.5 6 8.7 4.2M9 9H6.5"/><path d="m14.5 6.8.7 1.5 1.6.7-1.6.7-.7 1.5-.7-1.5-1.6-.7 1.6-.7z"/></symbol>
   </svg>
   <main id="experience" aria-label="HLB 유니버스">
@@ -45,7 +53,25 @@
         <button type="button" id="open-help" aria-label="조작 방법"><svg><use href="#help-icon"/></svg></button>
       </nav>
     </div>
-    <div class="location glass"><svg><use href="#pin-icon"/></svg><span id="location-name">칼데라 광장</span><button type="button" id="gallery-guide" hidden>전시 안내</button></div>
+    <div class="scene-toolbar">
+      <div class="location glass"><svg aria-hidden="true"><use href="#pin-icon"/></svg><span id="location-name">칼데라 광장</span><button type="button" id="gallery-guide" hidden>전시 안내</button></div>
+      <div class="ambience">
+        <button id="overview" class="sound-button glass" type="button" aria-label="유니버스 전경" aria-pressed="false" hidden><svg aria-hidden="true"><use href="#overview-icon"/></svg>전경</button>
+        <div id="day-night" class="day-night glass" role="group" aria-label="시간대" hidden>
+          <button id="set-day" type="button" aria-pressed="true"><svg aria-hidden="true"><use href="#sun-icon"/></svg>낮</button>
+          <button id="set-night" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#moon-icon"/></svg>밤</button>
+        </div>
+        <div id="sound-tools">
+          <button id="sound-button" class="sound-button glass" type="button" aria-label="배경음악 음량 조절" aria-controls="sound-panel" aria-expanded="false"><svg aria-hidden="true"><use href="#volume-icon"/></svg><span>음향</span></button>
+          <section id="sound-panel" class="sound-panel glass" aria-label="배경음악 설정" hidden>
+            <div class="music-heading"><span>배경음악</span><strong>칼데라의 산책</strong></div>
+            <div class="volume-heading"><label for="music-volume">음량</label><output id="volume-value" for="music-volume"></output></div>
+            <input type="range" id="music-volume" min="0" max="100" step="1" value="35">
+            <button id="mute-music" type="button" aria-pressed="false"><svg aria-hidden="true"><use href="#mute-icon"/></svg>음소거</button>
+          </section>
+        </div>
+      </div>
+    </div>
     <div id="loading" role="status">HLB 유니버스에 들어가는 중…</div>
     <section id="no-graphics" class="error-panel" hidden>
       <h1>HLB 유니버스를 열 수 없습니다</h1><p id="graphics-reason"></p><button type="button" id="retry">다시 시도</button>
@@ -78,7 +104,8 @@
           <div><dt>점프</dt><dd>스페이스바 또는 오른쪽 아래 점프 버튼</dd></div>
           <div><dt>폭죽 쏘기</dt><dd>F 키 또는 오른쪽 아래 폭죽 버튼</dd></div>
           <div><dt>둘러보기</dt><dd>화면 드래그</dd></div>
-          <div><dt>카메라 거리</dt><dd>마우스 휠 · 두 손가락 확대와 축소</dd></div>
+          <div><dt>카메라 거리</dt><dd>마우스 휠이나 두 손가락으로 조절합니다. 야외에서 전경을 누르면 넓게 내려다보고, 다시 누르면 캐릭터 가까이 돌아옵니다.</dd></div>
+          <div><dt>분위기</dt><dd>낮과 밤을 바꿀 수 있습니다. 화면을 처음 조작하면 음악이 시작되고, 음향에서 음량과 음소거를 조절할 수 있습니다.</dd></div>
           <div><dt>자료 열기</dt><dd>열람대 앞에서 E 또는 자료 보기 버튼</dd></div>
           <div><dt>에데꼬론 전시품</dt><dd>제품을 클릭하거나 터치하면 전시대까지 걸어가 설명을 엽니다.</dd></div>
           <div><dt>열람 종료</dt><dd>Esc로 한 단계 뒤로, 닫기 버튼으로 HLB 유니버스에 복귀</dd></div>

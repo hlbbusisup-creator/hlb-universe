@@ -34,8 +34,28 @@ svg:not(.symbols) { width: 20px; height: 20px; flex: none; fill: none; stroke: c
 .tools button { min-width:42px; height:40px; border-radius:10px; padding:0 12px; font-weight:600; font-size:14px; letter-spacing:-.03em; }
 .tools button:last-child { padding:0 9px; }
 .tools button:hover,.travel button:hover { background:#ffffff23; }
-.location { position:absolute; top: max(78px,calc(env(safe-area-inset-top) + 58px)); left: max(23px,env(safe-area-inset-left)); display:flex; align-items:center; gap:5px; border-radius:20px; padding:4px 10px; font-size:12px; }
+.scene-toolbar { position:absolute; z-index:2; top:max(77px,calc(env(safe-area-inset-top) + 57px)); left:max(22px,env(safe-area-inset-left)); right:max(22px,env(safe-area-inset-right)); display:flex; align-items:flex-start; flex-wrap:wrap; gap:6px; pointer-events:none; }
+.scene-toolbar > * { pointer-events:auto; }
+.location { display:flex; align-items:center; gap:5px; min-height:30px; border-radius:20px; padding:4px 10px; font-size:12px; }
 .location svg { width:14px; height:14px; }
+.ambience { display:flex; align-items:center; gap:6px; margin-left:auto; }
+.day-night { display:flex; padding:3px; border-radius:20px; }
+.day-night button,.sound-button { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:30px; padding:3px 11px; border-radius:16px; font-size:12px; font-weight:650; white-space:nowrap; }
+.day-night button[aria-pressed="true"] { background:#ffe4cd; color:#49302c; }
+.day-night button:not([aria-pressed="true"]):hover,.sound-button:hover,.sound-button[aria-expanded="true"] { background:#55424a; }
+.scene-toolbar .ambience svg { width:16px; height:16px; }
+.sound-button { min-height:38px; border-radius:20px; }
+#overview[aria-pressed="true"] { background:#ffe4cd; color:#49302c; }
+#sound-tools { position:relative; }
+.sound-panel { position:absolute; right:0; top:calc(100% + 7px); width:218px; padding:15px 16px 12px; border-radius:16px; }
+.music-heading { display:grid; gap:1px; padding-bottom:10px; margin-bottom:8px; border-bottom:1px solid #ffe3d729; }
+.music-heading span { color:#f2bca9; font-size:11px; font-weight:650; }
+.music-heading strong { font-size:17px; letter-spacing:-.045em; }
+.volume-heading { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+.volume-heading output { font-variant-numeric:tabular-nums; color:#ffd8c8; }
+#music-volume { display:block; width:100%; height:30px; padding:0; margin:0; accent-color:#ff8575; cursor:pointer; }
+#mute-music { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; margin-top:2px; color:#fff4e8; border:1px solid #ffe3d750; border-radius:14px; font-size:12px; }
+#mute-music[aria-pressed="true"] { background:#ffe4cd; color:#49302c; }
 #loading,.error-panel { position:absolute; inset:50% auto auto 50%; transform:translate(-50%,-50%); padding:16px 24px; border-radius:14px; background:var(--paper); box-shadow:0 9px 45px #182c342e; text-align:center; }
 #loading { white-space:nowrap; }
 .error-panel { width:min(390px,calc(100% - 36px)); }
@@ -199,7 +219,9 @@ dialog.reading { width:min(890px,calc(100% - 32px)); max-height:88dvh; scrollbar
   .tools button { min-width:33px; padding:0 6px; gap:3px; height:35px; font-size:12px; }
   .tools button:last-child { padding:0 4px; }
   .tools svg { width:16px; height:16px; }
-  .location { top:max(62px,calc(env(safe-area-inset-top) + 50px)); left:11px; }
+  .scene-toolbar { top:max(62px,calc(env(safe-area-inset-top) + 50px)); left:max(10px,env(safe-area-inset-left)); right:max(10px,env(safe-area-inset-right)); }
+  .day-night button,.sound-button { padding-inline:8px; }
+  .sound-button span { display:none; }
   .panel-inner { padding:17px; }
   dialog { max-height:83dvh; }
   dialog.reading { width:calc(100% - 12px); max-height:92dvh; }
