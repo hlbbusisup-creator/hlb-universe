@@ -10,7 +10,7 @@
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
   const fields = {space:el("space-filter"), type:el("type-filter"), language:el("language-filter"), year:el("year-filter")};
   let records = [];
-  let world, player, renderer, camera, scene, fireworks, timeOfDay;
+  let world, player, renderer, camera, scene, fireworks, timeOfDay, yacht;
   let station = null, destination = null, localCollection = "";
   let returnRow = null, listScroll = 0;
   const stillScenery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -95,6 +95,8 @@
   }
 
   function openPane(name, title) {
+    if (yacht?.getState().busy && yacht.getState().phase !== "walking") return;
+    yacht?.cancelApproach();
     setSoundPanel(false);
     player?.setActive(false);
     resetStick();
@@ -138,6 +140,7 @@
   }
 
   function walkToStop(stop, inspectOnArrival = false) {
+    if (yacht?.getState().busy) return;
     if (dialog.open) dialog.close();
     player.setActive(true);
     if (player.walkTo(stop.station)) {
@@ -173,6 +176,7 @@
   }
 
   function interact() {
+    if (yacht?.getState().busy) return;
     if (!station) return;
     if (station.spaceId === "cafe") openCafe();
     else if (station.record) openRecord(station.record);
@@ -290,6 +294,19 @@
     if (!world || !player) return;
     syncCafeActions();
     const p = player.getPosition();
+    const rideState=yacht.getState(), busy=rideState.busy;
+    const locked=busy && rideState.phase!=="walking";
+    const dock=busy?null:yacht.nearby();
+    el("ride-yacht").hidden=dock===null;
+    const rideDestination=dock===0?"그룹안내소로":"입구로";
+    if (dock!==null && el("ride-destination").textContent!==rideDestination) el("ride-destination").textContent=rideDestination;
+    el("yacht-status").hidden=!locked;
+    const rideMessage=locked?rideState.message:"";
+    if (el("yacht-status").textContent!==rideMessage) el("yacht-status").textContent=rideMessage;
+    el("experience").classList.toggle("riding-yacht",locked);
+    for (const id of ["open-guide","open-search","open-help","overview","jump","firework","drink-coffee","eat-bread"]) {
+      el(id).disabled=locked || (["drink-coffee","eat-bread"].includes(id) && Boolean(player.getCafeState().consuming));
+    }
     const inside = world.spaces.find(({interior}) => interior && p.x >= interior.minX &&
       p.x <= interior.maxX && p.z >= interior.minZ && p.z <= interior.maxZ);
     overview.hidden = Boolean(inside);
@@ -298,7 +315,7 @@
     const nearest = eligible.reduce((a,b) => distance(p,a.station) < distance(p,b.station) ? a : b);
     const nearDistance = distance(p, nearest.station);
     const previous = station;
-    station = nearDistance <= nearest.radius ? nearest : null;
+    station = !busy && nearDistance <= nearest.radius ? nearest : null;
     if (station && station.id !== previous?.id) el("announcement").textContent = station.title + "에 도착했습니다.";
     if (destination && distance(p, destination.station) < .12) {
       if (destination.lookAt) player.facePoint(destination.lookAt);
@@ -309,8 +326,9 @@
     }
     const district = world.district;
     const inDistrict = district && p.x >= district.minX && p.x <= district.maxX && p.z >= district.minZ && p.z <= district.maxZ;
-    const nearby = inside ? spaces.get(inside.id).title : inDistrict ? district.title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
-    el("gallery-guide").hidden = inside?.id !== "cologne" || station?.id === "cologne";
+    const inPlaza=world.plaza && distance(p,world.plaza)<world.plaza.radius;
+    const nearby = locked ? "블랙캣 항공 투어" : inside ? spaces.get(inside.id).title : inPlaza ? world.plaza.title : inDistrict ? district.title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
+    el("gallery-guide").hidden = busy || inside?.id !== "cologne" || station?.id === "cologne";
     if (el("location-name").textContent !== nearby) el("location-name").textContent = nearby;
     const label = station?.action || "";
     if (label !== lastActionLabel) {
@@ -323,9 +341,10 @@
       const status = destination.title + "까지 " + Math.ceil(distance(p,destination.station)) + " m";
       if (el("travel-text").textContent !== status) el("travel-text").textContent = status;
     }
-    el("travel").hidden = !destination;
+    if (rideState.phase==="walking") el("travel-text").textContent=rideState.message;
+    el("travel").hidden = !destination && rideState.phase!=="walking";
     hasWalked ||= distance(p,world.spawn) > 2;
-    el("hint").hidden = Boolean(station || destination || hasWalked);
+    el("hint").hidden = Boolean(station || destination || hasWalked || dock!==null || busy);
   }
 
   function renderFrame(now) {
@@ -335,6 +354,7 @@
     previousTime = now;
     if (!dialog.open) {
       world.update(dt, stillScenery.matches);
+      yacht.update(dt, stillScenery.matches);
       player.update(dt);
       fireworks.update(dt);
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
@@ -373,6 +393,8 @@
   }
   stick.addEventListener("pointerdown",event=>{
     if (!player || stickPointer !== null) return;
+    if (yacht?.getState().busy && yacht.getState().phase!=="walking") return;
+    yacht?.cancelApproach();
     event.preventDefault();
     destination=null;
     stickPointer=event.pointerId; stick.setPointerCapture(stickPointer); readStick(event);
@@ -414,8 +436,16 @@
     if(player) canvas.focus({preventScroll:true});
   });
   el("interact").addEventListener("click",interact);
+  el("ride-yacht").addEventListener("click",()=>{
+    const dock=yacht?.nearby();
+    if (dock===null || dock===undefined) return;
+    destination=null;
+    resetStick();
+    if (!yacht.request(dock)) el("announcement").textContent="탑승장으로 조금 더 가까이 와 주세요.";
+    updateStatus();canvas.focus({preventScroll:true});
+  });
   function playAction(action) {
-    if (!player || dialog.open || document.hidden || el("play-actions").hidden) return;
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden || el("play-actions").hidden) return;
     if (action === "jump") player.jump();
     else fireworks.launch(player.getPosition(), stillScenery.matches);
   }
@@ -427,11 +457,12 @@
   }
   el("cancel-travel").addEventListener("click",()=>{
     destination=null;
+    yacht?.cancelApproach();
     player?.setActive(false); player?.setActive(true);
     updateStatus(); canvas.focus({preventScroll:true});
   });
   document.addEventListener("visibilitychange",()=>{
-    if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; resetStick(); player?.setActive(false); }
+    if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; yacht?.cancelApproach(); resetStick(); player?.setActive(false); }
     else { player?.setActive(!dialog.open); resumeRendering(); }
   });
   el("retry").addEventListener("click",()=>location.reload());
@@ -445,6 +476,8 @@
     el("play-actions").hidden=true;
     el("day-night").hidden=true;
     overview.hidden=true;
+    el("ride-yacht").hidden=true;
+    el("yacht-status").hidden=true;
     if (el("visit-cafe")) el("visit-cafe").disabled=true;
   }
 
@@ -500,14 +533,18 @@
     }
     const arrival = ["cologne","cafe"].includes(visitId) ? bySpace.get(visitId) : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
+      yacht?.cancelApproach();
       destination=null;
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
       if (stop) walkToStop(stop, true);
     },action=>{
-      if (action === "move") destination=null;
+      if (action === "move") { destination=null;yacht?.cancelApproach(); }
       else if (action === "interact") interact();
       else playAction(action);
     });
+    yacht=window.HLBYachtRide.create({scene,world,player,onChange:state=>{
+      if (state.message) el("announcement").textContent=state.message;
+    }});
     fireworks=window.HLBFireworks.create(scene, camera, canvas, {
       onBurst: phrase => { el("announcement").textContent = phrase; }
     });

@@ -64,6 +64,14 @@ svg:not(.symbols) { width: 20px; height: 20px; flex: none; fill: none; stroke: c
 .error-panel button,.empty button { color:#9c2d22; padding:8px; text-decoration:underline; }
 .lower-controls { position:absolute; bottom:max(22px,env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:grid; gap:8px; justify-items:center; width:max-content; max-width:calc(100% - 32px); pointer-events:none; }
 .lower-controls button { pointer-events:auto; }
+.interact.yacht-button { background:#204d60; border-color:#bde4e2; }
+.yacht-button > span:first-of-type { text-align:left; }
+.yacht-button small { display:block; margin-top:2px; font-size:11px; font-weight:500; color:#d2e9eb; }
+.yacht-name { padding-left:12px; border-left:1px solid #ffffff4d; font-size:12px; color:#d2e9eb; }
+.yacht-status { margin:0; padding:12px 20px; border-radius:24px; font-size:14px; text-align:center; }
+.riding-yacht #stick { pointer-events:none; opacity:.35; }
+.riding-yacht #play-actions { opacity:.35; }
+.riding-yacht button:disabled { cursor:default; }
 #play-actions { position:absolute; right:max(22px,env(safe-area-inset-right)); bottom:max(20px,env(safe-area-inset-bottom)); display:flex; gap:7px; }
 .play-button { display:flex; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:0 12px; border-radius:14px; font-size:13px; font-weight:700; touch-action:manipulation; }
 .play-button:hover,.play-button:focus-visible { background:#4a3437; }

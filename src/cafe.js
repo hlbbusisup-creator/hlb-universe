@@ -176,7 +176,7 @@
       color:0x768487,transparent:true,opacity:.36,depthWrite:false,roughness:.26
     });
     mesh("Smoked transom",new T.BoxGeometry(.045,.84,7.88),transom,6.067,3.34,1.02);
-    sign("Café Lento · entrance marquee",6.11,3.33,1.02,7.71,Math.PI/2);
+    sign("Café Lento · entrance marquee",6.29,3.33,1.02,7.71,Math.PI/2);
     block(5.94,3.55,3.0,.16,.14,2.7,espresso);
     const roofCollider=collider(cx,cz,12.34,10.3,4.3,roofY-.14);
     roofs.push(roofCollider);

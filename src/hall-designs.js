@@ -67,7 +67,9 @@
         ctx.fillText(subtitle,384,ch*.77,723);
       }
       const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;map.anisotropy=4;
-      mesh(title,new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map,toneMapped:false}),x,y,z).rotation.y=yaw;
+      const plate=mesh(title,new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map,toneMapped:false}),x,y,z);
+      plate.rotation.y=yaw;
+      return plate;
     }
     function cover(x,y,z,w,h,file) {
       box(x,y,z,w+.11,h+.11,.085,brass);
@@ -91,9 +93,13 @@
       hoop.rotation.set(rx,ry,0);
       return hoop;
     }
-    function suspendedSign(z=0.22,y=top-.27,w=3.5) {
+    function suspendedSign(z=.82,y=top-.52,w=3.5) {
+      // The face projects beyond the eaves and decorative frames. Its brackets
+      // stop above the lettering so approaching visitors see the whole name.
+      for (const x of [-w*.38,w*.38]) tube([x,top-.12,.03],[x,y+.39,z-.03],.023,brass);
       box(0,y,z,w+.12,.75,.12,theme.frame);
-      sign(0,y,z+.068,w,.68,hall.title,hall.en);
+      const plate=sign(0,y,z+.068,w,.68,hall.title,hall.en);
+      plate.userData.wayfindingSign={width:w,height:.68};
     }
     function wallPair(glass,frontGlass) {
       box(0,top/2,back,width,top,.18,theme.wall);
@@ -150,8 +156,8 @@
       }
       for(const side of [-1,1])form("crystal",cx+side*.10,cy+side*.17,cz+.03,.075,.25,.042,
         side<0?cream:magma,[0,0,-.5]);
-      suspendedSign(.31,top-.33);
-      // The lobby plan follows the three facing pairs along the exhibition street.
+      suspendedSign();
+      // The lobby plan follows the circular collection around the group hall.
       const gx=-half+1.32,gz=back+1.67;
       form("round",gx,.18,gz,.84,.24,.84,jade);
       form("round",gx,.67,gz,.29,.78,.29,brass);
@@ -164,11 +170,16 @@
       sign(0,2.70,back+.207,3.54,.52,"유니버스 안내도","",theme.sign);
       const planZ=back+.215;
       const marker=(x,y,w,h,col)=>box(x,y,planZ+.025,w,h,.04,col,null,"light");
-      marker(0,1.61,.05,1.50,brass);
-      for(const y of [1.0,1.43,1.86]) marker(0,y,2.46,.04,brass);
-      for(const [x,y,title,c] of [[0,2.30,"그룹안내소","#b94339"],[-1.30,1.43,"브랜드관","#9c5046"],
-        [1.30,1.43,"제품전시관","#476d82"],[-1.30,1.86,"IR 자료관","#74604b"],[1.30,1.86,"ESG 정원","#527351"],
-        [-1.30,1.0,"카페 렌토","#785841"],[1.30,1.0,"에데꼬론","#826b50"]]){
+      const ringColor=0xa9946e;
+      for(let i=0;i<32;i++){
+        const a=i*Math.PI/16;
+        marker(Math.cos(a)*1.05,1.96+Math.sin(a)*.43,.075,.035,ringColor);
+      }
+      marker(0,1.26,.05,.65,brass);
+      marker(0,.98,2.46,.04,brass);
+      for(const [x,y,title,c] of [[0,1.96,"그룹안내소","#b94339"],[-1.30,1.57,"브랜드관","#9c5046"],
+        [1.30,1.57,"제품전시관","#476d82"],[-1.30,2.30,"IR 자료관","#74604b"],[1.30,2.30,"ESG 정원","#527351"],
+        [-1.30,.98,"카페 렌토","#785841"],[1.30,.98,"에데꼬론","#826b50"]]){
         sign(x,y,planZ+.055,.94,.24,title,"",c);
       }
       consoleDesk(brass);
@@ -187,7 +198,7 @@
         }
       }
       for(let i=0;i<5;i++)box(-half+.42+i*.29,1.60,.34,.065,2.85,.17,0xa93634);
-      suspendedSign(.43,top-.37,3.24);
+      suspendedSign(.82,top-.52,3.24);
       box(0,1.79,back+.12,4.56,2.63,.14,0x8e302e);
       sign(0,2.03,back+.198,4.13,1.48,"HLB","Human Life Better","#ab302e");
       const colors=[magma,0x842830,0xd9ab9e,0xf1dac5];
@@ -227,7 +238,7 @@
       }
       box(0,top-.055,.15,width+.36,.27,.38,0xe0e9e5);
       for(const side of [-1,1])box(side*(half-.21),1.62,.19,.36,3.28,.33,cyan);
-      suspendedSign(.39,top-.38);
+      suspendedSign();
       cover(0,1.93,back+.15,1.38,1.79,"products-ko");
       sign(0,2.98,back+.20,3.50,.43,"제품 카탈로그","",theme.sign);
       for(const side of [-1,1]){
@@ -296,7 +307,7 @@
         }
         for(let i=0;i<4;i++)box(side*(entry+.30+i*.71),1.76,.105,.038,3.38,.034,0xbaaa92);
       }
-      suspendedSign(1.02,top-.28,3.51);
+      suspendedSign(1.10,top-.52,3.51);
       cover(0,2.09,back+.16,1.93,1.49,"ir-pharma");
       sign(0,3.11,back+.18,3.19,.45,"투자자 자료","",theme.sign);
       const covers=[0x586674,0x89615c,0x607162,0x9b815a,0xa26250,0x49484f];
@@ -385,7 +396,7 @@
         }
       }
       tube([0,ridge,back-.13],[0,ridge,.17],.10,amber);
-      suspendedSign(.20,top-.19,2.94);
+      suspendedSign(.82,top-.52,2.94);
       cover(0,1.96,back+.15,1.46,1.94,"esg-ko");
       consoleDesk(0x9eb18d);
     }

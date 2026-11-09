@@ -16,9 +16,14 @@
     const site = new T.Group();
     site.name = "HLB Universe";
     scene.add(site);
-    const bounds = {minX:-25, maxX:25, minZ:-45, maxZ:25};
-    const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-36,maxZ:19.5};
-    const lavaLights = [[-4.9,3],[4.9,-13],[-11,21],[11,21]];
+    const bounds = {minX:-25, maxX:25, minZ:-45, maxZ:28};
+    const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-8,maxZ:19.5};
+    const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:22};
+    const yachtDocks = [
+      {id:"entrance",title:"입구",x:10,z:23,yaw:0,station:{x:7,z:23},sign:{x:7,z:25}},
+      {id:"group",title:"그룹안내소",x:7.6,z:-17.5,yaw:0,station:{x:4.4,z:-17.5},sign:{x:4.3,z:-15.6}}
+    ];
+    const lavaLights = [[-4.9,3],[4.9,3],[-22,-26],[22,-26]];
     const colliders = [], roofs = [], spaces = [];
     let seed = 1171;
     function random() { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; }
@@ -360,16 +365,40 @@
       hotRock.push([x,z]);
     }
     function siteDetail(){
-      // Three equally spaced entrance pairs open onto one continuous avenue.
-      path(0,25,0,-36,8.2);
-      for(const z of [11,-5,-21]) path(-5.5,z,5.5,z,2.8);
-      // Thin lava beds sit beyond the paving. The crosswalks remain open.
-      for(const side of [-1,1]){
-        for(const z of [18,3,-13,-29]) vent(side*4.9,z,.45,3.3);
-        for(const z of [11,-5,-21,-36]) vent(side*21.3,z,2.05,4);
-        vent(side*11,21,3.6,2);
-        vent(side*10,-39,2.3,3.4);
+      // The cafe and perfume hall line the avenue. A separate circular walk
+      // surrounds the central group information hall and connects four archives.
+      path(0,28,0,-22.4,8.2);
+      path(-5.5,11,5.5,11,2.8);
+      const paving=[],pavingColors=[],tone=new T.Color();
+      const point=(r,a)=>[Math.sin(a)*r,.045,plaza.z+Math.cos(a)*r];
+      for(let i=0;i<96;i++){
+        const a=i/96*TAU+.002,b=(i+1)/96*TAU-.002;
+        const innerA=point(11.35,a),outerA=point(14.05,a),innerB=point(11.35,b),outerB=point(14.05,b);
+        tone.setHex(choose([0x938a83,0xa0978b,0x958d89,0x877e7c]));
+        face(paving,pavingColors,innerA,innerB,outerB,tone);
+        face(paving,pavingColors,innerA,outerB,outerA,tone);
       }
+      triangles("Circular brand plaza promenade",paving,pavingColors,mountainMaterial).receiveShadow=true;
+      for(const side of [-1,1]) for(const row of [-1,1]){
+        path(side*8.98,plaza.z+row*8.98,side*12,plaza.z+row*12,2.75);
+      }
+      // Small embarkation pads stay outside the continuous walking line.
+      for(const dock of yachtDocks){
+        path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
+        colliders.push(collider(dock.x,dock.z,3.7,6,3.7));
+      }
+      // The molten beds are kept clear of the promenade, doors and yacht pads.
+      for(const side of [-1,1]){
+        vent(side*4.9,17.2,.45,2);
+        vent(side*4.9,3,.45,3.3);
+        for(const z of [-14,-26,-38]) vent(side*22,z,1.8,3.2);
+        vent(side*9,-5.8,2.2,2.2);
+        vent(side*7,-43,2.1,1.1);
+        vent(side*7.5,-26,.8,1.35);
+        vent(side*19.5,-3.8,1.7,2.4);
+      }
+      vent(-11,23,3.6,2);
+      vent(20.4,22.8,2,2.4);
       // A named threshold marks the transition from the caldera into the street.
       for(const side of [-1,1]){
         box(side*5.4,1.9,19.5,.30,3.8,.36,dark);
@@ -396,14 +425,19 @@
       }
       for(let i=0;i<430;i++){
         const x=random()*50-25,z=random()*70-45;
-        if(Math.abs(x)<6 || spaces.some(({interior:b})=>
+        if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<22 || yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
           x>b.minX-.6 && x<b.maxX+.6 && z>b.minZ-.6 && z<b.maxZ+.6)) continue;
         const s=.08+random()*.21;
         place("rock",choose(basalt),x,s*.16,z,s,.36*s,s*(.75+random()),[.06,random()*TAU,.05],"stone");
       }
       // Lamps repeat between the entrances without narrowing any door approach.
-      for(const side of [-1,1]) for(const z of [14,8,-2,-8,-18,-24,-33]){
-        const x=side*3.85;
+      const lampPositions=[];
+      for(const side of [-1,1]) for(const z of [14,8,2]) lampPositions.push([side*3.85,z]);
+      for(const degrees of [-150,-120,-90,-60,-30,30,60,90,120,150,180]){
+        const a=degrees*Math.PI/180;
+        lampPositions.push([Math.sin(a)*14.5,plaza.z+Math.cos(a)*14.5]);
+      }
+      for(const [x,z] of lampPositions){
         box(x,.35,z,.18,.70,.18,dark);
         box(x,.62,z,.194,.12,.194,0xffbe7b,null,"light");
         box(x,.75,z,.23,.10,.23,iron);
@@ -465,8 +499,8 @@
     const summitLogo=makeSummitLogo();
     const hallKit={T,site,box,place,tube,collider,colliders,roofs};
     const placements={
-      group:[0,-36,0], brand:[-5.5,-5,Math.PI/2], product:[5.5,-5,-Math.PI/2],
-      ir:[-5.5,-21,Math.PI/2], esg:[5.5,-21,-Math.PI/2]
+      group:[0,-22.4,0], brand:[-12,-14,Math.PI/2], product:[12,-14,-Math.PI/2],
+      ir:[-12,-38,Math.PI/2], esg:[12,-38,-Math.PI/2]
     };
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
@@ -493,7 +527,7 @@
       summitLogo.rotation.y=-angle;
       updateAtmosphere(dt);
     }
-    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,lavaLights,
+    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,lavaLights,
       spawn:{x:0,z:23},update};
   }
   globalThis.HLBWorld3D={build};

@@ -7,7 +7,7 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=product-shelf">
+  <link rel="stylesheet" href="styles.css?v=circle-yacht">
   <link rel="stylesheet" href="src/product-book.css?v=1">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js?v=cafe"></script>
@@ -19,15 +19,17 @@
   <script defer src="src/product-data.js?v=1"></script>
   <script defer src="src/product-book.js?v=1"></script>
   <script defer src="src/reader.js?v=product-shelf"></script>
-  <script defer src="src/cologne-gallery.js?v=brand-street"></script>
-  <script defer src="src/hall-designs.js?v=brand-street"></script>
-  <script defer src="src/cafe.js?v=brand-street"></script>
-  <script defer src="src/world3d.js?v=brand-street"></script>
-  <script defer src="src/player3d.js?v=brand-street"></script>
+  <script defer src="src/cologne-gallery.js?v=circle-yacht"></script>
+  <script defer src="src/hall-designs.js?v=circle-yacht"></script>
+  <script defer src="src/cafe.js?v=circle-yacht"></script>
+  <script defer src="src/world3d.js?v=circle-yacht"></script>
+  <script defer src="src/player3d.js?v=circle-yacht"></script>
+  <script defer src="src/blackcat-yacht.js?v=circle-yacht"></script>
+  <script defer src="src/yacht-ride.js?v=circle-yacht"></script>
   <script defer src="src/time-of-day.js?v=brand-street"></script>
   <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js?v=brand-street"></script>
+  <script defer src="src/app.js?v=circle-yacht"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -93,6 +95,8 @@
       <button type="button" id="firework" class="play-button glass" aria-keyshortcuts="F"><svg aria-hidden="true"><use href="#firework-icon"/></svg><span>폭죽</span><kbd>F</kbd></button>
     </div>
     <div class="lower-controls">
+      <p id="yacht-status" class="yacht-status glass" role="status" hidden></p>
+      <button type="button" id="ride-yacht" class="interact yacht-button" hidden><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>이동하기<small id="ride-destination">그룹안내소로</small></span><span class="yacht-name">블랙캣</span></button>
       <div id="travel" class="travel glass" hidden><span id="travel-text"></span><button type="button" id="cancel-travel" aria-label="길 안내 해제"><svg><use href="#close-icon"/></svg></button></div>
       <button type="button" class="interact" id="interact" hidden><svg><use href="#book-icon"/></svg><span></span><kbd>E</kbd></button>
       <p class="hint glass" id="hint"><span class="desktop-hint">방향키로 걷기 <i></i> 드래그로 둘러보기 <i></i> 바닥 클릭으로 이동</span><span class="mobile-hint">왼쪽 원으로 걷고 화면을 밀어 둘러보세요</span></p>
@@ -120,6 +124,7 @@
         <dl class="help-list">
           <div><dt>걷기</dt><dd>WASD · 방향키 · 바닥 클릭</dd></div>
           <div><dt>모바일에서 걷기</dt><dd>왼쪽 조이스틱 또는 바닥 터치</dd></div>
+            <div><dt>블랙캣 요트</dt><dd>입구 오른쪽의 나무 간판 근처에서 ‘이동하기’를 누르면 요트를 타고 그룹안내소 앞으로 날아갑니다. 그룹안내소 안이나 앞 탑승장에서 다시 누르면 입구로 돌아옵니다.</dd></div>
           <div><dt>점프</dt><dd>스페이스바 또는 오른쪽 아래 점프 버튼</dd></div>
           <div><dt>폭죽 쏘기</dt><dd>F 키 또는 오른쪽 아래 폭죽 버튼</dd></div>
           <div><dt>둘러보기</dt><dd>화면 드래그</dd></div>

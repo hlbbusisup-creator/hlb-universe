@@ -141,8 +141,12 @@
     // approach from either side of the plaza.
     const wordmark=[{text:"AI de cologne",size:.58,y:.38,font:"Georgia,serif",style:"italic",color:"#fbe8c1"},
       {text:"에데꼬론 상품관",size:.19,y:.83,color:"#f8e7ce"}];
-    print(-halfWidth-.182,height-.25,(doorStart+doorEnd)/2,4.82,.70,"#352a28",wordmark,-Math.PI/2);
-    print(-2.56,height-.25,depth+.132,5.00,.70,"#352a28",wordmark);
+    piece(-halfWidth-.46,height-.25,(doorStart+doorEnd)/2,.12,.80,5.02,espresso);
+    const entranceSign=print(-halfWidth-.527,height-.25,(doorStart+doorEnd)/2,4.82,.70,"#352a28",wordmark,-Math.PI/2);
+    entranceSign.userData.wayfindingSign={width:4.82,height:.70};
+    piece(-2.56,height-.25,depth+.22,5.20,.80,.12,espresso);
+    const windowSign=print(-2.56,height-.25,depth+.287,5.00,.70,"#352a28",wordmark);
+    windowSign.userData.wayfindingSign={width:5,height:.70};
     // Narrow grooves break up the stone frontage and frame the shop entry.
     for(let z=.35;z<doorStart-.2;z+=.29) piece(-halfWidth-.135,1.89,z,.09,3.65,.035,0xcdbca4);
 
@@ -173,8 +177,7 @@
       }
     }
     arch(-halfWidth-.23,.12,(doorStart+doorEnd)/2,2.30,1.18,.13,archMetal).rotation.y=-Math.PI/2;
-    piece(-halfWidth-.34,3.54,(doorStart+doorEnd)/2,.90,.12,4.83,espresso);
-    piece(-halfWidth-.80,3.55,(doorStart+doorEnd)/2,.03,.11,4.84,brass);
+    piece(-halfWidth-.527,3.14,(doorStart+doorEnd)/2,.03,.05,5.02,brass);
     for(const x of [-3.45,3.45]){
       arch(x,.14,.19,2.48,1.10,.17,archStone);
       arch(x,.15,.301,2.31,1.10,.025,archMetal);

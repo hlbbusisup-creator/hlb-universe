@@ -110,21 +110,32 @@ test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통�
   }
 });
 
-test('브랜드 거리 양쪽의 세 건물 쌍이 같은 간격으로 마주 보고 중앙 길이 열려 있다', () => {
-  const pairs = [['cafe','cologne'], ['brand','product'], ['ir','esg']];
-  let previousZ;
-  for (const [leftId,rightId] of pairs) {
-    const left=world.spaces.find(space=>space.id===leftId);
-    const right=world.spaces.find(space=>space.id===rightId);
-    assert.ok(Math.abs(left.x+right.x)<.001);
-    assert.ok(Math.abs(left.z-right.z)<.001);
-    assert.ok(left.interior.maxX<=left.x+.3 && right.interior.minX>=right.x-.3);
-    if (previousZ !== undefined) assert.ok(Math.abs(previousZ-left.z-16)<.001);
-    previousZ=left.z;
-  }
+test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관이 그룹안내소 중심의 원형광장을 둘러싼다', () => {
+  const cafe=world.spaces.find(space=>space.id==='cafe');
+  const cologne=world.spaces.find(space=>space.id==='cologne');
+  assert.ok(Math.abs(cafe.x+cologne.x)<.001 && Math.abs(cafe.z-cologne.z)<.001);
+  const group=world.spaces.find(space=>space.id==='group').interior;
+  assert.ok(Math.abs((group.minX+group.maxX)/2-world.plaza.x)<.01);
+  assert.ok(Math.abs((group.minZ+group.maxZ)/2-world.plaza.z)<.4);
+  const surrounding=world.spaces.filter(space=>['brand','product','ir','esg'].includes(space.id));
+  const radii=surrounding.map(space=>Math.hypot(space.x-world.plaza.x,space.z-world.plaza.z));
+  assert.ok(Math.max(...radii)-Math.min(...radii)<.1);
+  assert.equal(new Set(surrounding.map(space=>[Math.sign(space.x),Math.sign(space.z-world.plaza.z)].join(','))).size,4);
+  assert.ok(surrounding.every(space=>space.interior.maxZ<world.district.minZ));
+  assert.ok(scene.getObjectByName('Circular brand plaza promenade'));
   for (let z=world.spawn.z;z>=world.district.minZ;z-=.25) {
     assert.ok(world.colliders.every(box=>box.minX>=.5 || box.maxX<=-.5 || z<box.minZ || z>box.maxZ), '거리 중앙 z='+z);
   }
+});
+
+test('블랙캣 양쪽 승하차 장소와 그룹안내소에 걸어서 접근할 수 있다', () => {
+  assert.deepEqual(Array.from(world.yachtDocks,dock=>dock.id),['entrance','group']);
+  const {player}=createPlayer();
+  try {
+    for(const dock of world.yachtDocks) visit(player,dock);
+    visit(player,world.spaces.find(space=>space.id==='group'));
+    visit(player,world.yachtDocks[0]);
+  } finally { player.dispose(); }
 });
 
 test('야외 전경은 광장을 넓게 보여주고, 전시관에 들어가면 실내 거리로 돌아온다', () => {

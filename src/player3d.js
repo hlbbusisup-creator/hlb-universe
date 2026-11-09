@@ -553,6 +553,9 @@
     let jumpTime = jumpDuration;
     let jumpHeight = 0;
     let cafeTurn = null;
+    let ride = null;
+    const ridePosition = new T.Vector3();
+    const rideCamera = new T.Vector3();
     const baseFov=camera.fov;
     let route=[], pinchGap=0, touchingMultiple=false;
     const cameraBoxes = (world.cameraColliders || world.colliders).map(b=>new T.Box3(
@@ -583,7 +586,7 @@
     marker.rotation.x=-Math.PI/2; marker.visible=false; scene.add(marker);
 
     function walkTo(point) {
-      if (!active) return false;
+      if (!active || ride) return false;
       route=nav.route(position,point);
       marker.visible=route.length>0;
       if (!marker.visible) return false;
@@ -600,17 +603,17 @@
     }
     function setActive(value) { active=Boolean(value); if (!active) release(); }
     function jump() {
-      if (!active || jumpTime < jumpDuration) return false;
+      if (!active || ride || jumpTime < jumpDuration) return false;
       jumpTime = 0;
       return true;
     }
     function setStick(x,y) {
-      if (!active) return;
+      if (!active || ride) return;
       stick.x=clamp(x,-1,1); stick.y=clamp(y,-1,1);
       if (Math.hypot(x,y)>0.08) stopRoute();
     }
     function consumeCafeItem(item) {
-      if (!active || !visitor.consumeCafeItem(item)) return false;
+      if (!active || ride || !visitor.consumeCafeItem(item)) return false;
       const movingKeys = [...held].some(code => movementCodes.has(code));
       if (!route.length && !movingKeys && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
         const start=visitor.root.rotation.y, home=cafeTurn?.home ?? start;
@@ -625,9 +628,9 @@
       if (roomAt(position)) indoorZoom=clamp(indoorZoom*factor,.55,1.3);
       else outdoorZoom=clamp(outdoorZoom*factor,.34,6);
     }
-    function isOverview() { return !roomAt(position) && outdoorZoom>=5.7; }
+    function isOverview() { return !ride && !roomAt(position) && outdoorZoom>=5.7; }
     function toggleOverview() {
-      if (!active || roomAt(position)) return;
+      if (!active || ride || roomAt(position)) return;
       outdoorZoom=isOverview() ? 1 : 6;
     }
     function boomClearance(elevation,desired) {
@@ -703,11 +706,56 @@
       pitch = entryPitch;
       updateCamera(1);
     }
+    function beginRide(craft, passenger) {
+      if (ride) return false;
+      release();
+      jumpTime=jumpDuration;
+      jumpHeight=0;
+      cafeTurn=null;
+      visitor.root.getWorldPosition(ridePosition);
+      craft.updateWorldMatrix(true,false);
+      ride={craft,boarding:0,start:craft.worldToLocal(ridePosition.clone()),seat:new T.Vector3(passenger.x,passenger.y,passenger.z)};
+      craft.add(visitor.root);
+      visitor.root.position.copy(ride.start);
+      visitor.root.rotation.set(0,0,0);
+      visitor.root.visible=true;
+      return true;
+    }
+    function endRide(point, facing) {
+      if (!ride) return false;
+      scene.add(visitor.root);
+      ride=null;
+      position={x:point.x,z:point.z};
+      visitor.root.position.set(point.x,roomAt(point) ? .086 : .025,point.z);
+      visitor.root.rotation.set(0,0,0);
+      visitor.root.visible=true;
+      release();
+      facePoint(facing);
+      return true;
+    }
+    function updateRide(dt) {
+      ride.boarding=Math.min(.75,ride.boarding+dt);
+      visitor.root.position.lerpVectors(ride.start,ride.seat,T.MathUtils.smootherstep(ride.boarding,0,.75));
+      ride.craft.updateWorldMatrix(true,true);
+      visitor.root.getWorldPosition(ridePosition);
+      position={x:ridePosition.x,z:ridePosition.z};
+      visitor.animate(active ? dt : 0,ride.boarding<.75 ? dt*.7 : 0,reducedMotion.matches,0);
+      const portrait=camera.aspect<1;
+      const fieldOfView=portrait ? 72 : baseFov;
+      if (camera.fov!==fieldOfView) { camera.fov=fieldOfView;camera.updateProjectionMatrix(); }
+      target.set(ride.craft.position.x,ridePosition.y+.5,ride.craft.position.z);
+      // A side view keeps the passenger visible ahead of the cabin and canopy.
+      rideCamera.set(target.x+(portrait ? 12 : 10),target.y+(portrait ? 7 : 6),target.z+3);
+      camera.position.lerp(rideCamera,1-Math.exp(-dt*5));
+      camera.lookAt(target);
+      visitor.root.visible=true;
+    }
     function down(a,b) {
       return held.has(a)||held.has(b)||freshPresses.has(a)||freshPresses.has(b);
     }
     function update(dt) {
       dt=clamp(Number(dt)||0,0,0.07);
+      if (ride) { updateRide(dt); return position; }
       // A quick keyboard tap can start and finish between two rendered frames.
       let right=stick.x + Number(down("KeyD","ArrowRight")) - Number(down("KeyA","ArrowLeft"));
       let forward=stick.y + Number(down("KeyW","ArrowUp")) - Number(down("KeyS","ArrowDown"));
@@ -760,7 +808,7 @@
     function keyDown(event) {
       const moving = movementCodes.has(event.code);
       const action = actionCodes.get(event.code);
-      if (!active || document.hidden || (!moving && !action) || event.isComposing ||
+      if (!active || ride || document.hidden || (!moving && !action) || event.isComposing ||
         event.altKey || event.ctrlKey || event.metaKey || editing(event)) return;
       if (event.code === "Space" && event.target?.closest?.("button,a")) return;
       // A key kept down across a dialog or a lost window focus needs a new press.
@@ -809,7 +857,7 @@
         floorHit.z>=world.bounds.minZ && floorHit.z<=world.bounds.maxZ) walkTo(floorHit);
     }
     function pointerDown(event) {
-      if (!active || (event.pointerType==="mouse" && event.button!==0)) return;
+      if (!active || ride || (event.pointerType==="mouse" && event.button!==0)) return;
       pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,drag:false});
       canvas.setPointerCapture(event.pointerId);
       canvas.focus({preventScroll:true});
@@ -846,7 +894,7 @@
       if (tapped && active) pointOnGround(event.clientX,event.clientY);
     }
     function wheel(event) {
-      if (!active) return;
+      if (!active || ride) return;
       event.preventDefault();
       const pixels=event.deltaY*(event.deltaMode===1 ? 16 : event.deltaMode===2 ? 600 : 1);
       changeZoom(Math.exp(clamp(pixels,-900,900)*.0012));
@@ -869,9 +917,14 @@
       marker.removeFromParent(); marker.geometry.dispose(); markerMaterial.dispose();
     }
     function getPosition() {
+      if (ride) {
+        visitor.root.getWorldPosition(ridePosition);
+        return {x:ridePosition.x,y:ridePosition.y,z:ridePosition.z};
+      }
       return {x:position.x, y:visitor.root.position.y + jumpHeight, z:position.z};
     }
     return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose,
+      beginRide,endRide,isRiding:()=>Boolean(ride),
       getCafeState:visitor.getCafeState, orderCafeItem:visitor.orderCafeItem,consumeCafeItem};
   }
 

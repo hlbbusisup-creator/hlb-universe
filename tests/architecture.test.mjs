@@ -60,3 +60,38 @@ test("일곱 건물의 장식을 포함한 지붕 최고점이 같은 4.3m 선�
     assert.ok(builder.roofs.length > 0, id + " 카메라 지붕 충돌체");
   }
 });
+
+test("주요 간판의 글자 영역은 진입 방향에서 처마와 장식에 가리지 않는다", () => {
+  for (const id of ["group", "brand", "product", "ir", "esg", "cologne"]) {
+    const builder = kit();
+    if (id === "cologne") context.HLBCologneGallery.build(builder);
+    else context.HLBHalls.build(builder, {id, title:id, en:id, x:0, front:0, width:10, depth:6.5});
+    builder.site.updateMatrixWorld(true);
+    const signs = [], solids = [];
+    builder.site.traverse(object => {
+      if (object.userData.wayfindingSign) signs.push(object);
+      if (object.isMesh && object.material.opacity > .9) solids.push(object);
+    });
+    assert.equal(signs.length, id === "cologne" ? 2 : 1, id + " 외부 간판 개수");
+    const ray = new T.Raycaster();
+    for (const sign of signs) {
+      const {width, height} = sign.userData.wayfindingSign;
+      const center = sign.getWorldPosition(new T.Vector3());
+      const normal = new T.Vector3(0, 0, 1).transformDirection(sign.matrixWorld);
+      const tangent = new T.Vector3(1, 0, 0).transformDirection(sign.matrixWorld);
+      for (const side of [-3, 0, 3]) for (const eyeY of [1.7, 5.5]) {
+        const eye = center.clone().addScaledVector(normal, 8).addScaledVector(tangent, side);
+        eye.y = eyeY;
+        for (const x of [-.42, -.21, 0, .21, .42]) for (const y of [-.35, 0, .35]) {
+          const target = sign.localToWorld(new T.Vector3(width*x, height*y, 0));
+          ray.set(eye, target.clone().sub(eye).normalize());
+          ray.far = eye.distanceTo(target) - .001;
+          const first = ray.intersectObjects(solids, false)[0];
+          assert.ok(!first,
+            id + " 간판 가림: 위치 " + [side,eyeY,x,y] + ", 구조물 " + first?.object.name +
+            " " + first?.object.position.toArray() + " / " + first?.object.scale.toArray());
+        }
+      }
+    }
+  }
+});
