@@ -7,7 +7,7 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=cafe">
+  <link rel="stylesheet" href="styles.css?v=lento2">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js?v=cafe"></script>
   <script defer src="src/catalog.js"></script>
@@ -18,13 +18,13 @@
   <script defer src="src/reader.js"></script>
   <script defer src="src/cologne-gallery.js?v=pavilions"></script>
   <script defer src="src/hall-designs.js?v=cafe"></script>
-  <script defer src="src/cafe.js"></script>
+  <script defer src="src/cafe.js?v=lento2"></script>
   <script defer src="src/world3d.js?v=cafe"></script>
-  <script defer src="src/player3d.js?v=cafe"></script>
+  <script defer src="src/player3d.js?v=lento2"></script>
   <script defer src="src/time-of-day.js"></script>
   <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js?v=cafe"></script>
+  <script defer src="src/app.js?v=lento2"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -103,8 +103,8 @@
       <section id="cafe-pane" hidden>
         <p class="panel-desc">메뉴를 골라 주세요. 두 가지 모두 가져갈 수 있어요.</p>
         <div class="cafe-menu">
-          <button type="button" id="order-coffee"><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 주문하기</span><small>오른손</small></button>
-          <button type="button" id="order-bread"><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 주문하기</span><small>왼손</small></button>
+          <button type="button" id="order-coffee"><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 주문하기</span></button>
+          <button type="button" id="order-bread"><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 주문하기</span></button>
         </div>
         <p id="order-status" role="status"></p>
         <button type="button" class="leave-counter" id="leave-counter">주문대 떠나기 <svg aria-hidden="true"><use href="#arrow-icon"/></svg></button>

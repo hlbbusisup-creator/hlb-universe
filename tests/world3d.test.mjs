@@ -60,6 +60,23 @@ test('정상 로고는 수직축을 중심으로 시계 방향으로 돌고 모�
   assert.equal(logo.rotation.y, 0);
 });
 
+test('카페 입구와 주문대에는 흰색으로 빛나는 가로형 입체 간판이 있다', () => {
+  for (const place of ['entrance', 'counter']) {
+    const marquee = scene.getObjectByName('Café Lento · ' + place + ' marquee');
+    assert.ok(marquee, place + ' 간판');
+    const letters = marquee.getObjectByName('Café Lento · illuminated lettering');
+    assert.ok(letters?.isMesh);
+    letters.updateWorldMatrix(true, false);
+    letters.geometry.computeBoundingBox();
+    const local = new THREE.Matrix4().copy(marquee.matrixWorld).invert().multiply(letters.matrixWorld);
+    const size = letters.geometry.boundingBox.clone().applyMatrix4(local).getSize(new THREE.Vector3());
+    assert.ok(size.x > size.y * 4 && size.z > 0, place + ' 가로로 긴 입체 문자');
+    const lit = letters.material.some(m => m.emissiveIntensity > 0 &&
+      Math.min(m.emissive.r, m.emissive.g, m.emissive.b) > .45);
+    assert.ok(lit, place + ' 밝은 흰색 발광');
+  }
+});
+
 function visit(player, space) {
   assert.ok(player.walkTo(space.station), space.id + ' 길찾기 실패');
   // A finite simulated time limit catches blocked routes without a wall clock.
@@ -242,6 +259,40 @@ test('커피와 빵을 각 손에 들고 이동하며 먹거나 마신 손에 �
   } finally {
     player.dispose();
   }
+});
+
+test('커피를 마시거나 빵을 먹으면 미소가 잠시 유지되고 평상시 표정으로 돌아온다', () => {
+  const originalMatch = page.matchMedia;
+  try {
+    for (const reducedMotion of [false, true]) {
+      page.matchMedia = () => ({matches: reducedMotion});
+      const {player} = createPlayer();
+      try {
+        const avatar = scene.getObjectByName('campus-visitor');
+        const smile = avatar.getObjectByName('visitor-cafe-smile');
+        const mouth = avatar.getObjectByName('visitor-mouth');
+        assert.ok(smile);
+        assert.equal(smile.visible, false);
+        const bounds = new THREE.Box3().setFromObject(smile);
+        assert.ok(!bounds.isEmpty(), '미소에 실제 얼굴 메시가 있어야 함');
+        for (const item of ['coffee', 'bread']) {
+          assert.equal(player.orderCafeItem(item), true);
+          assert.equal(player.consumeCafeItem(item), true);
+          for (let frame=0; player.getCafeState().consuming && frame<100; frame++) player.update(1/30);
+          assert.equal(player.getCafeState()[item], false);
+          assert.equal(smile.visible, true, item + ' 소품이 사라진 직후 웃어야 함');
+          assert.equal(mouth.visible, false, '기본 입이 웃는 입에 겹치지 않아야 함');
+          for (let frame=0; frame<15; frame++) {
+            player.update(1/30);
+            assert.equal(smile.visible, true, item + ' 식후 미소를 볼 시간이 있어야 함');
+          }
+          for (let frame=0; frame<60; frame++) player.update(1/30);
+          assert.equal(smile.visible, false, item + ' 기본 표정으로 복귀');
+          assert.equal(mouth.visible, true);
+        }
+      } finally { player.dispose(); }
+    }
+  } finally { page.matchMedia = originalMatch; }
 });
 
 test('사람 캐릭터는 실제 머리 높이의 약 두 배이고 앞뒤에서 HLB 마그마 레드가 보인다', () => {

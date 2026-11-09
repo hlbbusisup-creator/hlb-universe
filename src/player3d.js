@@ -85,6 +85,7 @@
     const head = joint(chest,0,headHeightAboveHips,-.009);
     head.name = "visitor-head";
     const eyes = joint(head,0,-.022,0);
+    eyes.name = "visitor-eyes";
     part(head,(oval,band,seam,add) => {
       oval(skin,0,0,0,.373,.388,.303);
       for (const s of [-1,1]) {
@@ -163,6 +164,35 @@
       seam(0x9a5455,[[-.056,.009,-.001],[-.027,-.008,0],
         [0,-.013,.001],[.030,-.006,0],[.054,.011,-.001]],.008);
     });
+    const smile = joint(head,0,0,0);
+    smile.name = "visitor-cafe-smile";
+    smile.visible = false;
+    part(smile,(oval,band,seam,add) => {
+      // Place the expression directly on the rounded face, even at its outer edges.
+      function surface(x,y) {
+        return -.303*Math.sqrt(1-(x/.373)**2-(y/.388)**2)-.006;
+      }
+      for (const s of [-1,1]) {
+        const eyelid = [[.073,-.040],[.100,-.016],[.139,-.004],[.175,-.010],[.200,-.025]];
+        seam(ink,eyelid.map(([x,y])=>[s*x,y,surface(x,y)-.004]),.010);
+        oval(0xed8a7c,s*.225,-.101,-.234,.064,.030,.012,0,-s*.60,s*.12);
+      }
+      // A broad open grin with lifted corners; a pink tongue follows its lower lip.
+      const vertices=[], indices=[];
+      for (let i=0;i<=20;i++) {
+        const u=i/10-1, x=u*.100;
+        for (const y of [-.148+.024*u*u,-.207+.083*u*u]) vertices.push(x,y,surface(x,y)-.004);
+        if (i) {
+          const k=i*2;
+          indices.push(k-2,k,k-1,k,k+1,k-1);
+        }
+      }
+      const grin=new T.BufferGeometry();
+      grin.setAttribute("position",new T.Float32BufferAttribute(vertices,3));
+      grin.setIndex(indices); grin.computeVertexNormals();
+      add(grin,0x773c42,0,0,0,1,1,1);
+      oval(0xeb9585,0,-.184,surface(0,-.184)-.006,.043,.012,.006,-.49);
+    });
 
     const labelCanvas = document.createElement("canvas");
     labelCanvas.width = 256; labelCanvas.height = 112;
@@ -215,7 +245,9 @@
       arms.push({arm,elbow,hand}); legs.push({thigh,shin});
     }
     const treats = {coffee:null, bread:null};
-    let consuming = null, consumeTime = 0;
+    const tastingPose = {turnIn:0, turnBack:0};
+    const smileDuration=1.45;
+    let consuming = null, consumeTime = 0, smileRemaining = 0;
     function orderCafeItem(item) {
       if ((item !== "coffee" && item !== "bread") || treats[item]) return false;
       const prop = new T.Group();
@@ -277,7 +309,7 @@
     }
     function consumeCafeItem(item) {
       if ((item !== "coffee" && item !== "bread") || consuming || !treats[item]) return false;
-      consuming=item; consumeTime=0;
+      consuming=item; consumeTime=0; smileRemaining=0;
       return true;
     }
     function getCafeState() {
@@ -299,13 +331,17 @@
     let phase = 0, weight = 0, elapsed = 0;
     function animate(dt, travelled, reducedMotion, jumpHeight = 0) {
       elapsed += dt;
-      let reach=0, chew=0;
+      let reach=0, chew=0, happy=false, turn=null;
+      const smooth=T.MathUtils.smoothstep;
       if (consuming) {
         const drink=consuming==="coffee";
         consumeTime += dt;
         const t=consumeTime/(reducedMotion ? .92 : drink ? 1.76 : 1.56);
-        const smooth=T.MathUtils.smoothstep;
         reach=smooth(t,0,.32)*(1-smooth(t,.65,1));
+        turn=tastingPose;
+        turn.turnIn=reducedMotion ? 1 : smooth(t,0,.32);
+        turn.turnBack=0;
+        happy=t>=.81;
         if (!drink && !reducedMotion) chew=Math.sin(t*Math.PI*15)*smooth(t,.38,.55)*(1-smooth(t,.78,.99));
         if (t>=1) {
           const prop=treats[consuming];
@@ -313,8 +349,18 @@
           prop.traverse(object=>object.geometry?.dispose());
           treats[consuming]=null;
           consuming=null;
+          smileRemaining=smileDuration;
+        }
+      } else if (smileRemaining>0) {
+        smileRemaining=Math.max(0,smileRemaining-dt);
+        happy=smileRemaining>0;
+        if (happy) {
+          turn=tastingPose; turn.turnIn=1;
+          turn.turnBack=reducedMotion ? 0 : 1-smooth(smileRemaining,0,.38);
         }
       }
+      smile.visible=happy;
+      eyes.visible=mouth.visible=!happy;
       phase += travelled * 7.2;
       weight += ((travelled > 0.0002 ? 1 : 0) - weight) * (1 - Math.exp(-dt * 15));
       const inAir = clamp(jumpHeight / .53,0,1);
@@ -353,7 +399,7 @@
           prop.quaternion.setFromEuler(tilt).premultiply(wrist);
         }
       }
-      return consuming ? reach : null;
+      return turn;
     }
     function dispose() {
       root.removeFromParent();
@@ -557,10 +603,11 @@
     function consumeCafeItem(item) {
       if (!active || !visitor.consumeCafeItem(item)) return false;
       if (!route.length && !held.size && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
-        const from=visitor.root.rotation.y;
+        const start=visitor.root.rotation.y, home=cafeTurn?.home ?? start;
         const toCamera=yaw+Math.PI+(item==="coffee" ? .32 : -.32);
-        const delta=Math.atan2(Math.sin(toCamera-from),Math.cos(toCamera-from));
-        cafeTurn={from,delta};
+        const toward=Math.atan2(Math.sin(toCamera-start),Math.cos(toCamera-start));
+        const back=Math.atan2(Math.sin(home-toCamera),Math.cos(home-toCamera));
+        cafeTurn={start,home,toward,back};
       }
       return true;
     }
@@ -684,13 +731,13 @@
       if (active) jumpTime = Math.min(jumpDuration, jumpTime + dt);
       const jumpPhase = jumpTime / jumpDuration;
       jumpHeight = 4 * jumpPeak * jumpPhase * (1 - jumpPhase);
-      const reach=visitor.animate(active ? dt : 0,travelled,reducedMotion.matches,jumpHeight);
+      const tastingPose=visitor.animate(active ? dt : 0,travelled,reducedMotion.matches,jumpHeight);
       if (active && cafeTurn) {
-        // Present the active hand to the current viewpoint. Following the hand's
-        // reach also restores the original heading as the arm comes down.
-        const turn=reach===null ? 0 : reducedMotion.matches ? 1 : reach;
-        visitor.root.rotation.y=cafeTurn.from+cafeTurn.delta*turn;
-        if (reach===null) cafeTurn=null;
+        // Stay facing the viewer after the hand comes down so the smile is visible.
+        visitor.root.rotation.y=tastingPose
+          ? cafeTurn.start+cafeTurn.toward*tastingPose.turnIn+cafeTurn.back*tastingPose.turnBack
+          : cafeTurn.home;
+        if (!tastingPose) cafeTurn=null;
       }
       updateCamera(dt);
       return position;

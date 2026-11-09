@@ -1,6 +1,49 @@
 (() => {
   "use strict";
 
+  // Front outlines traced from the supplied Café Lento sign. Each entry is
+  // one solid silhouette followed by its cutouts, in common lettering units.
+  const signOutlines=[
+    ["0,43 3,37 11,34 4,21 5,17 10,12 15,12 18,13 27,23 32,26 35,25 37,18 40,14 42,13 49,13 52,15 56,26 85,26 87,26 88,23 89,16 91,9 96,6 99,6 106,8 108,10 108,23 109,26 112,29 127,20 133,19 138,21 141,26 141,30 137,35 131,39 130,43 138,48 156,49 164,51 165,53 166,60 171,60 172,61 173,64 173,69 171,73 166,77 162,79 155,79 143,74 130,63 126,63 113,82 105,89 98,93 82,98 71,99 59,98 43,93 26,82 17,71 6,51 1,46", "154,67 158,63 161,63 163,66 163,71 162,73 158,73 155,71"],
+    ["200,51 202,38 206,27 219,13 238,5 250,4 260,6 275,13 284,24 288,33 280,34 268,19 254,12 238,12 230,14 218,23 211,35 208,51 213,69 218,77 228,86 236,90 246,92 266,88 273,83 282,70 288,69 290,71 282,84 266,95 250,99 236,98 221,91 210,80 203,69"],
+    ["300,37 302,20 306,13 310,9 328,4 340,5 346,9 352,5 356,5 358,61 356,63 352,63 350,57 348,56 336,63 322,64 316,62 309,57 304,51", "306,35 307,23 311,17 318,12 326,10 336,12 345,19 349,25 350,37 349,45 344,53 340,55 328,57 316,53 309,45"],
+    ["369,61 370,57 380,57 383,53 381,7 384,4 390,5 390,53 392,56 404,57 406,59 405,63 394,64 390,65 391,83 396,88 406,88 407,93 404,96 398,96 388,92 383,85 382,65 380,64 370,64"],
+    ["416,31 419,17 426,9 436,3 448,1 455,3 462,7 468,13 470,19 464,20 450,10 438,10 427,17 423,27 425,31 472,32 473,33 470,45 464,55 454,62 444,63 433,61 424,54 418,43", "425,41 428,38 432,38 462,38 464,41 461,47 456,53 444,55 438,54 432,51"],
+    ["429,77 432,71 434,70 456,81 456,83 454,88 452,88"],
+    ["520,93 521,3 562,3 563,11 530,11 528,13 529,95 528,97 522,97"],
+    ["572,31 576,15 581,7 592,1 600,0 613,3 622,11 626,17 620,18 610,10 598,8 588,13 583,17 578,27 580,31 584,32 628,31 629,33 626,47 620,55 612,61 600,64 588,60 580,53 574,43", "581,41 581,39 584,38 616,37 621,39 619,45 614,51 604,55 596,54 590,52"],
+    ["643,59 644,3 650,3 651,5 651,45 654,50 660,55 670,57 680,54 685,47 686,4 688,2 693,3 692,47 688,58 679,63 672,64 660,61 654,56 650,57 650,63 644,62"],
+    ["701,59 702,54 712,55 715,51 715,13 717,7 724,3 736,2 738,3 736,9 728,10 722,15 721,47 724,54 736,55 737,61 724,62 722,63 722,81 718,83 714,81 713,79 713,63 710,61 703,61"],
+    ["745,31 748,17 754,9 764,3 776,1 786,3 800,12 806,21 808,33 806,44 798,55 788,61 776,64 762,60 750,50 746,42", "751,33 754,21 758,15 766,10 776,7 784,8 791,13 798,23 800,31 798,41 795,47 787,53 776,56 766,55 757,49 752,41"],
+    ["850,70 853,66 858,67 861,65 861,18 862,14 868,14 870,18 871,72 868,75 853,75"],
+    ["889,54 890,43 894,39 909,31 909,28 899,15 902,13 907,13 920,30 930,49 931,57 927,63 919,72 907,75 899,72 894,68 891,65", "898,51 898,46 902,42 912,40 918,42 921,46 923,54 921,59 918,64 910,65 902,62 898,57"],
+    ["939,70 941,64 959,64 963,62 964,59 942,13 943,11 951,12 976,70 975,72 949,72 941,72"],
+    ["979,26 983,17 993,10 1008,10 1017,18 1021,31 1017,43 1008,50 1000,51 993,50 992,51 992,57 995,62 1014,62 1015,70 1014,72 988,71 983,42 988,38 998,44 1008,42 1013,36 1014,31 1013,26 1010,21 1003,16 998,16 991,21 986,28 980,28"]
+  ];
+
+  function makeLettering(T) {
+    function trace(path, contour) {
+      const points=contour.split(" ");
+      for (let i=0;i<points.length;i++) {
+        const [x,y]=points[i].split(",").map(Number);
+        if (i===0) path.moveTo(x,y);
+        else path.lineTo(x,y);
+      }
+      path.closePath();
+      return path;
+    }
+    const shapes=signOutlines.map(([outline,...holes])=>{
+      const shape=trace(new T.Shape(),outline);
+      shape.holes=holes.map(contour=>trace(new T.Path(),contour));
+      return shape;
+    });
+    const geometry=new T.ExtrudeGeometry(shapes,{
+      depth:7,bevelEnabled:true,bevelSize:.85,bevelThickness:1,bevelSegments:1
+    });
+    geometry.center();
+    return geometry;
+  }
+
   function build({T,site,box,place,tube,collider,colliders,roofs}) {
     // Local positive X faces the plaza. Local positive Z faces the window seats.
     const cx=-14.8, cz=10.82, roofY=3.92;
@@ -80,24 +123,31 @@
       mesh(text,new T.PlaneGeometry(w,h),mat,x,y,z).rotation.y=yaw;
     }
 
-    // Two identical photographic light boxes use the supplied original sign.
-    const signMaterial=new T.MeshBasicMaterial({color:0xb9afa0,toneMapped:false});
-    if (typeof document.createElementNS==="function") {
-      new T.TextureLoader().load("assets/cafe/cafe-lento-sign.jpg",texture=>{
-        texture.colorSpace=T.SRGBColorSpace;
-        texture.anisotropy=4;
-        signMaterial.map=texture;
-        signMaterial.color.setHex(0xffffff);
-        signMaterial.needsUpdate=true;
-      });
-    }
-    function sign(x,y,z,w,yaw) {
-      const h=w*494/800;
-      const bezel=mesh("Champagne sign surround",new T.BoxGeometry(w+.07,h+.07,.035),finish(brass),x,y,z);
-      bezel.rotation.y=yaw;
-      const face=mesh("Café Lento · turtle sign",new T.PlaneGeometry(w,h),signMaterial,
-        x+Math.sin(yaw)*.022,y,z+Math.cos(yaw)*.022);
-      face.rotation.y=yaw;
+    const lettering=makeLettering(T);
+    const letterFace=new T.MeshStandardMaterial({
+      color:0xf0e9d9,emissive:0xfff5e7,emissiveIntensity:.80,roughness:.55,toneMapped:false
+    });
+    const letterMaterials=[letterFace,finish(0x8c8376)];
+    const fascia=new T.MeshStandardMaterial({color:0x807970,metalness:.14,roughness:.58});
+    function sign(name,x,y,z,width,yaw) {
+      const mount=new T.Group();
+      mount.name=name;
+      mount.position.set(x,y,z);
+      mount.rotation.y=yaw;
+      mount.scale.setScalar(width/1100);
+      room.add(mount);
+      const board=new T.Mesh(new T.BoxGeometry(1100,34,13),fascia);
+      board.name="Steel letter rail";
+      board.position.y=-32;
+      board.receiveShadow=true;
+      mount.add(board);
+      const lowerLip=new T.Mesh(new T.BoxGeometry(1104,4,17),finish(0x59544f));
+      lowerLip.position.y=-49;
+      mount.add(lowerLip);
+      const letters=new T.Mesh(lettering,letterMaterials);
+      letters.name="Café Lento · illuminated lettering";
+      letters.position.z=12;
+      mount.add(letters);
     }
 
     slab("Limestone plinth",0,.003,0,12.22,.12,10.22,.3,finish(tile));
@@ -121,7 +171,12 @@
     block(5.94,3.48,0,.12,.075,9.92,metal);
     slab("Ivory entrance pier",5.83,.12,.61,.46,3.72,2.1,.18,finish(porcelain));
     solid(5.83,.61,.46,2.1,3.85);
-    sign(6.074,2.05,.61,1.9,Math.PI/2);
+    // Glazed transom behind the sign; the channel letters stand above their mounting rail.
+    const transom=new T.MeshStandardMaterial({
+      color:0x768487,transparent:true,opacity:.36,depthWrite:false,roughness:.26
+    });
+    mesh("Smoked transom",new T.BoxGeometry(.045,.84,7.88),transom,6.067,3.34,1.02);
+    sign("Café Lento · entrance marquee",6.11,3.33,1.02,7.71,Math.PI/2);
     block(5.94,3.55,3.0,.16,.14,2.7,espresso);
     const roofCollider=collider(cx,cz,12.34,10.3,4.18,roofY-.14);
     roofs.push(roofCollider);
@@ -143,7 +198,11 @@
     slab("Coffee bar soffit",-.34,2.84,-3.11,10.55,.74,3.14,.28,finish(plaster));
     slab("Coffee bar cove",-.34,3.58,-3.11,10.46,.065,3.08,.25,cove);
     slab("Rounded sign wall",2.40,.12,-2.99,2.88,2.76,2.95,.30,finish(porcelain));
-    sign(2.00,1.98,-1.49,1.48,0);
+    const smokedGlass=new T.MeshBasicMaterial({
+      color:0x6c665e,transparent:true,opacity:.64,depthWrite:false,toneMapped:false
+    });
+    mesh("Coffee bar glass header",new T.BoxGeometry(9.90,.57,.018),smokedGlass,-.34,3.17,-1.529);
+    sign("Café Lento · counter marquee",.56,3.16,-1.51,4.22,0);
     block(-1.57,1.04,-4.23,6.9,1.75,.8,oakShadow);
     block(-1.57,1.93,-4.20,6.98,.12,.86,porcelain);
     block(-1.57,2.42,-4.72,6.95,.75,.32,oak);
@@ -273,7 +332,7 @@
       id:"cafe",...entry,station,lookAt,label:{...entry,y:3.68},
       interior:{minX:cx-6,maxX:cx+6,minZ:cz-5,maxZ:cz+5,ceilingY:roofY-.15},
       exhibits:[{id:"cafe-counter",title:"카페 주문대",station,lookAt,
-        hitBox:collider(cx-.92,cz-2.53,8.28,2.12,2.76,.12)}]
+        hitBox:collider(cx-.92,cz-2.53,8.28,2.17,3.49,.12)}]
     };
   }
 

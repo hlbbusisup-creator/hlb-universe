@@ -21,8 +21,8 @@
   const cafeCounterRadius = 1.8;
   const archiveSpaces = new Set();
   const cafeMenu = [
-    {item:"coffee", hand:"오른손", action:"커피 마시기", progress:"마시는 중", received:"커피를 오른손에 들었어요.", button:el("drink-coffee")},
-    {item:"bread", hand:"왼손", action:"빵 먹기", progress:"먹는 중", received:"빵을 왼손에 들었어요.", button:el("eat-bread")}
+    {item:"coffee", name:"커피", action:"커피 마시기", progress:"마시는 중", received:"커피를 받았어요.", button:el("drink-coffee")},
+    {item:"bread", name:"빵", action:"빵 먹기", progress:"먹는 중", received:"빵을 받았어요.", button:el("eat-bread")}
   ];
   let lastCarryState = "";
   const visitId = new URLSearchParams(location.search).get("visit");
@@ -196,13 +196,13 @@
     const carrying = held.coffee || held.bread;
     el("carry-actions").hidden = !carrying;
     el("experience").classList.toggle("carrying",carrying);
-    for (const {item, hand, action, progress, button} of cafeMenu) {
+    for (const {item, name, action, progress, button} of cafeMenu) {
       button.hidden = !held[item];
       button.disabled = Boolean(held.consuming);
       button.querySelector("span").textContent = held.consuming === item ? progress : action;
       const order = el("order-" + item);
       order.disabled = held[item];
-      order.querySelector("small").textContent = held[item] ? hand + "에 들고 있음" : hand;
+      order.querySelector("span").textContent = name + (held[item] ? " 주문 완료" : " 주문하기");
     }
   }
 
