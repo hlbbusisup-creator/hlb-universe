@@ -75,7 +75,7 @@
   const event = (text, month) => month ? { month, text } : { text };
   const chapter = (year, title, intro, events, photo, sources = []) => ({
     id: `hlb-history-${year}`, year, title, intro, events,
-    photo: { ...photos[photo] },
+    photo: photos[photo] ? { ...photos[photo] } : null,
     sources: [timeline, ...sources],
   });
 
@@ -91,7 +91,7 @@
       chapter(2004, '수출로 넓어진 무대',
         '현대라이프보트가 500만 불 수출의 탑을 수상했습니다. 해양사업의 해외 진출을 보여 주는 기록입니다.', [
           event('현대라이프보트, 500만 불 수출의 탑 수상'),
-        ], 'facility'),
+        ], null),
       chapter(2006, '요트 개발로 펼친 가능성',
         '31ft 세일 요트를 개발하고 생산했습니다. 구명정에서 이어 온 선박 기술이 요트 개발로 확장되었습니다.', [
           event('31ft 세일 요트 개발 및 생산'),
@@ -100,7 +100,7 @@
         '국제정공이 라이프코드인터내셔날로 이름을 바꾸고 미국 현지법인을 설립했습니다. 회사의 이름과 해외 조직에 변화가 생긴 해였습니다.', [
           event('국제정공에서 라이프코드인터내셔날로 사명 변경'),
           event('미국 현지법인 Lifecord International USA 설립'),
-        ], 'facility'),
+        ], null),
       chapter(2008, '소재와 요트로 넓힌 사업',
         '현대라이프보트에 GRP 파이프 사업이 더해지고, 요트사업은 현대요트로 분사했습니다. 선박과 소재라는 여러 사업 축이 함께 자리 잡았습니다.', [
           event('라이프코드인터내셔날에서 이노GDN으로 사명 변경'),
@@ -113,25 +113,25 @@
           event('현대라이프보트, 1,000만 불 수출의 탑 수상'),
           event('현대라이프보트 구명정 신사옥 준공'),
           event('HLB Networks 및 Hyundai Lifeboats Singapore 설립'),
-        ], 'facility'),
+        ], null),
       chapter(2010, '구명정 기술의 인정',
         '구명정이 지식경제부의 세계일류상품으로 선정되었습니다. HLB의 초기 성장을 이끈 해양 기술을 보여 주는 이정표입니다.', [
           event('지식경제부, 구명정을 세계일류상품으로 선정'),
-        ], 'lifeboat'),
+        ], null),
       chapter(2011, '2,000만 불 수출의 기록',
         '현대라이프보트가 2,000만 불 수출의 탑을 받았습니다. 2004년과 2009년에 이어 수출 성과를 기록했습니다.', [
           event('현대라이프보트, 2,000만 불 수출의 탑 수상'),
-        ], 'facility'),
+        ], null),
       chapter(2013, '하나로 모은 해양사업',
         'HLB가 자회사 현대라이프보트를 합병했습니다. 회사와 해양사업의 발자취가 하나의 연혁으로 이어진 시점입니다.', [
           event('자회사 현대라이프보트 합병'),
-        ], 'lifeboat'),
+        ], null),
       chapter(2015, '바이오로 이어지는 변화',
         'LSK Biopharma의 자회사 편입과 제조사업 재편이 함께 진행되었습니다. 바이오와 기존 사업의 변화가 나란히 기록된 해입니다.', [
           event('LSK Biopharma 자회사 편입'),
           event('전기·계장사업부문 분할 및 HLB일렉 설립'),
           event('GRP·GRE 파이프 제2공장 준공'),
-        ], 'pipes'),
+        ], 'facility'),
       chapter(2017, '생산과 임상의 이정표',
         '구명정·특수선 누적 생산 7,000대와 위암 글로벌 임상 3상 개시가 함께 기록되었습니다. 해양사업의 축적과 신약개발의 진전을 한눈에 볼 수 있습니다.', [
           event('현대라이프보트 구명정·특수선 7,000대 생산 달성'),
@@ -150,7 +150,7 @@
           event('현대라이프보트, 36인승 전폐형 구명정 HLB65T/F 양산'),
           event('Elevar, 글로벌 위암 임상 3상 종료'),
           event('위암 임상 3상 결과, Best of ESMO 선정'),
-        ], 'lifeboat'),
+        ], null),
       chapter(2020, '면역치료와 글로벌 권리',
         'Immunomic Therapeutics 인수와 리보세라닙 글로벌 권리 인수가 이루어졌습니다. Elevar의 항암제 권리 확보도 함께 진행되었습니다.', [
           event('Immunomic Therapeutics 인수'),
@@ -172,13 +172,13 @@
           event('노터스 인수'),
           event('Verismo, 베리스모 아시아 설립'),
           event('지속가능경영을 위한 UNGC 글로벌 이니셔티브 가입'),
-        ], 'immunomic', [ir2026]),
+        ], null, [ir2026]),
       chapter(2023, '계열사 재편과 허가 심사',
         'HLB이노베이션과 HLB파나진으로 이어지는 계열사 재편이 이루어졌습니다. Elevar의 간암 1차 병용요법은 미국 허가 심사 단계에 진입했습니다.', [
           event('HLB컨소시엄, PSMC 인수 및 HLB이노베이션으로 재편'),
           event('HLB컨소시엄, 파나진 인수 및 HLB파나진으로 재편'),
           event('Elevar, 간암 1차 병용요법 신약허가신청(NDA) 및 FDA 본심사 진입'),
-        ], 'research'),
+        ], null),
       chapter(2024, '연구 영역과 글로벌 거점',
         '보스턴 사무소 설립과 뉴로토브·제노포커스 인수로 연구 및 사업 기반을 넓혔습니다. 간암 신약개발과 헬스케어 브랜드의 전개도 이어졌습니다.', [
           event('보스턴에 HLB US 사무소 설립', 4),
@@ -188,7 +188,7 @@
           event('FDA에 간암 신약 재심사 신청', 9),
           event('뇌질환 신약개발 기업 뉴로토브 인수', 9),
           event('효소 생산기업 제노포커스(현 HLB제넥스) 인수', 10),
-        ], 'research'),
+        ], null),
       chapter(2025, '연구 기반을 넓히고 도전을 잇다',
         '펩타이드 분야 인수와 HLB사이언스 합병, 오픈이노베이션 프로젝트가 이어졌습니다. 간암 개발 성과의 학술 발표와 허가 절차의 과제가 함께 기록되었습니다.', [
           event('미세 채혈도구 랜싯, FDA 판매 승인', 1),
@@ -202,7 +202,7 @@
           event('HLB와 HLB사이언스 합병 완료', 12),
           event('HLB그룹, 학동 사옥 이전', 12),
           event('간암 임상 3상 최종 분석 결과, The Lancet Oncology 게재'),
-        ], 'care', [{
+        ], null, [{
           title: 'Elevar — CARES-310 최종 분석 논문 발표',
           url: 'https://elevartx.com/2025/12/03/elevar-therapeutics-cares-310-lancet/',
         }]),

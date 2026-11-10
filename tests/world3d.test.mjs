@@ -125,12 +125,23 @@ test('역사관 제단과 영상 관람점은 실제 실내에 있고 연속으�
   const hall=world.spaces.find(space=>space.id==='history');
   assert.ok(hall?.projection?.screen?.isMesh);
   assert.equal(hall.exhibits.length,2);
+  const book=hall.exhibits.find(exhibit=>exhibit.id==='history-book');
+  const film=hall.exhibits.find(exhibit=>exhibit.id==='history-film');
+  assert.equal(film.station.x,hall.projection.lookAt.x,'화면 정면 중앙 관람점');
+  assert.ok(film.station.z<book.hitBox.minZ-1.5,'제단 뒤에 넉넉한 관람 통로');
+  assert.ok(distance(book.station,film.station)>3.4,'책과 영상의 반경 1.7m 동작 영역 분리');
   const {player}=createPlayer();
   try {
     visit(player,hall);
     for(const exhibit of hall.exhibits) {
       assert.ok(world.containsPoint(hall.interior,exhibit.station));
       visit(player,exhibit);
+    }
+    visit(player,book);
+    for(const side of [-1,1]) {
+      for(const z of [hall.z-3.5,hall.z-7.9]) {
+        visit(player,{id:'history-open-floor',station:{x:hall.x+side*3.5,z}});
+      }
     }
     visit(player,{id:'entrance',station:world.spawn});
   } finally {player.dispose();}
@@ -139,6 +150,41 @@ test('역사관 제단과 영상 관람점은 실제 실내에 있고 연속으�
   assert.ok(cameraPosition.y>1.5 && cameraPosition.y<hall.interior.ceilingY);
   assert.ok(Math.hypot(cameraPosition.x-lookAt.x,cameraPosition.z-lookAt.z)>2);
   assert.ok(Math.abs(screenWidth/screenHeight-16/9)<.01);
+  assert.equal(cameraPosition.x,film.station.x);
+  assert.ok(cameraPosition.z<film.station.z,'시청 카메라는 중앙 캐릭터보다 화면 쪽');
+});
+
+test('확장 역사관은 보행 경계 안에 있고 기존 건물·길·용암을 침범하지 않는다', () => {
+  const hall=world.spaces.find(space=>space.id==='history'),room=hall.interior;
+  assert.ok((room.maxX-room.minX)*(hall.z-room.minZ)>150,'넓어진 역사관 바닥 면적');
+  const roof={minX:room.minX-.31,maxX:room.maxX+.31,minZ:room.minZ-.31,maxZ:hall.z+.31};
+  assert.ok(roof.minX>world.bounds.minX && roof.maxX<world.bounds.maxX && roof.minZ>world.bounds.minZ);
+  const overlaps=(a,b)=>a.minX<b.maxX && a.maxX>b.minX && a.minZ<b.maxZ && a.maxZ>b.minZ;
+  for(const other of world.spaces.filter(space=>space!==hall)) {
+    assert.ok(!overlaps(roof,other.interior),other.id+' 건물과 겹침');
+  }
+  for(const vent of world.colliders.filter(box=>Math.abs(box.maxY-.26)<1e-8)) {
+    assert.ok(!overlaps(roof,vent),'역사관 지붕 및 바닥 아래에 용암 웅덩이가 없어야 함');
+  }
+  // Separating-axis checks include triangle edges, so even a narrow overlap
+  // between the widened roof footprint and the original promenade is caught.
+  const corners=[{x:roof.minX,z:roof.minZ},{x:roof.maxX,z:roof.minZ},
+    {x:roof.maxX,z:roof.maxZ},{x:roof.minX,z:roof.maxZ}];
+  const promenades=[];
+  scene.traverse(object=>{if(object.name==='Curved plaza approach')promenades.push(object);});
+  for(const walk of promenades.slice(0,2)) {
+    const vertices=walk.geometry.getAttribute('position');
+    for(let i=0;i<vertices.count;i+=3) {
+      const triangle=[0,1,2].map(j=>({x:vertices.getX(i+j),z:vertices.getZ(i+j)}));
+      const axes=[{x:1,z:0},{x:0,z:1},...triangle.map((p,j)=>({
+        x:triangle[(j+1)%3].z-p.z,z:p.x-triangle[(j+1)%3].x}))];
+      const separated=axes.some(axis=>{
+        const a=triangle.map(p=>p.x*axis.x+p.z*axis.z),b=corners.map(p=>p.x*axis.x+p.z*axis.z);
+        return Math.max(...a)<=Math.min(...b)+1e-6 || Math.max(...b)<=Math.min(...a)+1e-6;
+      });
+      assert.ok(separated,'역사관이 기존 광장 보행로를 덮음');
+    }
+  }
 });
 
 test('흐르는 용암 강은 이동 경계 밖에 있고 동작 줄이기 설정을 따른다', () => {
@@ -191,16 +237,17 @@ test('직선거리 끝의 작은 반원에서 방사형 가지길을 향해 네 
   }
 });
 
-test('뒤쪽 IR·ESG 바닥에 화산 지형이나 외곽 주상절리가 침범하지 않는다', () => {
+test('IR·ESG 및 확장 역사관 바닥에 화산 지형이나 외곽 주상절리가 침범하지 않는다', () => {
   scene.updateMatrixWorld(true);
   const terrain=['Eroded caldera escarpments','Layered basalt cone and breached summit','Volcanic ash plateau'].map(name=>scene.getObjectByName(name));
   const columns=scene.getObjectByName('column stone'),matrix=new THREE.Matrix4(),columnBox=new THREE.Box3();
   columns.geometry.computeBoundingBox();
-  for(const id of ['ir','esg']){
+  for(const id of ['ir','esg','history']){
     const room=world.spaces.find(space=>space.id===id).interior;
     for(const u of [-.94,0,.94]){
       for(const v of [-.94,0,.94]){
-        const o=room.obb;
+        const o=room.obb || {x:(room.minX+room.maxX)/2,z:(room.minZ+room.maxZ)/2,
+          halfX:(room.maxX-room.minX)/2,halfZ:(room.maxZ-room.minZ)/2,cos:1,sin:0};
         const x=o.x+u*o.halfX*o.cos+v*o.halfZ*o.sin;
         const z=o.z-u*o.halfX*o.sin+v*o.halfZ*o.cos;
         const ray=new THREE.Raycaster(new THREE.Vector3(x,12,z),new THREE.Vector3(0,-1,0));

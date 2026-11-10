@@ -483,11 +483,13 @@
       }
       triangles("Semicircular brand plaza promenade",paving,pavingColors,mountainMaterial).receiveShadow=true;
       for(const side of [-1,1]){
-        curvedPath([[0,-11],[side*7,-11],[side*12.5,-14],[side*13.5,-22]],3.4);
+        const approach=side<0 ? [[0,-11],[-7,-11],[-11.4,-14],[-12.1,-20],[-13.5,-22]] :
+          [[0,-11],[7,-11],[12.5,-14],[13.5,-22]];
+        curvedPath(approach,3.4);
         path(side*13.5,-22,side*20,-31,3.4);
         path(side*9.546,-31.546,side*15,-41,3.4);
       }
-      curvedPath([[0,-9],[-6,-9],[-12,-6.3],[-19,-6],[-19,-8]],2.8);
+      curvedPath([[0,-9],[-6,-9],[-12,-6.3],[-21.5,-6],[-21.5,-8]],2.8);
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
         path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
@@ -500,7 +502,7 @@
         vent(side*4.9,13.6,.40,.65);
         vent(side*4.9,8.2,.40,1.0);
         vent(side*4.9,3,.45,3.3);
-        vent(side*25.8,-18,1,2.4);
+        vent(side<0?-26.3:25.8,side<0?-23.5:-18,1,2.4);
         vent(side*27,-42,1,2.4);
         vent(side*25.5,-48,1,2.2);
         vent(side*9,side<0?-1.2:-4.4,2.2,1.6);
@@ -623,7 +625,7 @@
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
     spaces.push(buildAt(()=>globalThis.HLBCafe.build(hallKit),-5.5,11));
-    spaces.push(buildAt(()=>globalThis.HLBHistoryHall.build(hallKit),-19,-8));
+    spaces.push(buildAt(()=>globalThis.HLBHistoryHall.build(hallKit),-21.5,-8));
     const warpGate=globalThis.HLBWarpGate.build(hallKit);
     const lavaRiver=makeLavaRiver();
     siteDetail();

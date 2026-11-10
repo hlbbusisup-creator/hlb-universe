@@ -23,6 +23,9 @@ dialog.history-reading { width:min(1170px,calc(100% - 24px)); max-width:none; ma
 .hb-photo figcaption { margin-top:6px; color:#736152; font-size:11px; line-height:1.5; word-break:keep-all; }
 .hb-photo-unavailable { padding:25px 10px; font-size:12px; color:#736152; background:#eee7dc; }
 .hb-intro { font-size:14px; line-height:1.85; word-break:keep-all; overflow-wrap:anywhere; }
+.hb-text-only .hb-year { margin-top:34px; font-size:clamp(62px,7vw,88px); }
+.hb-text-only .hb-title { margin-bottom:24px; padding-bottom:24px; border-bottom:1px solid #b955473d; }
+.hb-text-only .hb-intro { font-size:16px; line-height:1.95; }
 .hb-events { list-style:none; margin:12px 0 20px; padding:0; }
 .hb-events li { display:grid; grid-template-columns:42px minmax(0,1fr); gap:10px; padding:13px 0; border-bottom:1px solid #dfd2bd; }
 .hb-month { padding-top:2px; color:#a6382e; font-size:12px; font-weight:700; }
@@ -44,6 +47,8 @@ dialog.history-reading { width:min(1170px,calc(100% - 24px)); max-width:none; ma
 .hb-navigation button:hover:enabled { background:#6d403e; border-color:#ef4136; }
 .hb-navigation button:disabled { opacity:.35; cursor:default; }
 .hb-count { color:#d8c0b3; font-size:12px; font-variant-numeric:tabular-nums; text-align:center; }
+.hb-position { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.hb-keyboard-hint { font-size:11px; line-height:1.4; color:#cbb0a3; }
 .hb-turn-sheet { position:absolute; top:7px; bottom:7px; width:calc(50% - 7px); z-index:2; pointer-events:none; padding:30px 34px; overflow:hidden; backface-visibility:hidden; color:#332a27; background:linear-gradient(90deg,#e1d2b8,#fffcf3 12%,#f8f0df); box-shadow:-10px 0 20px #33231125; }
 .hb-turn-cover { display:flex; flex-direction:column; align-items:center; justify-content:center; color:#ef4136; }
 .hb-turn-cover strong { white-space:pre-line; font:55px/1.1 Georgia,serif; }
@@ -69,6 +74,8 @@ dialog.history-reading { width:min(1170px,calc(100% - 24px)); max-width:none; ma
   .hb-right { border-top:1px solid #cfbda2; background:#fffaf0; }
   .hb-photo img { height:180px; }
   .hb-year { font-size:49px; }
+  .hb-text-only .hb-year { margin-top:14px; font-size:62px; }
+  .hb-text-only .hb-title { margin-bottom:16px; padding-bottom:16px; }
   .hb-title { font-size:21px; }
   .hb-cover { min-height:420px; padding:24px 15px; }
   .hb-cover strong { font-size:47px; margin:45px 0 25px; }
@@ -76,6 +83,7 @@ dialog.history-reading { width:min(1170px,calc(100% - 24px)); max-width:none; ma
   .hb-navigation { bottom:-10px; padding:12px 0 5px; gap:6px; }
   .hb-navigation button { min-width:90px; padding-inline:11px; font-size:12px; }
   .hb-count { font-size:11px; }
+  .hb-keyboard-hint { font-size:9px; }
   #history-watch { padding:12px; gap:8px; }
   .history-watch-title { padding:9px 11px; }
   .history-watch-title strong { font-size:13px; }

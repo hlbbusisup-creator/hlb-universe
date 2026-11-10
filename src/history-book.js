@@ -12,6 +12,7 @@
       return Array.from({length:parts},(_,part)=>({chapter,part,parts,events:events.slice(part*5,(part+1)*5)}));
     });
     const reduced=matchMedia("(prefers-reduced-motion: reduce)");
+    const dialog=container.closest("dialog");
     const top=make("div","hb-top"),select=make("select","hb-years"),label=make("label","hb-year-label","연도로 이동 ");
     select.setAttribute("aria-label","역사책 연도로 이동");
     select.append(new Option("표지","-1"));
@@ -23,18 +24,22 @@
     const nav=make("nav","hb-navigation");nav.setAttribute("aria-label","역사책 페이지 넘기기");
     const prev=make("button","hb-prev","← 이전"),next=make("button","hb-next","다음 →"),count=make("span","hb-count");
     prev.type=next.type="button";count.setAttribute("role","status");
-    nav.append(prev,count,next);container.replaceChildren(top,stage,nav);
+    prev.setAttribute("aria-keyshortcuts","ArrowLeft");next.setAttribute("aria-keyshortcuts","ArrowRight");
+    const position=make("div","hb-position"),hint=make("span","hb-keyboard-hint","← → 방향키로 넘기기");
+    position.append(count,hint);nav.append(prev,position,next);container.replaceChildren(top,stage,nav);
     let index=-1,active=false,animation=null,leaf=null;
     function photoPage(page) {
       const {chapter,part,parts}=page;
       const left=make("section","hb-page hb-left");
+      const photo=part===0?chapter.photo:null;
+      left.classList.toggle("hb-text-only",!photo);
       left.append(make("p","hb-kicker","HISTORY OF HLB"),make("p","hb-year",String(chapter.year)),
         make("h2","hb-title",chapter.title));
-      if(chapter.photo) {
+      if(photo) {
         const figure=make("figure","hb-photo"),img=make("img");
-        img.src=chapter.photo.url;img.alt=chapter.photo.alt || chapter.photo.caption;img.loading="lazy";
+        img.src=photo.url;img.alt=photo.alt || photo.caption;img.loading="lazy";
         img.addEventListener("error",()=>{figure.replaceChildren(make("p","hb-photo-unavailable","사진을 불러오지 못했습니다."));},{once:true});
-        figure.append(img,make("figcaption","",chapter.photo.caption));left.append(figure);
+        figure.append(img,make("figcaption","",photo.caption));left.append(figure);
       }
       left.append(make("p","hb-intro",chapter.intro));
       left.append(make("span","hb-folio",String(index*2+1).padStart(2,"0")+(parts>1 ? " · "+(part+1)+" / "+parts : "")));
@@ -51,7 +56,8 @@
       right.append(list);
       const sources=make("details","hb-sources"),summary=make("summary","","자료 및 사진 출처");
       sources.append(summary);
-      const links=[...(page.chapter.sources || []),...(page.chapter.photo?.sourceUrl?[{title:"사진 · "+page.chapter.photo.caption,url:page.chapter.photo.sourceUrl}]:[])];
+      const photo=page.part===0?page.chapter.photo:null;
+      const links=[...(page.chapter.sources || []),...(photo?.sourceUrl?[{title:"사진 · "+photo.caption,url:photo.sourceUrl}]:[])];
       const seen=new Set();
       for(const source of links) {
         if(!/^https?:\/\//.test(source.url) || seen.has(source.url))continue;
@@ -104,12 +110,14 @@
     }
     prev.addEventListener("click",()=>turn(index-1));next.addEventListener("click",()=>turn(index+1));
     select.addEventListener("change",()=>turn(Number(select.value)));
-    container.closest("dialog").addEventListener("keydown",event=>{
-      if(!active || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input,select,textarea,[contenteditable]"))return;
-      if(event.key==="ArrowLeft" || event.key==="ArrowRight") {event.preventDefault();turn(index+(event.key==="ArrowRight"?1:-1));}
+    dialog.addEventListener("keydown",event=>{
+      if(!active || !dialog.open || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.target.closest("input,select,textarea,[contenteditable]:not([contenteditable=false])"))return;
+      if(event.key==="ArrowLeft" || event.key==="ArrowRight") {
+        event.preventDefault();event.stopPropagation();turn(index+(event.key==="ArrowRight"?1:-1));
+      }
     });
     function close() {active=false;animation?.cancel();animation=null;leaf?.remove();leaf=null;}
-    function open() {close();active=true;index=-1;render();}
+    function open() {close();active=true;index=-1;render();container.focus({preventScroll:true});}
     return {open,close,getState:()=>({index,count:pages.length,year:index>=0?pages[index].chapter.year:null,animating:Boolean(animation)})};
   }
   globalThis.HLBHistoryBook={create};
