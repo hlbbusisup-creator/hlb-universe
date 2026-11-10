@@ -41,8 +41,8 @@
     {
       id: "history",
       title: "HLB 역사관",
-      subtitle: "History of HLB · GI 선포식",
-      description: "HLB의 발자취를 한 권의 책으로 읽고 GI 선포식 영상을 관람합니다."
+      subtitle: "언덕 위 궁궐 · History of HLB",
+      description: "왼쪽 샛길을 따라 언덕 위 궁궐 역사관으로 올라가 HLB의 발자취와 GI 선포식 영상을 관람합니다."
     },
     {
       id: "cafe",

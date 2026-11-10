@@ -187,6 +187,61 @@ test('확장 역사관은 보행 경계 안에 있고 기존 건물·길·용암
   }
 });
 
+test('역사관은 왼쪽 언덕의 평평한 정상에 놓이고 다른 일곱 관의 지면 높이는 유지된다', () => {
+  const hill=world.historyHill,hall=world.spaces.find(space=>space.id==='history');
+  assert.ok(hill && hill.height>4 && hill.hall.x<world.bounds.maxX-60);
+  assert.equal(hall.x,hill.hall.x);
+  assert.equal(hall.z,hill.hall.z);
+  assert.equal(hall.interior.floorY,hill.height);
+  for(const point of [hall.station,hall.lookAt,hall.label,...hall.exhibits.flatMap(exhibit=>[exhibit.station,exhibit.lookAt])]){
+    assert.equal(world.groundHeight(point),hill.height);
+    assert.ok(point.y>=hill.height);
+  }
+  for(const exhibit of hall.exhibits){
+    assert.ok(exhibit.hitBox.minY>hill.height && exhibit.hitBox.maxY>exhibit.hitBox.minY);
+    assert.equal(exhibit.hitBox.floorY,hill.height);
+  }
+  assert.ok(hall.projection.cameraPosition.y>hill.height+1.5);
+  assert.ok(hall.projection.lookAt.y>hill.height+1.5);
+  assert.ok(hall.projection.projector.y>hill.height+2);
+  const screenPosition=hall.projection.screen.getWorldPosition(new THREE.Vector3());
+  assert.ok(Math.abs(screenPosition.y-hall.projection.lookAt.y)<.001,'투사 화면 메시와 관람 메타데이터의 높이 일치');
+  for(const other of world.spaces.filter(space=>space!==hall)){
+    assert.equal(world.groundHeight(other.station),0,other.id+' 기존 지면');
+    assert.equal(other.interior.floorY,0,other.id+' 기존 실내 바닥');
+  }
+  assert.equal(world.groundHeight({x:-21.5,z:-8}),0,'옛 역사관 자리는 평지');
+});
+
+test('언덕 샛길은 완만하게 올라가며 비탈 지름길을 막고 실제 클릭할 포장과 안내판이 있다', () => {
+  const hill=world.historyHill,points=hill.pathSamples;
+  assert.ok(points.length>50 && hill.pathWidth>=3.4);
+  assert.ok(world.isWalkablePoint(hill.branch,.31));
+  assert.equal(points[0].y,0);
+  assert.equal(points.at(-1).y,hill.height);
+  for(let i=0;i<points.length;i++){
+    const point=points[i];
+    assert.ok(world.isWalkablePoint(point,.31),'샛길 중앙은 연속된 보행 영역');
+    assert.ok(Math.abs(world.groundHeight(point)-point.y)<.02,'보행 고도와 샛길 고도 일치');
+    if(i){
+      const previous=points[i-1],slope=(point.y-previous.y)/distance(point,previous);
+      assert.ok(slope>=-.001 && slope<.44,'완만하고 연속된 경사');
+    }
+  }
+  assert.equal(world.isWalkablePoint(hill.blockedSlope,.31),false,'서쪽 비탈 지름길 금지');
+  assert.ok(world.groundHeight(hill.blockedSlope)>0,'출입 금지 비탈에도 실제 지형 높이 제공');
+  assert.equal(world.isWalkablePoint({x:-30.5,z:-16},.31),false,'기존 광장에서 정상 옆면으로 건너뛰지 않음');
+  assert.ok(world.walkSurfaces.includes(hill.terrain) && world.walkSurfaces.includes(hill.ramp) && world.walkSurfaces.includes(hill.court));
+  assert.ok(scene.getObjectByName('History hill · left trail wayfinding'));
+  assert.ok(world.colliders.every(box=>Number.isFinite(box.floorY)),'모든 충돌체가 소속 바닥 높이를 명시');
+  scene.updateMatrixWorld(true);
+  for(const index of [105,120,135,150]){
+    const point=points[index],ray=new THREE.Raycaster(new THREE.Vector3(point.x,30,point.z),new THREE.Vector3(0,-1,0));
+    const hit=ray.intersectObjects(world.walkSurfaces,false)[0];
+    assert.ok(hit && Math.abs(hit.point.y-point.y)<.08,'실제 경사 메시와 보행 높이 일치');
+  }
+});
+
 test('흐르는 용암 강은 이동 경계 밖에 있고 동작 줄이기 설정을 따른다', () => {
   const river=world.lavaRiver;
   assert.ok(river.sceneryOnly);
@@ -206,6 +261,34 @@ test('흐르는 용암 강은 이동 경계 밖에 있고 동작 줄이기 설�
     for(let i=0;i<500;i++)player.update(.05);
     assert.ok(player.getPosition().x<=world.bounds.maxX);
   } finally {player.dispose();}
+});
+
+test('서쪽 언덕을 향한 카메라는 드래그로 높이를 올려도 비탈을 관통하지 않는다', () => {
+  scene.updateMatrixWorld(true);
+  // The old low-angle-only terrain check stopped at 0.42 rad. At 0.43–0.60,
+  // the camera could finish above the plateau while its boom crossed the hill.
+  for(const pitch of [.41,.43,.50,.60]) {
+    const camera=new THREE.PerspectiveCamera(55,1.5,.1,200),canvas=makeCanvas();
+    canvas.focus=()=>{};canvas.setPointerCapture=()=>{};canvas.hasPointerCapture=()=>false;
+    const station={x:-28,z:-16};
+    const player=HLBPlayer3D.create(scene,camera,canvas,world,{station,lookAt:{x:0,z:-16}});
+    try {
+      const endY=400+(pitch-.17)/.004;
+      for(const [type,clientY] of [['pointerdown',400],['pointermove',endY],['pointerup',endY]]) {
+        canvas.dispatchEvent(Object.assign(new Event(type),{
+          pointerId:1,pointerType:'mouse',button:0,clientX:600,clientY
+        }));
+      }
+      for(let frame=0;frame<90;frame++)player.update(1/30);
+      assert.ok(distance(player.getPosition(),station)<.001,'카메라 드래그는 캐릭터를 이동시키지 않음');
+      const focus=new THREE.Vector3(station.x,world.groundHeight(station)+1.53,station.z);
+      const delta=camera.position.clone().sub(focus);
+      assert.ok(delta.length()>1,'카메라가 지형 앞에서 시야를 유지함');
+      const ray=new THREE.Raycaster(focus,delta.clone().normalize(),.001,delta.length());
+      assert.equal(ray.intersectObjects(world.walkSurfaces,false).length,0,
+        `pitch ${pitch}: 방문객과 카메라 사이에 언덕 지형이 없어야 함`);
+    } finally {player.dispose();}
+  }
 });
 
 test('직선거리 끝의 작은 반원에서 방사형 가지길을 향해 네 전시관이 완만하게 회전한다', () => {

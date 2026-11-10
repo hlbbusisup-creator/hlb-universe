@@ -28,7 +28,57 @@
     const site = new T.Group();
     site.name = "HLB Universe";
     scene.add(site);
-    const bounds = {minX:-29, maxX:29, minZ:-52, maxZ:28};
+    const levelBounds = {minX:-29, maxX:29, minZ:-52, maxZ:28};
+    const bounds = {...levelBounds,minX:-60};
+    const walkSurfaces = [];
+    const historyHill = {
+      height:4.5,hall:{x:-45,y:4.5,z:-10},branch:{x:0,y:0,z:-9},pathWidth:3.8,
+      plateau:{minX:-58,maxX:-32,minZ:-28,maxZ:-4},blockedSlope:{x:-61,z:-16},
+      routePoints:[[0,-9],[-9,-9],[-19,-6],[-27,0],[-35,3],[-43,1],[-45,-4],[-45,-10]]
+        .map(([x,z])=>({x,z}))
+    };
+    const hillCurve=new T.CatmullRomCurve3(historyHill.routePoints.map(p=>new T.Vector3(p.x,0,p.z)),false,"centripetal");
+    let routeLength=0;
+    historyHill.pathSamples=Array.from({length:181},(_,i)=>{
+      const p=hillCurve.getPoint(i/180),previous=i?hillCurve.getPoint((i-1)/180):p;
+      routeLength+=p.distanceTo(previous);
+      return {x:p.x,z:p.z,y:0,distance:routeLength};
+    });
+    const rampStart=historyHill.pathSamples.find(p=>p.x<=-29).distance;
+    const rampEnd=historyHill.pathSamples.find(p=>p.x<-40 && p.z<=-4).distance;
+    for(const p of historyHill.pathSamples)p.y=historyHill.height*T.MathUtils.smoothstep(p.distance,rampStart,rampEnd);
+    function nearestHillPath(p) {
+      let best={distance:Infinity,y:0,x:0,z:0};
+      const samples=historyHill.pathSamples;
+      for(let i=1;i<samples.length;i++){
+        const a=samples[i-1],b=samples[i],dx=b.x-a.x,dz=b.z-a.z;
+        const t=T.MathUtils.clamp(((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz),0,1);
+        const x=a.x+dx*t,z=a.z+dz*t,distance=Math.hypot(p.x-x,p.z-z);
+        if(distance<best.distance)best={distance,x,z,y:a.y+(b.y-a.y)*t};
+      }
+      return best;
+    }
+    function isWalkablePoint(p,padding=0) {
+      if(!p || !Number.isFinite(p.x) || !Number.isFinite(p.z))return false;
+      const margin=Math.max(0,padding),top=historyHill.plateau;
+      const inside=b=>p.x>=b.minX+margin && p.x<=b.maxX-margin && p.z>=b.minZ+margin && p.z<=b.maxZ-margin;
+      if(inside(levelBounds) || inside(top))return true;
+      if(p.x<bounds.minX || p.x>levelBounds.minX+3 || p.z<-12 || p.z>8)return false;
+      return nearestHillPath(p).distance<=historyHill.pathWidth/2-margin;
+    }
+    function groundHeight(p) {
+      if(!p || p.x>=-27 || p.x<=-67 || p.z<=-37 || p.z>=10)return 0;
+      const top=historyHill.plateau;
+      if(containsPoint(top,p))return historyHill.height;
+      const dx=p.x<top.minX?(top.minX-p.x)/9:Math.max(0,(p.x-top.maxX)/3);
+      const dz=p.z<top.minZ?(top.minZ-p.z)/9:Math.max(0,(p.z-top.maxZ)/12);
+      const hill=historyHill.height*(1-T.MathUtils.smoothstep(Math.hypot(dx,dz),0,1));
+      const path=nearestHillPath(p),half=historyHill.pathWidth/2;
+      if(path.distance<=half+.18)return path.y;
+      const shoulder=1-T.MathUtils.smoothstep(path.distance,half+.18,half+3);
+      return T.MathUtils.lerp(hill,path.y,shoulder);
+    }
+    for(const point of historyHill.routePoints)point.y=groundHeight(point);
     const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-8,maxZ:19.5};
     const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:26};
     const yachtDocks = [
@@ -92,19 +142,20 @@
       place("round",color,mid.x,mid.y,mid.z,r,length,r,new T.Quaternion().setFromUnitVectors(up,delta.normalize()),finish);
     }
     function collider(x,z,w,d,height,base=0) {
-      return {minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:base,maxY:height};
+      return {minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2,minY:base,maxY:height,floorY:0};
     }
-    function buildAt(make,x,z,yaw=0) {
+    function buildAt(make,x,z,yaw=0,elevation=0) {
       const firstChild=site.children.length, firstCollider=colliders.length, firstRoof=roofs.length;
       const starts=new Map([...batches].map(([key,batch])=>[key,batch.matrices.length]));
       const room=make();
-      const transform=new T.Matrix4().makeTranslation(x,0,z)
+      const transform=new T.Matrix4().makeTranslation(x,elevation,z)
         .multiply(new T.Matrix4().makeRotationY(yaw))
         .multiply(new T.Matrix4().makeTranslation(-room.x,0,-room.z));
       const coordinate=new T.Vector3();
       function point(p) {
-        coordinate.set(p.x,0,p.z).applyMatrix4(transform);
-        return {...p,x:coordinate.x,z:coordinate.z};
+        if(!p)return p;
+        coordinate.set(p.x,p.y||0,p.z).applyMatrix4(transform);
+        return {...p,x:coordinate.x,y:coordinate.y,z:coordinate.z};
       }
       function rectangle(rect) {
         const corners=[
@@ -112,7 +163,8 @@
           point({x:rect.minX,z:rect.maxZ}), point({x:rect.maxX,z:rect.maxZ})
         ];
         const bounds={...rect,minX:Math.min(...corners.map(p=>p.x)),maxX:Math.max(...corners.map(p=>p.x)),
-          minZ:Math.min(...corners.map(p=>p.z)),maxZ:Math.max(...corners.map(p=>p.z))};
+          minZ:Math.min(...corners.map(p=>p.z)),maxZ:Math.max(...corners.map(p=>p.z)),floorY:(rect.floorY||0)+elevation};
+        for(const key of ['minY','maxY','ceilingY'])if(Number.isFinite(rect[key]))bounds[key]=rect[key]+elevation;
         if(Math.abs(yaw)>1e-8){
           const center=point({x:(rect.minX+rect.maxX)/2,z:(rect.minZ+rect.maxZ)/2});
           bounds.obb={x:center.x,z:center.z,halfX:(rect.maxX-rect.minX)/2,halfZ:(rect.maxZ-rect.minZ)/2,
@@ -293,7 +345,9 @@
         const riverX=37+2.4*Math.sin(z*.055);
         const opening=(1-T.MathUtils.smoothstep(Math.abs(x-riverX),6,14))*
           T.MathUtils.smoothstep(z,-80,-66)*(1-T.MathUtils.smoothstep(z,40,52));
-        return [x,T.MathUtils.lerp(height,-.30,opening),z];
+        const westOpening=(1-T.MathUtils.smoothstep(x,-30,-23))*T.MathUtils.smoothstep(x,-77,-68)*
+          T.MathUtils.smoothstep(z,-45,-35)*(1-T.MathUtils.smoothstep(z,11,20));
+        return [x,T.MathUtils.lerp(height,-.30,Math.max(opening,westOpening)),z];
       }));
       const tint=new T.Color();
       for(let j=0;j<ridge.length-1;j++) for(let i=0;i<sections;i++){
@@ -416,6 +470,88 @@
       triangles("Curved plaza approach",vertices,colors,mountainMaterial).receiveShadow=true;
     }
 
+    function makeHistoryHill() {
+      // One height field drives the visible hill, walking altitude and camera.
+      // Only the ramp and level court are navigable; the remaining slopes are scenery.
+      const vertices=[],colors=[],indices=[],shade=new T.Color(),columns=88,rows=96;
+      for(let row=0;row<=rows;row++)for(let col=0;col<=columns;col++){
+        const x=-67+col*.5,z=-37+row*.5,y=groundHeight({x,z});
+        vertices.push(x,y-.018,z);
+        shade.setHex(y>3.9?0x897c67:0x665650).multiplyScalar(.93+.09*Math.sin(x*.61+z*.41));
+        colors.push(shade.r,shade.g,shade.b);
+        if(row<rows && col<columns){const a=row*(columns+1)+col;indices.push(a,a+columns+1,a+1,a+1,a+columns+1,a+columns+2);}
+      }
+      const geometry=new T.BufferGeometry();
+      geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));
+      geometry.setAttribute("color",new T.Float32BufferAttribute(colors,3));
+      geometry.setIndex(indices);geometry.computeVertexNormals();
+      const terrain=new T.Mesh(geometry,mountainMaterial);
+      terrain.name="History hill · continuous volcanic slope";terrain.receiveShadow=true;site.add(terrain);
+      walkSurfaces.push(terrain);
+
+      const top=historyHill.plateau,court=new T.Mesh(new T.PlaneGeometry(top.maxX-top.minX,top.maxZ-top.minZ),
+        new T.MeshStandardMaterial({color:0xa89b83,roughness:.95,map:grain}));
+      court.rotation.x=-Math.PI/2;court.position.set((top.minX+top.maxX)/2,historyHill.height+.012,(top.minZ+top.maxZ)/2);
+      court.name="History hill · level palace court";court.receiveShadow=true;site.add(court);walkSurfaces.push(court);
+      // The short approach is seamless with the court and leaves the palace door open.
+      const pathVertices=[],pathColors=[],samples=historyHill.pathSamples,half=historyHill.pathWidth/2;
+      const edge=(i,side)=>{
+        const p=samples[i],a=samples[Math.max(0,i-1)],b=samples[Math.min(samples.length-1,i+1)];
+        const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
+        return [p.x+dz/length*side*half,p.y+.04,p.z-dx/length*side*half];
+      };
+      for(let i=1;i<samples.length;i++){
+        const a=edge(i-1,-1),b=edge(i-1,1),c=edge(i,-1),d=edge(i,1);
+        shade.setHex([0xbbb0a0,0xaca292,0xb4a895][Math.floor(i/3)%3]);
+        face(pathVertices,pathColors,a,c,d,shade);face(pathVertices,pathColors,a,d,b,shade);
+      }
+      const ramp=triangles("History hill · winding stone ramp",pathVertices,pathColors,mountainMaterial);
+      ramp.receiveShadow=true;walkSurfaces.push(ramp);
+      // A warm timber rail marks the safe path without narrowing its usable width.
+      for(let i=1;i<samples.length;i+=6){
+        const p=samples[i];if(p.x>-29 || p.z<-4)continue;
+        for(const side of [-1,1]){
+          const [x,y,z]=edge(i,side),base=y-.04;
+          box(x,base+.48,z,.10,.96,.10,0x635048,null,"stone");
+          box(x,base+.97,z,.15,.08,.15,0xd3a768);
+          const post=collider(x,z,.12,.12,base+1.01,base);post.floorY=base;colliders.push(post);
+          if(i+6<samples.length && samples[i+6].z>=-4){
+            const [xx,yy,zz]=edge(i+6,side);
+            tube([x,base+.76,z],[xx,yy-.04+.76,zz],.047,0x796556);
+          }
+        }
+      }
+      // Low edge stones distinguish the elevated court from the inaccessible slope.
+      for(const side of [-1,1]){
+        const x=side<0?top.minX+.18:top.maxX-.18;
+        for(let z=top.minZ+.5;z<top.maxZ;z+=1.3)box(x,historyHill.height+.13,z,.30,.24,1.23,0x756757,null,"stone");
+      }
+      for(let x=top.minX+.5;x<top.maxX;x+=1.3){
+        box(x,historyHill.height+.13,top.minZ+.18,1.23,.24,.30,0x756757,null,"stone");
+        if(Math.abs(x-historyHill.hall.x)>2.6)box(x,historyHill.height+.13,top.maxZ-.18,1.23,.24,.30,0x756757,null,"stone");
+      }
+      for(const x of [-51.5,-38.5]){
+        const y=historyHill.height,z=-6.4;
+        box(x,y+.25,z,1.8,.50,.95,0x736459,null,"stone");
+        box(x,y+.51,z,1.66,.035,.82,0x433b33,null,"stone");
+        for(const dx of [-.52,0,.52])place("leaf",0x61724f,x+dx,y+.74,z,.38,.32,.31,null,"stone");
+        const planter=collider(x,z,1.8,.95,y+1,y);planter.floorY=y;colliders.push(planter);
+      }
+      const signX=-6.5,signZ=-6.5;
+      box(signX,.78,signZ,.12,1.56,.12,0x6b5344);
+      box(signX,1.35,signZ,2.7,.62,.13,0x6b5344);
+      colliders.push(collider(signX,signZ,.18,.18,1.68));
+      const canvas=document.createElement("canvas");canvas.width=768;canvas.height=176;
+      const ctx=canvas.getContext("2d");ctx.fillStyle="#f0e5ce";ctx.fillRect(0,0,768,176);
+      ctx.fillStyle="#523c30";ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.font='700 68px "Malgun Gothic",sans-serif';ctx.fillText("← HLB 역사관",384,88,710);
+      const map=new T.CanvasTexture(canvas);map.colorSpace=T.SRGBColorSpace;
+      const sign=new T.Mesh(new T.PlaneGeometry(2.53,.50),new T.MeshBasicMaterial({map,toneMapped:false}));
+      sign.name="History hill · left trail wayfinding";sign.position.set(signX,1.35,signZ+.071);site.add(sign);
+      historyHill.wayfinding={x:signX,y:1.35,z:signZ};
+      historyHill.terrain=terrain;historyHill.ramp=ramp;historyHill.court=court;
+    }
+
     const basalt=[0x453f48,0x514951,0x5f5559,0x473f43,0x675551,0x554949];
     function outcrop(x,z,scale,block=true) {
       const count=6;
@@ -489,7 +625,6 @@
         path(side*13.5,-22,side*20,-31,3.4);
         path(side*9.546,-31.546,side*15,-41,3.4);
       }
-      curvedPath([[0,-9],[-6,-9],[-12,-6.3],[-21.5,-6],[-21.5,-8]],2.8);
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
         path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
@@ -508,7 +643,7 @@
         vent(side*9,side<0?-1.2:-4.4,2.2,1.6);
         vent(side*2.2,-45,1.4,2.1);
         vent(side*7.5,-26,.8,1.35);
-        vent(side<0?-26.3:19.5,-3.8,1.7,2.4);
+        vent(side<0?-25:19.5,side<0?-14.5:-3.8,1.7,2.4);
       }
       vent(-20.4,22.8,2,2.4);
       vent(20.4,22.8,2,2.4);
@@ -537,6 +672,8 @@
         const x=Math.sin(a)*(33+random()*10),z=Math.cos(a)*(47+random()*11)-10;
         if(x>27 && z>-72 && z<46)continue;
         const clearance=scale*1.4+1;
+        if(x< -24 && x> -69 && z> -35 && z<12)continue;
+        if(nearestHillPath({x,z}).distance<clearance+historyHill.pathWidth/2)continue;
         if(spaces.some(({interior:b})=>x>b.minX-clearance && x<b.maxX+clearance &&
           z>b.minZ-clearance && z<b.maxZ+clearance)) continue;
         outcrop(x,z,scale,false);
@@ -544,6 +681,7 @@
       for(let i=0;i<430;i++){
         const x=random()*54-27,z=random()*80-52;
         if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<27 ||
+          nearestHillPath({x,z}).distance<historyHill.pathWidth/2+.5 ||
           (x>warpGate.x-3.5 && x<warpGate.station.x+1.2 && z>20 && z<27) ||
           yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
           x>b.minX-.6 && x<b.maxX+.6 && z>b.minZ-.6 && z<b.maxZ+.6)) continue;
@@ -625,9 +763,10 @@
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
     spaces.push(buildAt(()=>globalThis.HLBCafe.build(hallKit),-5.5,11));
-    spaces.push(buildAt(()=>globalThis.HLBHistoryHall.build(hallKit),-21.5,-8));
+    spaces.push(buildAt(()=>globalThis.HLBHistoryHall.build(hallKit),historyHill.hall.x,historyHill.hall.z,0,historyHill.height));
     const warpGate=globalThis.HLBWarpGate.build(hallKit);
     const lavaRiver=makeLavaRiver();
+    makeHistoryHill();
     siteDetail();
     triangles("Basalt vent rims",ventVerts,ventColors,mountainMaterial);
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));
@@ -653,6 +792,7 @@
       updateAtmosphere(dt);
     }
     return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,warpGate,lavaRiver,lavaLights,containsPoint,
+      groundHeight,isWalkablePoint,walkSurfaces,historyHill,
       spawn:{x:0,z:23},update};
   }
   globalThis.HLBWorld3D={build,containsPoint};

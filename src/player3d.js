@@ -438,7 +438,7 @@
   // The same expanded wall rectangles govern direct movement, path smoothing and
   // route planning. A body that fits the route can also walk it with the keys.
   function makeNavigation(world) {
-    const boxes = world.colliders.filter(b => (b.minY ?? 0) < 1.8 && (b.maxY ?? 3) > 0.2)
+    const boxes = world.colliders.filter(b => (b.minY ?? 0) < (b.floorY ?? 0)+1.8 && (b.maxY ?? 3) > (b.floorY ?? 0)+0.2)
       .map(b => {
         const padding=b.obb ? radius*(Math.abs(b.obb.cos)+Math.abs(b.obb.sin)) : radius;
         return {minX:b.minX-padding,maxX:b.maxX+padding,minZ:b.minZ-padding,maxZ:b.maxZ+padding,
@@ -446,10 +446,20 @@
       });
     const b = world.bounds;
     function insideBounds(p) {
-      return p.x >= b.minX+radius && p.x <= b.maxX-radius && p.z >= b.minZ+radius && p.z <= b.maxZ-radius;
+      return p.x >= b.minX+radius && p.x <= b.maxX-radius && p.z >= b.minZ+radius && p.z <= b.maxZ-radius &&
+        (!world.isWalkablePoint || world.isWalkablePoint(p,radius));
     }
     function clear(a,target) {
       if (!insideBounds(target)) return false;
+      // Both route smoothing and manual movement must follow the hillside walk,
+      // even when the two endpoints are on otherwise accessible ground.
+      if(world.isWalkablePoint) {
+        const steps=Math.ceil(distance(a,target)/.25);
+        for(let step=1;step<steps;step++) {
+          const t=step/steps;
+          if(!world.isWalkablePoint({x:a.x+(target.x-a.x)*t,z:a.z+(target.z-a.z)*t},radius))return false;
+        }
+      }
       const minX=Math.min(a.x,target.x),maxX=Math.max(a.x,target.x);
       const minZ=Math.min(a.z,target.z),maxZ=Math.max(a.z,target.z);
       for (const box of boxes) {
@@ -557,7 +567,8 @@
     const T = globalThis.THREE;
     const visitor = createVisitor(T,scene);
     let position = {...(arrival?.station || world.spawn)};
-    visitor.root.position.set(position.x,arrival ? 0.086 : 0.025,position.z);
+    const groundAt=p=>world.groundHeight?.(p) ?? 0;
+    visitor.root.position.set(position.x,groundAt(position)+(arrival ? 0.086 : 0.025),position.z);
     const nav = makeNavigation(world);
     const movementCodes = new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD"]);
     const actionCodes = new Map([
@@ -598,13 +609,14 @@
     }
     const ray = new T.Ray(), target = new T.Vector3(), direction = new T.Vector3();
     const lookAt = new T.Vector3();
+    const walkSurfaces=world.walkSurfaces || [];
     const terrain = ["Eroded caldera escarpments","Layered basalt cone and breached summit"]
       .map(name=>scene.getObjectByName(name)).filter(Boolean);
     const terrainRay = new T.Raycaster(), terrainHits = [];
     const raycaster = new T.Raycaster(), ndc = new T.Vector2(), floor = new T.Plane(new T.Vector3(0,1,0),0);
     const indoors = world.spaces.filter(s=>s.interior).map(s=>({space:s,
-      volume:volume({...s.interior,minY:0,maxY:s.interior.ceilingY || 3.6}),box:new T.Box3(
-        new T.Vector3(s.interior.minX,0,s.interior.minZ),
+      volume:volume({...s.interior,minY:s.interior.floorY || 0,maxY:s.interior.ceilingY || 3.6}),box:new T.Box3(
+        new T.Vector3(s.interior.minX,s.interior.floorY || 0,s.interior.minZ),
         new T.Vector3(s.interior.maxX,s.interior.ceilingY || 3.6,s.interior.maxZ))}));
     const campusBounds=new T.Box3();
     for (const room of indoors) campusBounds.union(room.box);
@@ -631,7 +643,7 @@
       marker.visible=route.length>0;
       if (!marker.visible) return false;
       const dest=route[route.length-1];
-      marker.position.set(dest.x,roomAt(dest) ? 0.11 : 0.063,dest.z);
+      marker.position.set(dest.x,groundAt(dest)+(roomAt(dest) ? 0.11 : 0.063),dest.z);
       return true;
     }
     function stopRoute() { route=[]; marker.visible=false; }
@@ -673,6 +685,12 @@
       if (!active || ride || roomAt(position)) return;
       outdoorZoom=isOverview() ? 1 : 6;
     }
+    function surfaceClearance(surfaces,limit) {
+      if(!surfaces.length || limit<=0)return limit;
+      terrainRay.set(target,direction);terrainRay.far=limit;terrainHits.length=0;
+      terrainRay.intersectObjects(surfaces,false,terrainHits);
+      return terrainHits.length ? terrainHits[0].distance-.18 : limit;
+    }
     function boomClearance(elevation,desired) {
       direction.set(Math.sin(yaw)*Math.cos(elevation),Math.sin(elevation),Math.cos(yaw)*Math.cos(elevation));
       ray.set(target,direction);
@@ -680,14 +698,12 @@
       for (const box of cameraBoxes) {
         limit=Math.min(limit,volumeDistance(ray,box)-.06);
       }
-      if (direction.y<0) limit=Math.min(limit,(target.y-.2)/-direction.y);
+      if (direction.y<0) limit=Math.min(limit,(target.y-groundAt(position)-.2)/-direction.y);
+      // Nearby raised ground can cross the camera boom even at a high angle.
+      limit=surfaceClearance(walkSurfaces,limit);
       // Only a low orbit outside the plateau can meet the distant ridges.
       if (elevation<.42 && limit>0 && Math.hypot(target.x,target.z+4)+limit>25) {
-        terrainRay.set(target,direction);
-        terrainRay.far=limit;
-        terrainHits.length=0;
-        terrainRay.intersectObjects(terrain,false,terrainHits);
-        if (terrainHits.length) limit=terrainHits[0].distance-.18;
+        limit=surfaceClearance(terrain,limit);
       }
       return Math.max(.1,limit);
     }
@@ -714,7 +730,7 @@
       const desired=(room ? 4.4 : 7.1+(.9+.4*overview)*narrow)*zoom;
       const walkingFocus = room ? 1.32 : 1.53;
       const closeUp = clamp((1 - zoom) / (1 - (room ? .55 : .34)), 0, 1);
-      target.set(position.x, T.MathUtils.lerp(walkingFocus, 1.05, closeUp), position.z);
+      target.set(position.x, groundAt(position)+T.MathUtils.lerp(walkingFocus, 1.05, closeUp), position.z);
       let allowed=boomClearance(elevation,desired), bestLift=0;
       // As the visitor pulls out beside a hall, find a clear angle over its roof.
       const checkRoof=overview>.04 && allowed<desired-.15;
@@ -766,7 +782,7 @@
       scene.add(visitor.root);
       ride=null;
       position={x:point.x,z:point.z};
-      visitor.root.position.set(point.x,roomAt(point) ? .086 : .025,point.z);
+      visitor.root.position.set(point.x,groundAt(point)+(roomAt(point) ? .086 : .025),point.z);
       visitor.root.rotation.set(0,0,0);
       visitor.root.visible=true;
       release();
@@ -826,7 +842,7 @@
         const heading=Math.atan2(prev.x-position.x,prev.z-position.z);
         const turn=Math.atan2(Math.sin(heading-visitor.root.rotation.y),Math.cos(heading-visitor.root.rotation.y));
         visitor.root.rotation.y+=turn*(1-Math.exp(-dt*18));
-        visitor.root.position.set(position.x,roomAt(position) ? 0.086 : 0.025,position.z);
+        visitor.root.position.set(position.x,groundAt(position)+(roomAt(position) ? 0.086 : 0.025),position.z);
       }
       if (active) jumpTime = Math.min(jumpDuration, jumpTime + dt);
       const jumpPhase = jumpTime / jumpDuration;
@@ -883,11 +899,15 @@
         onScenePick(picked);
         if (picked) return;
       }
-      const floorHit=raycaster.ray.intersectPlane(floor,new T.Vector3());
+      let floorHit=raycaster.ray.intersectPlane(floor,new T.Vector3());
+      // Pick the visible slope or hilltop before the distant, flat caldera.
+      // Keep the exact mesh hit so a tap places the route marker at its height.
+      const hillHit=walkSurfaces.length ? raycaster.intersectObjects(walkSurfaces,false)[0] : null;
+      if(hillHit && (!floorHit || hillHit.distance<raycaster.ray.origin.distanceTo(floorHit))) floorHit=hillHit.point;
       if (!floorHit) return;
       let nearestHit=raycaster.ray.origin.distanceTo(floorHit), chosen=null;
       for (const room of indoors) {
-        const contains=p=>roomAt(p)===room && p.y>=0 && p.y<=room.box.max.y;
+        const contains=p=>roomAt(p)===room && p.y>=room.box.min.y && p.y<=room.box.max.y;
         if (contains(raycaster.ray.origin) || contains(target)) continue;
         const d=volumeDistance(raycaster.ray,room.volume);
         if (d<nearestHit) { chosen=room.space; nearestHit=d; }
