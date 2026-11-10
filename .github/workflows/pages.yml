@@ -67,6 +67,7 @@ jobs:
     needs: build
     if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       pages: write
       id-token: write
@@ -77,3 +78,6 @@ jobs:
       - name: Deploy site
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Allow Pages to finish when file synchronization is delayed.
+          timeout: 1800000
