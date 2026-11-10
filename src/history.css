@@ -1,0 +1,83 @@
+/* The museum book uses the same Magma Red as the physical cover lettering. */
+dialog.history-reading { width:min(1170px,calc(100% - 24px)); max-width:none; max-height:94dvh; background:#30282d; color:#fff4e9; border-color:#7b5d55; }
+.history-reading .panel-inner { padding:20px 24px 16px; }
+.history-reading .panel-head { position:sticky; top:-20px; z-index:4; padding:13px 0; background:#30282d; }
+.history-reading .panel-head h1 { font:28px/1.2 Georgia,serif; letter-spacing:0; }
+.history-reading .icon-button { color:#fff4e9; border-color:#8b746e; }
+.history-reading .icon-button:hover { background:#574047; }
+.hb-top { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 2px 15px; }
+.hb-edition { font:11px/1.4 ui-monospace,monospace; letter-spacing:.13em; color:#d2bbb0; }
+.hb-year-label { font-size:12px; color:#ead8ce; }
+.hb-years { max-width:125px; padding:5px 8px; border:1px solid #8b746e; border-radius:5px; color:#fff4e9; background:#46363b; }
+.hb-stage { perspective:2000px; }
+.hb-book { position:relative; isolation:isolate; padding:7px; border-radius:4px 8px 8px 4px; background:linear-gradient(90deg,#922d25,#c64234 48%,#6d2b27 50%,#c64234 53%,#ae352e); box-shadow:0 4px #c6b8a2,0 8px #74675e,0 14px 25px #0005; perspective:2000px; }
+.hb-spread { display:grid; grid-template-columns:1fr 1fr; min-height:530px; }
+.hb-page { position:relative; min-width:0; padding:30px 34px 42px; color:#332a27; }
+.hb-left { background:linear-gradient(90deg,#f5efe3,#fffaf0 8%,#fffaf0 92%,#ded3bf); }
+.hb-right { background:linear-gradient(90deg,#d0c1aa,#faf4e8 5%,#fffcf3 96%,#f0e6d6); }
+.hb-kicker { color:#9a352e; font:700 11px/1.5 ui-monospace,monospace; letter-spacing:.11em; }
+.hb-year { color:#ef4136; font:normal clamp(44px,5vw,65px)/1.15 Georgia,serif; letter-spacing:-.05em; margin:8px 0; }
+.hb-title { font-size:clamp(18px,2vw,24px); line-height:1.4; letter-spacing:-.04em; word-break:keep-all; margin:0 0 15px; }
+.hb-photo { margin:0 0 14px; }
+.hb-photo img { display:block; width:100%; height:190px; object-fit:contain; background:#eee7dc; border:1px solid #dfd2bd; }
+.hb-photo figcaption { margin-top:6px; color:#736152; font-size:11px; line-height:1.5; word-break:keep-all; }
+.hb-photo-unavailable { padding:25px 10px; font-size:12px; color:#736152; background:#eee7dc; }
+.hb-intro { font-size:14px; line-height:1.85; word-break:keep-all; overflow-wrap:anywhere; }
+.hb-events { list-style:none; margin:12px 0 20px; padding:0; }
+.hb-events li { display:grid; grid-template-columns:42px minmax(0,1fr); gap:10px; padding:13px 0; border-bottom:1px solid #dfd2bd; }
+.hb-month { padding-top:2px; color:#a6382e; font-size:12px; font-weight:700; }
+.hb-events p { font-size:14px; line-height:1.8; word-break:keep-all; overflow-wrap:anywhere; }
+.hb-sources { margin-top:auto; color:#786457; font-size:11px; line-height:1.6; }
+.hb-sources summary { cursor:pointer; padding:5px 0; }
+.hb-sources a { display:block; color:#8f3028; margin-top:6px; overflow-wrap:anywhere; }
+.hb-folio { position:absolute; bottom:16px; right:25px; color:#8c7464; font:12px/1.5 Georgia,serif; letter-spacing:.1em; }
+.hb-left .hb-folio { left:25px; right:auto; }
+.hb-closed { width:min(420px,85%); margin-inline:auto; }
+.hb-closed .hb-spread { display:block; min-height:0; }
+.hb-cover { display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; min-height:510px; padding:35px; color:#ef4136; background:linear-gradient(90deg,#c9bba3,#f8f0df 5%,#fff8eb 20%,#f4e8d1); text-align:center; border:1px solid #d5c4a5; }
+.hb-cover-label { font:700 10px/1.6 ui-monospace,monospace; letter-spacing:.2em; color:#967761; }
+.hb-cover strong { display:block; white-space:pre-line; font:normal clamp(40px,5vw,63px)/1.05 Georgia,serif; letter-spacing:-.03em; margin:60px 0 25px; }
+.hb-cover-years { font:18px/1.4 Georgia,serif; letter-spacing:.2em; }
+.hb-cover-open { color:#884b38; font-size:12px; margin-top:65px; }
+.hb-navigation { position:sticky; bottom:-16px; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:18px 0 12px; background:#30282d; }
+.hb-navigation button { display:flex; align-items:center; justify-content:center; gap:10px; min-width:105px; min-height:44px; border:1px solid #a0867c; border-radius:24px; padding:9px 16px; color:#fff4e9; font-size:13px; }
+.hb-navigation button:hover:enabled { background:#6d403e; border-color:#ef4136; }
+.hb-navigation button:disabled { opacity:.35; cursor:default; }
+.hb-count { color:#d8c0b3; font-size:12px; font-variant-numeric:tabular-nums; text-align:center; }
+.hb-turn-sheet { position:absolute; top:7px; bottom:7px; width:calc(50% - 7px); z-index:2; pointer-events:none; padding:30px 34px; overflow:hidden; backface-visibility:hidden; color:#332a27; background:linear-gradient(90deg,#e1d2b8,#fffcf3 12%,#f8f0df); box-shadow:-10px 0 20px #33231125; }
+.hb-turn-cover { display:flex; flex-direction:column; align-items:center; justify-content:center; color:#ef4136; }
+.hb-turn-cover strong { white-space:pre-line; font:55px/1.1 Georgia,serif; }
+.history-video-source { position:fixed; width:1px; height:1px; left:-10px; top:0; opacity:0; pointer-events:none; }
+.history-watching > .top-hud,.history-watching > .scene-toolbar,.history-watching > #stick,.history-watching > #play-actions,.history-watching > .lower-controls { visibility:hidden; pointer-events:none; }
+#history-watch { position:absolute; inset:0; z-index:5; display:flex; justify-content:space-between; align-items:flex-start; padding:max(20px,env(safe-area-inset-top)) max(22px,env(safe-area-inset-right)) 20px max(22px,env(safe-area-inset-left)); pointer-events:none; }
+.history-watch-title { padding:11px 16px; border-radius:12px; }
+.history-watch-title strong { display:block; font-size:15px; }
+.history-watch-title span { font-size:11px; color:#ebc9b9; }
+#end-history-watch { pointer-events:auto; min-height:44px; display:flex; align-items:center; gap:7px; padding:10px 18px; border:1px solid #ffe4cf8c; border-radius:24px; color:#fff7ed; background:#9d332b; font-weight:700; }
+.history-video-message { position:absolute; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); max-width:calc(100% - 28px); padding:12px 17px; border-radius:14px; text-align:center; pointer-events:auto; }
+#retry-history-video { color:#fff7ed; border:1px solid #b89887; padding:7px 12px; margin-top:7px; border-radius:15px; }
+@media (max-width:700px) {
+  dialog.history-reading { width:calc(100% - 12px); max-height:94dvh; }
+  .history-reading .panel-inner { padding:10px 12px; }
+  .history-reading .panel-head { top:-10px; padding:8px 0; }
+  .history-reading .panel-head h1 { font-size:24px; }
+  .hb-top { padding:8px 0 12px; flex-wrap:wrap; }
+  .hb-edition { font-size:9px; }
+  .hb-spread { grid-template-columns:1fr; min-height:0; }
+  .hb-page { padding:20px 22px 38px; }
+  .hb-left { background:linear-gradient(90deg,#f5efe3,#fffaf0 8%,#fffaf0 94%,#e9dcc6); }
+  .hb-right { border-top:1px solid #cfbda2; background:#fffaf0; }
+  .hb-photo img { height:180px; }
+  .hb-year { font-size:49px; }
+  .hb-title { font-size:21px; }
+  .hb-cover { min-height:420px; padding:24px 15px; }
+  .hb-cover strong { font-size:47px; margin:45px 0 25px; }
+  .hb-cover-open { margin-top:45px; }
+  .hb-navigation { bottom:-10px; padding:12px 0 5px; gap:6px; }
+  .hb-navigation button { min-width:90px; padding-inline:11px; font-size:12px; }
+  .hb-count { font-size:11px; }
+  #history-watch { padding:12px; gap:8px; }
+  .history-watch-title { padding:9px 11px; }
+  .history-watch-title strong { font-size:13px; }
+  #end-history-watch { padding:9px 13px; font-size:13px; }
+}

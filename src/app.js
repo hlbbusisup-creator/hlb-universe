@@ -10,7 +10,8 @@
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
   const fields = {space:el("space-filter"), type:el("type-filter"), language:el("language-filter"), year:el("year-filter")};
   let records = [];
-  let world, player, renderer, camera, scene, fireworks, timeOfDay, yacht;
+  let world, player, renderer, camera, scene, fireworks, timeOfDay, yacht, historyFilm;
+  const historyBook=window.HLBHistoryBook.create(el("history-pane"));
   let station = null, destination = null, localCollection = "";
   let returnRow = null, listScroll = 0;
   const stillScenery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -104,17 +105,21 @@
   }
 
   function openPane(name, title) {
+    if (historyFilm?.isWatching()) return;
     if (yacht?.getState().busy && yacht.getState().phase !== "walking") return;
     yacht?.cancelApproach();
     setSoundPanel(false);
     player?.setActive(false);
+    historyFilm?.setPresent(false);
+    if(name!=="history") historyBook.close();
     resetStick();
     destination = null;
     el("travel").hidden = true;
-    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp"]) el(pane + "-pane").hidden = pane !== name;
+    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp", "history"]) el(pane + "-pane").hidden = pane !== name;
     const reading=name==="reader";
     dialog.classList.toggle("reading",reading);
     dialog.classList.toggle("cafe-order",name==="cafe");
+    dialog.classList.toggle("history-reading",name==="history");
     el("reader-back").hidden=!reading;
     el("panel-title").textContent = title;
     if (!dialog.open) dialog.showModal();
@@ -185,14 +190,46 @@
   }
 
   function interact() {
-    if (yacht?.getState().busy) return;
+    if (yacht?.getState().busy || historyFilm?.isWatching()) return;
     if (!station) return;
-    if (station.id === "warp") openPane("warp", "워프 · 목적지 선택");
+    if (station.id === "history-book") openHistoryBook();
+    else if (station.id === "history-film") beginHistoryWatch();
+    else if (station.id === "warp") openPane("warp", "워프 · 목적지 선택");
     else if (station.spaceId === "cafe") openCafe();
     else if (station.record) openRecord(station.record);
     else if (station.spaceId === "cologne") openGallery();
     else openLibrary(station.spaceId);
   }
+
+  function inHistoryHall() {
+    const hall=bySpace.get("history");
+    return Boolean(hall && player && world.containsPoint(hall.interior,player.getPosition()));
+  }
+  function openHistoryBook() {
+    if(!inHistoryHall())return;
+    openPane("history","History of HLB");historyBook.open();
+  }
+  function beginHistoryWatch() {
+    if(!historyFilm || dialog.open || !inHistoryHall() || yacht?.getState().busy)return;
+    destination=null;resetStick();player.setActive(false);
+    historyFilm.setPresent(true);
+    if(!historyFilm.beginWatch()){player.setActive(true);return;}
+    music.setSuspended(true);
+    el("experience").classList.add("history-watching");
+    el("history-watch").hidden=false;
+    el("end-history-watch").focus({preventScroll:true});resumeRendering();
+  }
+  function endHistoryWatch() {
+    if(!historyFilm?.endWatch())return;
+    music.setSuspended(false);
+    el("experience").classList.remove("history-watching");el("history-watch").hidden=true;
+    player.setActive(!document.hidden && !dialog.open);updateStatus();resumeRendering();canvas.focus({preventScroll:true});
+  }
+  el("end-history-watch").addEventListener("click",endHistoryWatch);
+  el("retry-history-video").addEventListener("click",()=>historyFilm?.retry());
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape" && !event.isComposing && historyFilm?.isWatching()) {event.preventDefault();endHistoryWatch();}
+  });
 
   function atCafeCounter() {
     const cafe = bySpace.get("cafe");
@@ -228,7 +265,7 @@
   }
 
   function consumeCafeItem(item) {
-    if (!player || yacht?.getState().busy || dialog.open || document.hidden) return;
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden || historyFilm?.isWatching()) return;
     const state=player.getCafeState();
     if (state.consuming) return;
     if (!state[item]) {
@@ -297,7 +334,7 @@
     for (const space of spaces.values()) {
       const button = make("button", "guide-row");
       button.type = "button";
-      if (space.id === "cafe") { button.id = "visit-cafe"; button.disabled = true; }
+      if (["cafe","history"].includes(space.id)) { button.id = "visit-"+space.id; button.disabled = true; }
       const copy = make("span", "guide-copy");
       copy.append(make("strong", "", space.title), make("small", "", space.subtitle));
       button.append(icon(space.id === "cafe" ? "coffee" : "pin"), copy, icon("arrow"));
@@ -327,9 +364,11 @@
 
   function updateStatus() {
     if (!world || !player) return;
+    if(historyFilm?.isWatching())return;
     syncCafeActions();
     const p = player.getPosition();
     const inside = world.spaces.find(({interior}) => interior && world.containsPoint(interior,p));
+    historyFilm?.setPresent(inside?.id==="history" && !dialog.open);
     const rideState=yacht.getState(), busy=rideState.busy;
     const locked=busy && rideState.phase!=="walking";
     const dock=busy?null:yacht.nearby();
@@ -356,6 +395,8 @@
       const arrived = destination.inspectOnArrival ? destination : null;
       destination = null;
       if (arrived?.spaceId === "cafe") openCafe();
+      else if (arrived?.id === "history-book") openHistoryBook();
+      else if (arrived?.id === "history-film") beginHistoryWatch();
       else if (arrived?.id === "warp") openPane("warp", "워프 · 목적지 선택");
       else if (arrived?.record) openRecord(arrived.record);
     }
@@ -390,7 +431,8 @@
     if (!dialog.open) {
       world.update(dt, stillScenery.matches);
       yacht.update(dt, stillScenery.matches);
-      player.update(dt);
+      if(!historyFilm?.isWatching())player.update(dt);
+      historyFilm?.update();
       fireworks.update(dt);
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
     }
@@ -465,14 +507,16 @@
   } });
   dialog.addEventListener("close",()=>{
     window.HLBReader.clear();
+    historyBook.close();
     returnRow=null;
-    player?.setActive(!document.hidden);
+    player?.setActive(!document.hidden && !historyFilm?.isWatching());
+    historyFilm?.setPresent(inHistoryHall() && !document.hidden);
     resumeRendering();
     if(player) canvas.focus({preventScroll:true});
   });
   el("interact").addEventListener("click",interact);
   function rideYacht() {
-    if (!player || yacht?.getState().busy || dialog.open || document.hidden) return;
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden || historyFilm?.isWatching()) return;
     const dock=yacht?.nearby();
     if (dock===null || dock===undefined) {
       el("announcement").textContent="블랙캣 탑승장이나 그룹안내소에서 이동할 수 있어요.";
@@ -485,7 +529,7 @@
   }
   el("ride-yacht").addEventListener("click",rideYacht);
   function playAction(action) {
-    if (!player || yacht?.getState().busy || dialog.open || document.hidden || el("play-actions").hidden) return;
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden || el("play-actions").hidden || historyFilm?.isWatching()) return;
     if (action === "jump") player.jump();
     else if (action === "firework") fireworks.launch(player.getPosition(), stillScenery.matches);
   }
@@ -503,7 +547,8 @@
   });
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; yacht?.cancelApproach(); resetStick(); player?.setActive(false); }
-    else { player?.setActive(!dialog.open); resumeRendering(); }
+    else { player?.setActive(!dialog.open && !historyFilm?.isWatching()); resumeRendering(); }
+    historyFilm?.setPresent(inHistoryHall() && !document.hidden && !dialog.open);
   });
   el("retry").addEventListener("click",()=>location.reload());
   el("fallback-search").addEventListener("click",()=>openLibrary());
@@ -520,6 +565,12 @@
     el("yacht-status").hidden=true;
     if (el("visit-cafe")) el("visit-cafe").disabled=true;
     if (el("visit-warp")) el("visit-warp").disabled=true;
+    if (el("visit-history")) el("visit-history").disabled=true;
+    if(historyFilm?.isWatching()) {
+      historyFilm.endWatch();music.setSuspended(false);el("experience").classList.remove("history-watching");el("history-watch").hidden=true;
+    }
+    historyFilm?.setPresent(false);
+    player?.setActive(false);
   }
 
   async function start() {
@@ -561,6 +612,11 @@
         readingStops.push({...counter, spaceId:hall.id, action:"카페 주문하기", radius:cafeCounterRadius, indoorOnly:true});
         continue;
       }
+      if(hall.id==="history") {
+        for(const exhibit of hall.exhibits) readingStops.push({...exhibit,spaceId:"history",indoorOnly:true,
+          action:exhibit.id==="history-book"?"역사보기":"시청하기",radius:1.7});
+        continue;
+      }
       const gallery = Boolean(hall.exhibits?.length);
       readingStops.push({
         id:hall.id, spaceId:hall.id, title:space.title, station:hall.station,
@@ -573,7 +629,7 @@
       }
     }
     if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 워프"});
-    const arrival = ["cologne","cafe"].includes(visitId) ? bySpace.get(visitId) : visitId === "warp" ? world.warpGate : null;
+    const arrival = ["cologne","cafe","history"].includes(visitId) ? bySpace.get(visitId) : visitId === "warp" ? world.warpGate : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
       yacht?.cancelApproach();
       destination=null;
@@ -593,9 +649,15 @@
     fireworks=window.HLBFireworks.create(scene, camera, canvas, {
       onBurst: phrase => { el("announcement").textContent = phrase; }
     });
+    historyFilm=window.HLBHistoryFilm.create({hall:bySpace.get("history"),camera,onState:state=>{
+      el("history-video-status").textContent=state.message;
+      el("history-video-message").hidden=!state.message;
+      el("retry-history-video").hidden=!state.failed;
+    }});
     player.setActive(!dialog.open);
     el("visit-cafe").disabled=false;
     el("visit-warp").disabled=!world.warpGate;
+    el("visit-history").disabled=false;
     resize();
     new ResizeObserver(resize).observe(canvas);
     canvas.addEventListener("webglcontextlost",event=>{

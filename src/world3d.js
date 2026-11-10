@@ -128,7 +128,10 @@
       for(let i=firstRoof;i<roofs.length;i++) roofs[i]=rectangle(roofs[i]);
       return {...point(room),station:point(room.station),lookAt:point(room.lookAt),label:point(room.label),
         interior:rectangle(room.interior),exhibits:room.exhibits?.map(exhibit=>({...exhibit,
-          station:point(exhibit.station),lookAt:point(exhibit.lookAt),hitBox:rectangle(exhibit.hitBox)}))};
+          station:point(exhibit.station),lookAt:point(exhibit.lookAt),hitBox:rectangle(exhibit.hitBox)})),
+        projection:room.projection?{...room.projection,
+          cameraPosition:point(room.projection.cameraPosition),lookAt:point(room.projection.lookAt),
+          station:point(room.projection.station),projector:point(room.projection.projector)}:undefined};
     }
     function triangles(name,verts,colors,material) {
       const geometry=new T.BufferGeometry();
@@ -186,7 +189,7 @@
         return a.map((value,k)=>value*(1-Math.max(t,u))+d[k]*Math.min(t,u)+middle[k]*Math.abs(t-u)+(k===1?lift:0));
       }
       function lavaRibbon(start,end,bearing,width,phase,strength) {
-        const strips=[[-1,-.63,0xad2c21],[-.63,-.25,0xff5125],[-.25,.15,0xffba4c],[.15,.60,0xff6d29],[.6,1,0xbd3022]];
+        const strips=[[-1,-.63,0xad2c21],[-.63,-.25,red],[-.25,.15,0xffba4c],[.15,.60,0xff6d29],[.6,1,0xbd3022]];
         for (const [left,right,shade] of strips) {
           let prevA,prevB;
           for (let step=0;step<=70;step++) {
@@ -283,7 +286,14 @@
         const open=1-.92*Math.pow(Math.max(0,-Math.cos(angle)),3);
         const h=[-1,1.5,5.2,8,1][j];
         const r=radius+(1.8+j)*wav;
-        return [Math.sin(angle)*r,(h+(j?wav*(2+j*.58):0))*open-1,Math.cos(angle)*r*1.3-10];
+        const x=Math.sin(angle)*r,z=Math.cos(angle)*r*1.3-10;
+        const height=(h+(j?wav*(2+j*.58):0))*open-1;
+        // A low opening on the eastern rim reveals the river beyond the
+        // walkable boundary. The historic pavilion and promenade stay intact.
+        const riverX=37+2.4*Math.sin(z*.055);
+        const opening=(1-T.MathUtils.smoothstep(Math.abs(x-riverX),6,14))*
+          T.MathUtils.smoothstep(z,-80,-66)*(1-T.MathUtils.smoothstep(z,40,52));
+        return [x,T.MathUtils.lerp(height,-.30,opening),z];
       }));
       const tint=new T.Color();
       for(let j=0;j<ridge.length-1;j++) for(let i=0;i<sections;i++){
@@ -309,6 +319,64 @@
       const grit=grain.clone();grit.repeat.set(180,180);grit.needsUpdate=true;
       const floor=new T.Mesh(ground,new T.MeshStandardMaterial({map:grit,vertexColors:true,roughness:1}));
       floor.name="Volcanic ash plateau";floor.receiveShadow=true;site.add(floor);
+    }
+
+    function makeLavaRiver() {
+      // A single flowing surface and shared instanced banks: all vertices stay
+      // outside the visitor's eastern boundary, so the river is scenery only.
+      const sections=140,vertices=[],uvs=[],indices=[];
+      const banks=[],riverBounds={minX:Infinity,maxX:-Infinity,minZ:-68,maxZ:42};
+      function crossSection(t) {
+        const z=42-110*t,x=37+2.4*Math.sin(z*.055),half=4.15+.30*Math.sin(t*11);
+        return {x,z,half};
+      }
+      for(let row=0;row<=sections;row++) {
+        const t=row/sections,{x,z,half}=crossSection(t);
+        for(const side of [-1,1]) {
+          const edge=x+side*half;
+          vertices.push(edge,.065,z);uvs.push((side+1)/2,t);
+          riverBounds.minX=Math.min(riverBounds.minX,edge);riverBounds.maxX=Math.max(riverBounds.maxX,edge);
+        }
+        if(row<sections) {const a=row*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}
+        if(row%3===0)banks.push({...crossSection(t),index:row});
+      }
+      const geometry=new T.BufferGeometry();
+      geometry.setAttribute("position",new T.Float32BufferAttribute(vertices,3));
+      geometry.setAttribute("uv",new T.Float32BufferAttribute(uvs,2));
+      geometry.setIndex(indices);geometry.computeVertexNormals();
+      const material=new T.ShaderMaterial({
+        uniforms:{time:{value:0},magma:{value:new T.Color(red)},hot:{value:new T.Color(0xffad50)},
+          crust:{value:new T.Color(0x2c2028)}},toneMapped:false,
+        vertexShader:`varying vec2 riverUV;
+          void main(){riverUV=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+        fragmentShader:`uniform float time;uniform vec3 magma;uniform vec3 hot;uniform vec3 crust;
+          varying vec2 riverUV;
+          void main(){
+            vec2 p=vec2(riverUV.x*7.,riverUV.y*65.-time*.32);
+            float fold=sin(p.y*.78+sin(p.x*1.6)*1.7)*sin(p.x*2.6+sin(p.y*.35));
+            float vein=1.-smoothstep(.10,.31,abs(fold));
+            float rafts=smoothstep(.43,.82,abs(fold));
+            float pulse=.5+.5*sin(p.y*1.1-p.x*1.7);
+            vec3 lava=mix(magma,hot,vein*(.55+.30*pulse));
+            lava=mix(lava,crust,rafts*.73);
+            float edge=smoothstep(.72,1.,abs(riverUV.x-.5)*2.);
+            gl_FragColor=vec4(mix(lava,crust,edge),1.);
+            #include <colorspace_fragment>
+          }`
+      });
+      const mesh=new T.Mesh(geometry,material);mesh.name="Magma Red lava river";
+      mesh.userData.sceneryOnly=true;site.add(mesh);
+      for(const {x,z,half,index} of banks)for(const side of [-1,1]) {
+        const size=.45+(Math.sin(index*2.7+side)+1)*.15;
+        place("rock",basalt[(index+3+side)%basalt.length],x+side*(half+.30),.10,z,
+          size,.27+size*.28,1.24,[.07,index*.61,.04],"stone");
+      }
+      let time=0;
+      return {mesh,bounds:riverBounds,sceneryOnly:true,update(dt=0,reducedMotion=false) {
+        if(reducedMotion) {material.uniforms.time.value=0;return;}
+        time=(time+Math.max(0,Math.min(Number(dt)||0,.1)))%3600;
+        material.uniforms.time.value=time;
+      }};
     }
 
     // Connected strips of precast basalt panels, with expansion joints and edge studs.
@@ -387,7 +455,7 @@
           face(verts,colors,a,c,b,shade);face(verts,colors,b,c,d,shade);
         }
         const a=rings[2][i],b=rings[2][j],c=rings[3][i],d=rings[3][j];
-        lc.setHex(choose([0xfc5123,0xf95c23,0xf66b23]));
+        lc.setHex(choose([red,0xf95c23,0xf66b23]));
         face(flowVerts,flowColors,a,c,b,lc);face(flowVerts,flowColors,b,c,d,lc);
         lc.setHex(choose([0xff832a,0xff902d,0xff9838]));face(flowVerts,flowColors,c,center,d,lc);
       }
@@ -419,6 +487,7 @@
         path(side*13.5,-22,side*20,-31,3.4);
         path(side*9.546,-31.546,side*15,-41,3.4);
       }
+      curvedPath([[0,-9],[-6,-9],[-12,-6.3],[-19,-6],[-19,-8]],2.8);
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
         path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
@@ -428,14 +497,16 @@
       // The molten beds are kept clear of the promenade, doors and yacht pads.
       for(const side of [-1,1]){
         vent(side*4.9,17.2,.45,2);
+        vent(side*4.9,13.6,.40,.65);
+        vent(side*4.9,8.2,.40,1.0);
         vent(side*4.9,3,.45,3.3);
         vent(side*25.8,-18,1,2.4);
         vent(side*27,-42,1,2.4);
         vent(side*25.5,-48,1,2.2);
-        vent(side*9,-4.4,2.2,1.6);
+        vent(side*9,side<0?-1.2:-4.4,2.2,1.6);
         vent(side*2.2,-45,1.4,2.1);
         vent(side*7.5,-26,.8,1.35);
-        vent(side*19.5,-3.8,1.7,2.4);
+        vent(side<0?-26.3:19.5,-3.8,1.7,2.4);
       }
       vent(-20.4,22.8,2,2.4);
       vent(20.4,22.8,2,2.4);
@@ -462,6 +533,7 @@
       for(let i=0;i<94;i++){
         const a=TAU*i/94+random()*.035,scale=1+random()*2.3;
         const x=Math.sin(a)*(33+random()*10),z=Math.cos(a)*(47+random()*11)-10;
+        if(x>27 && z>-72 && z<46)continue;
         const clearance=scale*1.4+1;
         if(spaces.some(({interior:b})=>x>b.minX-clearance && x<b.maxX+clearance &&
           z>b.minZ-clearance && z<b.maxZ+clearance)) continue;
@@ -551,7 +623,9 @@
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
     spaces.push(buildAt(()=>globalThis.HLBCafe.build(hallKit),-5.5,11));
+    spaces.push(buildAt(()=>globalThis.HLBHistoryHall.build(hallKit),-19,-8));
     const warpGate=globalThis.HLBWarpGate.build(hallKit);
+    const lavaRiver=makeLavaRiver();
     siteDetail();
     triangles("Basalt vent rims",ventVerts,ventColors,mountainMaterial);
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));
@@ -566,6 +640,7 @@
     let angle=0;
     function update(dt=0,reducedMotion=false) {
       warpGate.update(dt,reducedMotion);
+      lavaRiver.update(dt,reducedMotion);
       if (reducedMotion) {
         summitLogo.rotation.y=0;
         return;
@@ -575,7 +650,7 @@
       summitLogo.rotation.y=-angle;
       updateAtmosphere(dt);
     }
-    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,warpGate,lavaLights,containsPoint,
+    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,warpGate,lavaRiver,lavaLights,containsPoint,
       spawn:{x:0,z:23},update};
   }
   globalThis.HLBWorld3D={build,containsPoint};

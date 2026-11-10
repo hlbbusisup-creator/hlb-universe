@@ -10,7 +10,7 @@ const context = createContext({
     }
   }
 });
-for (const path of ["assets/vendor/three.min.js", "src/hall-designs.js", "src/cafe.js", "src/cologne-gallery.js"]) {
+for (const path of ["assets/vendor/three.min.js", "src/hall-designs.js", "src/cafe.js", "src/cologne-gallery.js", "src/history-hall.js"]) {
   runInContext(await readFile(new URL("../" + path, import.meta.url), "utf8"), context, {filename: path});
 }
 const T = context.THREE;
@@ -49,11 +49,12 @@ function kit() {
   };
 }
 
-test("일곱 건물의 장식을 포함한 지붕 최고점이 같은 4.3m 선에 놓인다", () => {
-  for (const id of ["group", "brand", "product", "ir", "esg", "cafe", "cologne"]) {
+test("여덟 건물의 장식을 포함한 지붕 최고점이 같은 4.3m 선에 놓인다", () => {
+  for (const id of ["group", "brand", "product", "ir", "esg", "cafe", "cologne", "history"]) {
     const builder = kit();
     if (id === "cafe") context.HLBCafe.build(builder);
     else if (id === "cologne") context.HLBCologneGallery.build(builder);
+    else if (id === "history") context.HLBHistoryHall.build(builder);
     else context.HLBHalls.build(builder, {id, title:id, en:id, x:0, front:0, width:10, depth:6.5});
     const bounds = new T.Box3().setFromObject(builder.site);
     assert.ok(Math.abs(bounds.max.y - 4.3) < .025, id + " 최고 높이 " + bounds.max.y);
@@ -62,9 +63,10 @@ test("일곱 건물의 장식을 포함한 지붕 최고점이 같은 4.3m 선�
 });
 
 test("주요 간판의 글자 영역은 진입 방향에서 처마와 장식에 가리지 않는다", () => {
-  for (const id of ["group", "brand", "product", "ir", "esg", "cologne"]) {
+  for (const id of ["group", "brand", "product", "ir", "esg", "cologne", "history"]) {
     const builder = kit();
     if (id === "cologne") context.HLBCologneGallery.build(builder);
+    else if (id === "history") context.HLBHistoryHall.build(builder);
     else context.HLBHalls.build(builder, {id, title:id, en:id, x:0, front:0, width:10, depth:6.5});
     builder.site.updateMatrixWorld(true);
     const signs = [], solids = [];

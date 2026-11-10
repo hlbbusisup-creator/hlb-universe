@@ -39,6 +39,12 @@
       description: "AI de cologne의 퍼스널 디퓨저와 아홉 가지 향 카트리지를 전시합니다."
     },
     {
+      id: "history",
+      title: "HLB 역사관",
+      subtitle: "History of HLB · GI 선포식",
+      description: "HLB의 발자취를 한 권의 책으로 읽고 GI 선포식 영상을 관람합니다."
+    },
+    {
       id: "cafe",
       title: "카페 렌토",
       subtitle: "Café Lento 1975 · 커피와 빵",

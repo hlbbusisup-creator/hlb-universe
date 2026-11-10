@@ -17,7 +17,7 @@ test('모든 자료에는 고유 ID, 전시관, 온라인 또는 로컬 원본 �
     assert.ok(/^https:\/\//.test(item.url) || /^assets\/reading\/[\w/-]+\.pdf$/.test(item.url), item.id);
   }
   for (const space of spaceIds) {
-    if (space === 'cafe') continue;
+    if (['cafe','history'].includes(space)) continue;
     assert.ok(resources.some(item => item.space === space), space);
   }
 });

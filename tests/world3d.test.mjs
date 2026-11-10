@@ -29,7 +29,7 @@ page.performance = performance;
 page.matchMedia = () => ({matches: false});
 page.AbortController = AbortController;
 const context = createContext(page);
-for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/cafe.js', 'src/warp-gate.js', 'src/world3d.js', 'src/player3d.js']) {
+for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/cafe.js', 'src/warp-gate.js', 'src/history-hall.js', 'src/world3d.js', 'src/player3d.js']) {
   const file = new URL('../' + path, import.meta.url);
   runInContext(await readFile(file, 'utf8'), context, { filename: path });
 }
@@ -90,8 +90,8 @@ function visit(player, space) {
   assert.fail(space.id + ' 열람대까지 도달할 수 없음');
 }
 
-test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통과하지 않고 걸어갈 수 있다', () => {
-  assert.deepEqual(Array.from(world.spaces, space => space.id).sort(), ['brand', 'cafe', 'cologne', 'esg', 'group', 'ir', 'product']);
+test('산책 시작점에서 여덟 건물의 실내 목적지까지 벽을 통과하지 않고 걸어갈 수 있다', () => {
+  assert.deepEqual(Array.from(world.spaces, space => space.id).sort(), ['brand', 'cafe', 'cologne', 'esg', 'group', 'history', 'ir', 'product']);
   for (const space of world.spaces) {
     const room = space.interior;
     assert.ok(space.station.x > room.minX && space.station.x < room.maxX &&
@@ -119,6 +119,47 @@ test('입구 왼쪽 워프 콘솔과 기존 거리 사이를 충돌 없이 왕�
     visit(player, world.spaces.find(space => space.id === 'cafe'));
     visit(player, world.warpGate);
   } finally { player.dispose(); }
+});
+
+test('역사관 제단과 영상 관람점은 실제 실내에 있고 연속으로 방문할 수 있다', () => {
+  const hall=world.spaces.find(space=>space.id==='history');
+  assert.ok(hall?.projection?.screen?.isMesh);
+  assert.equal(hall.exhibits.length,2);
+  const {player}=createPlayer();
+  try {
+    visit(player,hall);
+    for(const exhibit of hall.exhibits) {
+      assert.ok(world.containsPoint(hall.interior,exhibit.station));
+      visit(player,exhibit);
+    }
+    visit(player,{id:'entrance',station:world.spawn});
+  } finally {player.dispose();}
+  const {cameraPosition,lookAt,screenWidth,screenHeight}=hall.projection;
+  assert.ok(world.containsPoint(hall.interior,cameraPosition));
+  assert.ok(cameraPosition.y>1.5 && cameraPosition.y<hall.interior.ceilingY);
+  assert.ok(Math.hypot(cameraPosition.x-lookAt.x,cameraPosition.z-lookAt.z)>2);
+  assert.ok(Math.abs(screenWidth/screenHeight-16/9)<.01);
+});
+
+test('흐르는 용암 강은 이동 경계 밖에 있고 동작 줄이기 설정을 따른다', () => {
+  const river=world.lavaRiver;
+  assert.ok(river.sceneryOnly);
+  assert.ok(river.bounds.minX>world.bounds.maxX);
+  scene.updateMatrixWorld(true);
+  const bounds=new THREE.Box3().setFromObject(river.mesh);
+  assert.ok(bounds.min.x>world.bounds.maxX);
+  const time=river.mesh.material.uniforms.time;
+  const previous=time.value;
+  world.update(.07,false);
+  assert.ok(time.value>previous);
+  world.update(.07,true);
+  assert.equal(time.value,0);
+  const {player}=createPlayer();
+  try {
+    player.walkTo({x:(river.bounds.minX+river.bounds.maxX)/2,z:0});
+    for(let i=0;i<500;i++)player.update(.05);
+    assert.ok(player.getPosition().x<=world.bounds.maxX);
+  } finally {player.dispose();}
 });
 
 test('직선거리 끝의 작은 반원에서 방사형 가지길을 향해 네 전시관이 완만하게 회전한다', () => {

@@ -10,8 +10,9 @@
   <link rel="stylesheet" href="styles.css?v=social-links">
   <link rel="stylesheet" href="src/product-book.css?v=1">
   <link rel="stylesheet" href="src/warp-travel.css?v=warp">
+  <link rel="stylesheet" href="src/history.css?v=history">
   <script defer src="assets/vendor/three.min.js"></script>
-  <script defer src="src/catalog-data.js?v=cafe"></script>
+  <script defer src="src/catalog-data.js?v=history"></script>
   <script defer src="src/catalog.js?v=fan-sync"></script>
   <script defer src="src/reading-data.js?v=product-shelf"></script>
   <script defer src="src/report-reading-data.js"></script>
@@ -25,7 +26,8 @@
   <script defer src="src/hall-designs.js?v=fan-sync"></script>
   <script defer src="src/cafe.js?v=circle-yacht"></script>
   <script defer src="src/warp-gate.js?v=warp"></script>
-  <script defer src="src/world3d.js?v=warp"></script>
+  <script defer src="src/history-hall.js?v=history"></script>
+  <script defer src="src/world3d.js?v=history"></script>
   <script defer src="src/player3d.js?v=warp"></script>
   <script defer src="src/blackcat-yacht.js?v=circle-yacht"></script>
   <script defer src="src/yacht-ride.js?v=circle-yacht"></script>
@@ -33,7 +35,10 @@
   <script defer src="src/chamber-music.js?v=warp"></script>
   <script defer src="src/fireworks.js"></script>
   <script defer src="src/warp-travel.js?v=warp"></script>
-  <script defer src="src/app.js?v=warp"></script>
+  <script defer src="src/history-data.js?v=history"></script>
+  <script defer src="src/history-book.js?v=history"></script>
+  <script defer src="src/history-film.js?v=history"></script>
+  <script defer src="src/app.js?v=history"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -107,6 +112,13 @@
       <p class="hint glass" id="hint"><span class="desktop-hint">방향키로 이동 <i></i> 드래그로 둘러보기 <i></i> 바닥 클릭으로 이동</span><span class="mobile-hint">왼쪽 원으로 이동하고 화면을 밀어 둘러보세요</span></p>
     </div>
     <div class="sr" id="announcement" role="status" aria-live="polite"></div>
+    <section id="history-watch" aria-label="HLB 역사관 영상 관람" hidden>
+      <div class="history-watch-title glass"><strong>HLB 역사관 · GI 선포식</strong><span>무음 상영 · 반복 재생</span></div>
+      <button id="end-history-watch" type="button">시청종료 <span aria-hidden="true">×</span></button>
+      <div id="history-video-message" class="history-video-message glass" hidden>
+        <p id="history-video-status" role="status"></p><button id="retry-history-video" type="button" hidden>영상 다시 재생</button>
+      </div>
+    </section>
   </main>
   <dialog id="panel" aria-labelledby="panel-title">
     <div class="panel-inner">
@@ -129,6 +141,7 @@
         <p class="panel-desc">방문할 공간을 선택하세요. 방문 중에는 화면 위의 돌아가기 버튼으로 이곳에 돌아올 수 있어요.</p>
         <div id="warp-destinations" class="warp-destinations"></div>
       </section>
+      <section id="history-pane" aria-label="HLB 역사책" hidden></section>
       <section id="help-pane" hidden>
         <dl class="help-list">
           <div><dt>이동</dt><dd>WASD · 방향키 · 바닥 클릭으로 가볍게 뛰어갑니다. 모바일에서는 왼쪽 조이스틱 또는 바닥 터치를 이용하세요.</dd></div>
@@ -144,6 +157,7 @@
           <div><dt>에데꼬론 전시품</dt><dd>제품을 클릭하거나 터치하면 전시대까지 걸어가 설명을 엽니다.</dd></div>
           <div><dt>카페 렌토</dt><dd>주문대를 누르거나 가까이서 E를 눌러 주문하세요. 산책 중 ‘커피 마시기’나 ‘빵 먹기’를 누르면 해당 손에 든 메뉴를 즐길 수 있습니다.</dd></div>
           <div><dt>워프</dt><dd>입구 왼쪽 워프 장비에서 ‘이동하기’ 또는 E를 누른 뒤 목적지를 선택하세요. 방문 화면 위의 돌아가기 버튼으로 워프 위치에 돌아옵니다. 별도 새 탭으로 연 링크에서는 원래 체험관 탭으로 돌아오세요.</dd></div>
+          <div><dt>HLB 역사관</dt><dd>입장하면 GI 선포식 영상이 소리 없이 반복 재생됩니다. 영상 앞 ‘시청하기’로 시점을 고정하고, ‘시청종료’ 또는 Esc로 산책으로 돌아오세요. 중앙 제단 앞 ‘역사보기’로 책을 열어 표지와 연혁을 좌우 화살표로 넘깁니다.</dd></div>
           <div><dt>열람 종료</dt><dd>Esc로 한 단계 뒤로, 닫기 버튼으로 HLB 유니버스에 복귀</dd></div>
         </dl>
       </section>
