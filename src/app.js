@@ -307,10 +307,11 @@
     if (!world || !player) return;
     syncCafeActions();
     const p = player.getPosition();
+    const inside = world.spaces.find(({interior}) => interior && world.containsPoint(interior,p));
     const rideState=yacht.getState(), busy=rideState.busy;
     const locked=busy && rideState.phase!=="walking";
     const dock=busy?null:yacht.nearby();
-    el("ride-yacht").hidden=dock===null;
+    el("ride-yacht").hidden=dock===null || inside?.id==="group";
     const rideDestination=dock===0?"그룹안내소로":"입구로";
     if (dock!==null && el("ride-destination").textContent!==rideDestination) el("ride-destination").textContent=rideDestination;
     el("yacht-status").hidden=!locked;
@@ -320,7 +321,6 @@
     for (const id of ["open-guide","open-search","open-help","overview","jump","firework","drink-coffee","eat-bread"]) {
       el(id).disabled=locked || (["drink-coffee","eat-bread"].includes(id) && Boolean(player.getCafeState().consuming));
     }
-    const inside = world.spaces.find(({interior}) => interior && world.containsPoint(interior,p));
     overview.hidden = Boolean(inside);
     overview.setAttribute("aria-pressed", String(player.isOverview()));
     const eligible = readingStops.filter(stop => !stop.indoorOnly || inside?.id === stop.spaceId);
