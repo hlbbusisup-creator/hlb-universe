@@ -4,7 +4,7 @@ import {mkdtemp,readFile,writeFile,mkdir,rm,readdir} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {createHash} from "node:crypto";
-import {crawlNotion,extractResources,synchronize,checkedURL,isPublicAddress,extractHeyzinePDF} from "../scripts/sync-notion.mjs";
+import {crawlNotion,extractResources,synchronize,checkedURL,isPublicAddress,extractHeyzinePDF,richText,richLinks} from "../scripts/sync-notion.mjs";
 
 const id=n=>"aaaaaaaa-aaaa-aaaa-aaaa-"+String(n).padStart(12,"0");
 const rich=value=>[[value]];
@@ -73,6 +73,64 @@ test("Crawl follows only public descendants, includes full tables and keeps stab
   assert.deepEqual(resources[1].reading.sections[0].rows,[["회사","전화"],["HLB","02-123-4567"]]);
   assert.deepEqual(resources[2].reading.sections[0].rows,[["법인명","비전"],["HLB","Human Life Better"]]);
   assert.equal(resources.some(resource=>resource.notionPageId===id(10)),false,"Database rows remain inside their table");
+});
+
+test("Public workspace routing is derived from the root response and passed without authentication tokens",async()=>{
+  const f=fixture();
+  f.blocks[id(1)].space_id=id(90);
+  await crawlNotion(f.config,{request:f.request});
+  const calls=f.calls.filter(call=>call.url.pathname.endsWith("getRecordValues"));
+  assert.ok(calls.length>0);
+  for(const {options} of calls) {
+    const body=JSON.parse(options.body);
+    assert.equal(body.spaceId,id(90));
+    assert.ok(body.requests.every(record=>record.spaceId===id(90)));
+    assert.equal(options.headers["x-notion-space-id"],id(90));
+    assert.equal(Object.keys(options.headers).some(key=>/authorization|cookie|token/i.test(key)),false);
+  }
+  assert.equal(f.config.spaceId,undefined,"Workspace identity is discovered, not hardcoded in config");
+});
+
+test("Notion link mentions, ordinary links and plain URLs retain all destinations and separate adjacent accounts",()=>{
+  const value=[
+    ["‣",[["lm",{href:"http://www.hlbkorea.com/",title:"에이치엘비 (HLB)"}]]],
+    ["            "],
+    ["‣",[["lm",{href:"https://www.hlbscience.com/",title:"HLB사이언스"}]]],
+    ["\n"],
+    ["‣\n",[["a","https://www.instagram.com/hey_theriver/"]]],
+    ["‣",[["lm",{href:"https://www.instagram.com/hey_theriver/",title:"Instagram"}]]],
+    ["\nhttps://www.facebook.com/hlbeng"]
+  ];
+  assert.deepEqual(richLinks(value),[
+    {label:"에이치엘비 (HLB)",url:"http://www.hlbkorea.com/"},
+    {label:"HLB사이언스",url:"https://www.hlbscience.com/"},
+    {label:"https://www.instagram.com/hey_theriver/",url:"https://www.instagram.com/hey_theriver/"},
+    {label:"https://www.facebook.com/hlbeng",url:"https://www.facebook.com/hlbeng"}
+  ],"All unique destinations survive, including the same URL represented as both a and lm");
+  const rendered=richText(value);
+  assert.equal(rendered.includes("‣"),false);
+  assert.match(rendered,/hlbkorea\.com\/\)\nHLB사이언스/);
+  for(const {url} of richLinks(value))assert.ok(rendered.includes(url),url);
+  assert.deepEqual(richLinks([["‣",[["lm",{href:"javascript:alert(1)",title:"Unsafe"}]]],
+    ["private",[["a","https://user:password@example.com/"]]]]),[]);
+});
+
+test("Table cellLinks aligns with every row and column while empty cells and text search remain intact",async()=>{
+  const f=fixture();
+  f.blocks[id(9)].properties.phone=[
+    ["‣",[["lm",{href:"https://www.youtube.com/channel/UCn020Wkln53fpx32DO1wYmQ",title:"HLB에이치엘비"}]]],
+    [" "],["‣",[["lm",{href:"https://www.youtube.com/@hlb3150",title:"HLB사이언스"}]]]
+  ];
+  const record=extractResources(await crawlNotion(f.config,{request:f.request}),f.config)
+    .find(resource=>resource.notionPageId===id(3));
+  const section=record.reading.sections[0];
+  assert.equal(section.cellLinks.length,section.rows.length);
+  section.rows.forEach((row,index)=>assert.equal(section.cellLinks[index].length,row.length));
+  assert.deepEqual(section.cellLinks[0],[[],[]],"Header cells are not data links");
+  assert.deepEqual(section.cellLinks[1][0],[],"Company names remain ordinary searchable text");
+  assert.equal(section.cellLinks[1][1].length,2);
+  assert.match(section.rows[1][1],/HLB에이치엘비.*\nHLB사이언스/);
+  assert.equal(section.cellLinks[1][1][1].url,"https://www.youtube.com/@hlb3150");
 });
 
 test("A complete sync installs verified PDFs, reflects additions/removals, and preserves unchanged timestamps",async t=>{

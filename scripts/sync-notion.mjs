@@ -69,13 +69,50 @@ export async function secureRequest(raw,{hosts,method="GET",headers={},body,maxB
   return response;
 }
 
+function httpLink(raw) {
+  if(typeof raw!=="string"||!/^https?:\/\//i.test(raw.trim()))return null;
+  try {const url=new URL(raw.trim());return url.username||url.password?null:url.href;}catch{return null;}
+}
+function annotatedLinks(part) {
+  const label=typeof part?.[0]==="string"?part[0].trim():"";
+  const links=[];
+  for(const annotation of part?.[1]??[]) {
+    const mention=annotation[0]==="lm"&&annotation[1]&&typeof annotation[1]==="object"?annotation[1]:null;
+    const url=httpLink(mention?.href??(annotation[0]==="a"?annotation[1]:null));
+    if(!url||links.some(link=>link.url===url))continue;
+    // Notion's link-mention token is a placeholder glyph. Its visible title and
+    // destination live in lm metadata, not in the ordinary "a" annotation.
+    const visible=(typeof mention?.title==="string"?mention.title.trim():"")||
+      (label.replaceAll("‣","").trim()||url);
+    links.push({label:visible,url});
+  }
+  return links;
+}
+export function richLinks(value) {
+  const links=[];
+  for(const part of value??[]) {
+    const annotated=annotatedLinks(part);
+    const candidates=annotated.length?annotated:(String(part?.[0]??"").match(/https?:\/\/[^\s<>"\u200b]+/gi)??[])
+      .map(raw=>httpLink(raw.replace(/[.,;!?]+$/,""))).filter(Boolean).map(url=>({label:url,url}));
+    for(const link of candidates)if(!links.some(existing=>existing.url===link.url))links.push(link);
+  }
+  return links;
+}
 export function richText(value) {
-  return (value??[]).map(part=>{
-    const label=typeof part?.[0]==="string" ? part[0] : "";
-    const link=part?.[1]?.find(annotation=>annotation[0]==="a")?.[1];
-    if (!link||!/^https?:\/\//i.test(link)||label.includes(link)) return label;
-    return label&&label!=="‣" ? `${label} (${link})` : link;
-  }).join("").trim();
+  let result="",previousLink=false;
+  for(const part of value??[]) {
+    const label=typeof part?.[0]==="string"?part[0]:"";
+    const links=annotatedLinks(part);
+    if(links.length) {
+      if(previousLink)result=result.trimEnd()+"\n";
+      result+=links.map(link=>link.label===link.url?link.url:`${link.label} (${link.url})`).join("\n");
+      previousLink=true;
+    } else {
+      result+=label;
+      if(label.trim())previousLink=false;
+    }
+  }
+  return result.trim();
 }
 
 function createAPI(config,request) {
@@ -85,9 +122,12 @@ function createAPI(config,request) {
   let requests=0;
   return async (name,payload)=>{
     if (++requests>config.limits.maxApiRequests) throw new Error("Notion request limit exceeded");
+    const spaceId=payload.spaceId??payload.requests?.[0]?.spaceId;
     const result=await retryRequest(request,`${origin}/api/v3/${name}`,{hosts:[host],method:"POST",
-      headers:{"content-type":"application/json"},body:JSON.stringify(payload),maxBytes:24*1024*1024});
-    if (result.status!==200) throw new Error(`Notion ${name} returned HTTP ${result.status}`);
+      headers:{"content-type":"application/json",...(uuid.test(spaceId??"")?{"x-notion-space-id":spaceId}:{})},
+      body:JSON.stringify(payload),maxBytes:24*1024*1024});
+    if (result.status!==200) throw new Error(`Notion ${name} returned HTTP ${result.status}`+
+      (payload.requests?` (${payload.requests.length} ${payload.requests[0]?.table} records; first ${payload.requests[0]?.id})`:""));
     const json=JSON.parse(result.body.toString("utf8"));
     if (json.errorId||json.error) throw new Error(`Notion ${name} returned an error`);
     return json;
@@ -126,7 +166,12 @@ export async function crawlNotion(config,{request=secureRequest}={}) {
     const missing=ids.filter(id=>!maps[table]?.[id]);
     if (!missing.length) return;
     if (missing.some(id=>!uuid.test(id))) throw new Error("Invalid referenced block ID");
-    const result=await api("getRecordValues",{requests:missing.map(id=>({id,table}))});
+    // Public workspaces can be assigned to different Notion storage cells.
+    // Supplying the public root's space ID avoids cross-cell lookup errors for
+    // a batch of otherwise valid block IDs; no account token is involved.
+    const spaceId=maps.block?.[config.rootPageId]?.space_id;
+    const result=await api("getRecordValues",{requests:missing.map(id=>({id,table,...(spaceId?{spaceId}:{})})),
+      ...(spaceId?{spaceId}:{})});
     if (!Array.isArray(result.results)||result.results.length!==missing.length) throw new Error("Incomplete referenced block response");
     maps[table]??={};
     missing.forEach((id,index)=>{const value=unwrap(result.results[index]);if(value?.id!==id||value.alive===false)throw new Error("Referenced public block is unavailable: "+id);maps[table][id]=value;});
@@ -216,7 +261,9 @@ export function extractResources(tree,config) {
         const collection=maps.collection[block.resolvedCollectionId];
         const schema=collection.schema??{};
         const columns=Object.keys(schema).filter(key=>schema[key].type!=="file").sort((a,b)=>a==="title"?-1:b==="title"?1:0);
-        const rows=[columns.map(key=>schema[key].name),...(children[id]??[]).map(rowId=>columns.map(key=>richText(maps.block[rowId]?.properties?.[key])))];
+        const richRows=(children[id]??[]).map(rowId=>columns.map(key=>maps.block[rowId]?.properties?.[key]));
+        const rows=[columns.map(key=>schema[key].name),...richRows.map(row=>row.map(richText))];
+        const cellLinks=[columns.map(()=>[]),...richRows.map(row=>row.map(richLinks))];
         for(const rowId of children[id]??[]) {
           const row=maps.block[rowId];
           for(const key of Object.keys(schema).filter(key=>schema[key].type==="file")) {
@@ -231,15 +278,20 @@ export function extractResources(tree,config) {
             }
           }
         }
-        flush();sections.push({heading:text(collection.name)||"공개 데이터베이스",rows});current={heading:"자료 내용",items:[]};
+        flush();sections.push({heading:text(collection.name)||"공개 데이터베이스",rows,
+          ...(cellLinks.some(row=>row.some(cell=>cell.length))?{cellLinks}:{})});current={heading:"자료 내용",items:[]};
         return;
       }
       if(block.type==="table") {
         const columns=block.format?.table_block_column_order??[];
         if(!columns.length)throw new Error("Public table column order is missing: "+id);
-        const rows=(children[id]??[]).map(rowId=>columns.map(key=>richText(maps.block[rowId]?.properties?.[key])));
-        if(!block.format?.table_block_column_header)rows.unshift(columns.map((_,index)=>`항목 ${index+1}`));
-        flush();sections.push({heading:current.heading,rows});current={heading:"자료 내용",items:[]};return;
+        const richRows=(children[id]??[]).map(rowId=>columns.map(key=>maps.block[rowId]?.properties?.[key]));
+        const rows=richRows.map(row=>row.map(richText));
+        const cellLinks=richRows.map(row=>row.map(richLinks));
+        if(!block.format?.table_block_column_header) {rows.unshift(columns.map((_,index)=>`항목 ${index+1}`));cellLinks.unshift(columns.map(()=>[]));}
+        else if(cellLinks.length)cellLinks[0]=columns.map(()=>[]);
+        flush();sections.push({heading:current.heading,rows,
+          ...(cellLinks.some(row=>row.some(cell=>cell.length))?{cellLinks}:{})});current={heading:"자료 내용",items:[]};return;
       }
       const title=richText(block.properties?.title);
       if(/header$/.test(block.type)) {flush();current={heading:title||"자료 내용",items:[]};}

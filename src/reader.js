@@ -69,6 +69,7 @@
       || globalThis.HLBCologneReadingData?.[record.id] || null;
     const supplied=record.reading && typeof record.reading==="object" && !Array.isArray(record.reading) ? record.reading : null;
     const result={...(supplied || fallback)};
+    result.socialLinks=record.id==="social";
     let sections=Array.isArray(result.sections) ? [...result.sections] : [];
     if (supplied) {
       // Synced prose is authoritative. The static product book is safe to retain
@@ -98,7 +99,7 @@
     }
     const productLanguage=entry.sections.find(section=>section.productLanguage)?.productLanguage;
     const prompt=productLanguage==="ko" ? "제품명 · 브랜드 · 설명 검색" : productLanguage==="en"
-      ? "Search products, brands or descriptions" : "이 자료 안에서 찾기";
+      ? "Search products, brands or descriptions" : entry.socialLinks ? "회사명 · 계정명 · 주소 검색" : "이 자료 안에서 찾기";
     const find=el("reader-find");
     find.value="";find.placeholder=prompt;find.setAttribute("aria-label",prompt);
     const count=entry.sections.reduce((sum,section)=>sum+(section.rows?.length || 0)+(section.items?.length || 0),0);
@@ -267,8 +268,11 @@
         section.append(list);
       }
       const [headers=[],...data]=part.rows || [];
-      const rows=data.filter(row=>whole || matches(row.join(" ")));
+      const rows=data.map((row,index)=>({row,links:part.cellLinks?.[index+1] || []}))
+        .filter(({row,links})=>whole || matches(row.join(" ")) || links.some(cell=>
+          Array.isArray(cell) && cell.some(link=>matches(link.label) || matches(link.url))));
       if (rows.length) {
+        const socialTable=entry.socialLinks && headers.length>3;
         const hint=node("div","table-scroll-hint","↔ 좌우로 스크롤");
         hint.hidden=true;
         const wrap=node("div","reading-grid");
@@ -278,20 +282,52 @@
         const table=node("table"), head=table.createTHead().insertRow(), content=table.createTBody();
         table.setAttribute("aria-label",part.heading || "자료 표");
         if (headers.length >= 3) table.className="multi-column";
+        if (socialTable) table.classList.add("social-table");
         const columns=headers.map(columnClass);
         for (const [i,label] of headers.entries()) {
           const cell=node("th",columns[i],label); cell.scope="col"; head.append(cell);
         }
-        for (const row of rows) {
+        for (const {row,links} of rows) {
           const r=content.insertRow();
           for (const [i,value] of row.entries()) {
             const cell=r.insertCell(); cell.className=columns[i];
+            const addresses=(Array.isArray(links[i]) ? links[i] : []).map(link=>{
+              try {
+                const url=new URL(link.url);
+                return ["http:","https:"].includes(url.protocol) && !url.username && !url.password
+                  ? {url:url.href,label:link.label || url.hostname} : null;
+              } catch { return null; }
+            }).filter(Boolean);
+            if (addresses.length) {
+              const list=node("div","channel-links");
+              for (const {url,label} of addresses) {
+                const link=node("a","channel-link");
+                link.append(node("span","channel-link-label",label));
+                link.href=url;link.target="_blank";link.rel="noopener noreferrer";
+                link.title=label+"\n"+url;
+                link.setAttribute("aria-label",row[0]+" · "+headers[i]+" · "+label+" (새 탭)");
+                list.append(link);
+              }
+              cell.append(list);
+              continue;
+            }
+            if (socialTable && !String(value).trim()) {
+              cell.append(node("span","channel-empty","—"));
+              cell.setAttribute("aria-label","등록된 링크 없음");
+              continue;
+            }
             if (!(/^https?:\/\//i).test(value)) {
               cell.textContent=value;
               continue;
             }
             const address=node("div","channel-address");
-            address.append(node("span","address-value",value));
+            const link=node("a","address-value",value);
+            try {
+              const url=new URL(value);
+              if (!["http:","https:"].includes(url.protocol) || url.username || url.password) throw new Error("Invalid address");
+              link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";
+            } catch { cell.textContent=value;continue; }
+            address.append(link);
             if (navigator.clipboard?.writeText) {
               const copy=node("button","copy-address","복사"); copy.type="button";
               copy.setAttribute("aria-label",row[0]+" "+row[1]+" 주소 복사");
@@ -304,6 +340,7 @@
             cell.append(address);
           }
         }
+        if (socialTable) section.append(node("p","channel-help","링크를 선택하면 해당 채널이 새 탭에서 열립니다. —는 등록된 링크가 없는 항목입니다."));
         wrap.append(table); section.append(hint,wrap);
         tableObserver?.observe(wrap);
       }

@@ -63,6 +63,46 @@ function reader(){
   return {api:context.HLBReader,context,get,mounted,released,books};
 }
 
+test("소셜미디어의 복수 링크와 빈 채널을 표시하고 검색한 행의 주소를 정확히 연결한다",()=>{
+  const {api,get}=reader();
+  const empty=()=>[[],[],[],[]];
+  const links=[empty(),empty(),empty()];
+  links[1][1]=[{label:"HLB 홈페이지",url:"https://hlbkorea.com/"},{label:"HLB 사이언스",url:"https://hlbscience.com/"}];
+  links[1][2]=[{label:"HLB 유튜브",url:"https://www.youtube.com/@hlb3150"}];
+  links[2][3]=[{label:"제약 인스타그램",url:"https://www.instagram.com/hlbpharma"}];
+  api.open({id:"social",reading:{sections:[{heading:"소셜미디어",rows:[
+    ["Company","Homepage","YouTube","Instagram"],["HLB 서울","홈페이지","유튜브",""],["HLB제약","","","인스타그램"]
+  ],cellLinks:links}]}},"그룹안내소");
+  const all=descendants(get("reader-body"),el=>el.tagName==="A");
+  assert.equal(all.length,4);
+  assert.deepEqual(all.map(link=>link.href),links.slice(1).flat(2).map(link=>link.url));
+  assert.ok(all.every(link=>link.target==="_blank" && link.rel==="noopener noreferrer"));
+  assert.ok(all.every(link=>link.getAttribute("aria-label").includes("새 탭")));
+  assert.equal(descendants(get("reader-body"),el=>el.classList.contains("channel-empty")).length,3);
+  get("reader-find").value="hlbpharma";
+  get("reader-find").dispatchEvent(new Event("input"));
+  const filtered=descendants(get("reader-body"),el=>el.tagName==="A");
+  assert.equal(filtered.length,1);
+  assert.equal(filtered[0].href,"https://www.instagram.com/hlbpharma");
+  assert.match(get("reader-body").textContent,/HLB제약/);
+  assert.doesNotMatch(get("reader-body").textContent,/HLB 서울/);
+});
+
+test("링크 주소는 http/https만 허용하고 원본 라벨을 HTML로 해석하지 않는다",()=>{
+  const {api,get}=reader();
+  api.open({id:"social",reading:{sections:[{rows:[["회사","링크"],["HLB","참고"]],cellLinks:[
+    [[],[]],[[],[
+      {label:"실행 금지",url:"javascript:alert(1)"},{label:"데이터 금지",url:"data:text/html,test"},
+      {label:"인증 주소 금지",url:"https://user:secret@example.com"},
+      {label:"<script>실행 금지</script>",url:"http://www.hlbkorea.com/"}
+    ]]
+  ]}]}},"그룹안내소");
+  const links=descendants(get("reader-body"),el=>el.tagName==="A");
+  assert.equal(links.length,1);
+  assert.equal(links[0].textContent,"<script>실행 금지</script>");
+  assert.equal(descendants(get("reader-body"),el=>el.tagName==="SCRIPT").length,0);
+});
+
 test("등록된 모든 PDF·영상·지도가 자료 클릭 즉시 팝업 미디어로 열린다",()=>{
   const {api,context,get,mounted}=reader();
   const documents={...context.HLBReadingData,...context.HLBReportReadingData,...context.HLBCologneReadingData};
