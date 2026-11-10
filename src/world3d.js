@@ -424,6 +424,7 @@
         path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
         colliders.push(collider(dock.x,dock.z,3.7,6,3.7));
       }
+      path(warpGate.station.x,warpGate.station.z,-.8,23,2.4);
       // The molten beds are kept clear of the promenade, doors and yacht pads.
       for(const side of [-1,1]){
         vent(side*4.9,17.2,.45,2);
@@ -436,7 +437,7 @@
         vent(side*7.5,-26,.8,1.35);
         vent(side*19.5,-3.8,1.7,2.4);
       }
-      vent(-11,23,3.6,2);
+      vent(-20.4,22.8,2,2.4);
       vent(20.4,22.8,2,2.4);
       // A named threshold marks the transition from the caldera into the street.
       for(const side of [-1,1]){
@@ -468,7 +469,9 @@
       }
       for(let i=0;i<430;i++){
         const x=random()*54-27,z=random()*80-52;
-        if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<27 || yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
+        if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<27 ||
+          (x>warpGate.x-3.5 && x<warpGate.station.x+1.2 && z>20 && z<27) ||
+          yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
           x>b.minX-.6 && x<b.maxX+.6 && z>b.minZ-.6 && z<b.maxZ+.6)) continue;
         const s=.08+random()*.21;
         place("rock",choose(basalt),x,s*.16,z,s,.36*s,s*(.75+random()),[.06,random()*TAU,.05],"stone");
@@ -548,6 +551,7 @@
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
     spaces.push(buildAt(()=>globalThis.HLBCafe.build(hallKit),-5.5,11));
+    const warpGate=globalThis.HLBWarpGate.build(hallKit);
     siteDetail();
     triangles("Basalt vent rims",ventVerts,ventColors,mountainMaterial);
     triangles("Incandescent lava channels",flowVerts,flowColors,new T.MeshBasicMaterial({vertexColors:true,side:T.DoubleSide,toneMapped:false}));
@@ -561,6 +565,7 @@
     const updateAtmosphere=makeAtmosphere();
     let angle=0;
     function update(dt=0,reducedMotion=false) {
+      warpGate.update(dt,reducedMotion);
       if (reducedMotion) {
         summitLogo.rotation.y=0;
         return;
@@ -570,7 +575,7 @@
       summitLogo.rotation.y=-angle;
       updateAtmosphere(dt);
     }
-    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,lavaLights,containsPoint,
+    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,warpGate,lavaLights,containsPoint,
       spawn:{x:0,z:23},update};
   }
   globalThis.HLBWorld3D={build,containsPoint};

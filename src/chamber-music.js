@@ -203,9 +203,9 @@
       muted = saved?.muted === true || volume === 0;
     } catch { /* Storage may be disabled in private browsing. */ }
     let ctx, master, playNote, timer, suspendTimer, resumePending, disposed = false;
-    let start = null, cycle = 0, index = 0, engaged = false, lastState = "";
+    let start = null, cycle = 0, index = 0, engaged = false, suspended = false, lastState = "";
     const getState = () => ({volume, muted, available,
-      playing:Boolean(ctx?.state === "running" && !muted && !document.hidden && !disposed)});
+      playing:Boolean(ctx?.state === "running" && !muted && !suspended && !document.hidden && !disposed)});
 
     function notify() {
       const state = getState(), signature = JSON.stringify(state);
@@ -213,7 +213,7 @@
     }
     function pump() {
       clearTimeout(timer);
-      if (disposed || document.hidden || muted || ctx?.state !== "running") return;
+      if (disposed || document.hidden || muted || suspended || ctx?.state !== "running") return;
       if (start === null) start = ctx.currentTime + .055;
       // Place notes on the audio clock, so timer jitter cannot alter tempo.
       // If a backgrounded browser slept, skip expired attacks rather than catch up audibly.
@@ -232,10 +232,10 @@
     }
     function applyGain() {
       if (!ctx || !master) return;
-      master.gain.setTargetAtTime(muted ? 0 : volume ** 1.55, ctx.currentTime, .028);
+      master.gain.setTargetAtTime(muted || suspended ? 0 : volume ** 1.55, ctx.currentTime, .028);
     }
     function unlock() {
-      if (disposed || !available || muted || document.hidden) return;
+      if (disposed || !available || muted || suspended || document.hidden) return;
       clearTimeout(suspendTimer);
       engaged = true;
       if (!ctx) {
@@ -247,7 +247,7 @@
           playNote = makeEnsemble(ctx, master);
           ctx.onstatechange = () => {
             if (ctx.state === "running") {
-              if (document.hidden || muted) suspend();
+              if (document.hidden || muted || suspended) suspend();
               else pump();
             }
             notify();
@@ -270,7 +270,7 @@
       clearTimeout(timer);
       if (ctx && ctx.state === "running") {
         ctx.suspend().then(() => {
-          if (engaged && !disposed && !muted && !document.hidden) unlock();
+          if (engaged && !disposed && !muted && !suspended && !document.hidden) unlock();
         }).catch(() => {});
       }
     }
@@ -294,6 +294,16 @@
       if (!muted && volume === 0) volume = lastAudible;
       save();
     }
+    // Visiting another experience pauses our score without changing the saved
+    // volume/mute preference or mixing two soundtracks in the same tab.
+    function setSuspended(value) {
+      if (disposed) return;
+      suspended = Boolean(value);
+      clearTimeout(suspendTimer);
+      if (suspended) { applyGain(); suspend(); }
+      else if (engaged) unlock();
+      notify();
+    }
     function gesture() {
       if (!ctx || ctx.state !== "running") unlock();
     }
@@ -316,7 +326,7 @@
       document.removeEventListener("visibilitychange", visibility);
       if (ctx) { ctx.onstatechange = null; ctx.close().catch(() => {}); }
     }
-    return {getState, unlock, setMuted, setVolume, dispose};
+    return {getState, unlock, setMuted, setVolume, setSuspended, dispose};
   }
   window.HLBChamberMusic = {create};
 })();

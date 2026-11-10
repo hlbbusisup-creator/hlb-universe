@@ -29,7 +29,7 @@ page.performance = performance;
 page.matchMedia = () => ({matches: false});
 page.AbortController = AbortController;
 const context = createContext(page);
-for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/cafe.js', 'src/world3d.js', 'src/player3d.js']) {
+for (const path of ['assets/vendor/three.min.js', 'src/cologne-gallery.js', 'src/hall-designs.js', 'src/cafe.js', 'src/warp-gate.js', 'src/world3d.js', 'src/player3d.js']) {
   const file = new URL('../' + path, import.meta.url);
   runInContext(await readFile(file, 'utf8'), context, { filename: path });
 }
@@ -106,6 +106,19 @@ test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통�
       player.dispose();
     }
   }
+});
+
+test('입구 왼쪽 워프 콘솔과 기존 거리 사이를 충돌 없이 왕복한다', () => {
+  assert.ok(world.warpGate, '워프 장비');
+  assert.ok(world.warpGate.station.x < world.spawn.x, '입구 왼쪽');
+  assert.ok(world.warpGate.pickBox, '클릭 가능한 3D 영역');
+  const {player} = createPlayer();
+  try {
+    visit(player, world.warpGate);
+    visit(player, {id:'entrance', station:world.spawn});
+    visit(player, world.spaces.find(space => space.id === 'cafe'));
+    visit(player, world.warpGate);
+  } finally { player.dispose(); }
 });
 
 test('직선거리 끝의 작은 반원에서 방사형 가지길을 향해 네 전시관이 완만하게 회전한다', () => {

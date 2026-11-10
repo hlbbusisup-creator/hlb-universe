@@ -613,6 +613,9 @@
       const b = exhibit.hitBox;
       return {space, exhibit, volume:volume(b)};
     }));
+    if (world.warpGate?.pickBox) exhibitBoxes.push({
+      space:undefined, exhibit:world.warpGate, volume:volume(world.warpGate.pickBox)
+    });
     function roomAt(p) {
       return indoors.find(({space}) => world.containsPoint ? world.containsPoint(space.interior,p) :
         p.x>=space.interior.minX && p.x<=space.interior.maxX && p.z>=space.interior.minZ && p.z<=space.interior.maxZ);

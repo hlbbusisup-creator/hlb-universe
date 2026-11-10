@@ -38,6 +38,14 @@ npm start
 | 에데꼬론 상품관 | AI de cologne 퍼스널 디퓨저, 세 계열의 향 카트리지 9종과 조합 |
 | [카페 렌토 미리보기](docs/preview/cafe.jpg) | Café Lento 1975 주문대와 창가 좌석, 커피와 빵 |
 
+## 입구 워프와 외부 공간 방문
+
+입구 왼쪽의 워프 장비를 클릭하면 캐릭터가 콘솔 앞으로 이동합니다. 가까이에서 **이동하기 · 워프** 또는 기존 상호작용 키 **E**를 눌러 목적지를 선택할 수도 있습니다. 공간 안내의 **워프** 항목은 콘솔까지 길을 안내합니다.
+
+현재 목적지는 [THE RIVER](https://the-river-moments.brawnyswan21.chatgpt.site/)입니다. 체험관을 유지한 채 별도 방문 화면에 사이트를 표시하며, 상단 **HLB 온라인 체험관으로 돌아가기** 버튼으로 원래 워프 위치에 복귀합니다. 방문 중에는 HLB의 배경음악과 3D 동작을 멈추고, 복귀하면 기존 설정으로 이어갑니다.
+
+목적지는 `src/warp-travel.js`의 `destinations` 배열에 고유 `id`, `title`, `description`, HTTPS `url`을 추가해 확장합니다. 목적지 사이트가 iframe 표시를 허용해야 복귀 버튼과 함께 볼 수 있습니다. 외부 사이트에서 별도 새 탭을 열거나 도움말의 새 탭 링크를 사용한 경우, 해당 탭 위에 복귀 버튼을 표시할 수 없으므로 원래 HLB 탭으로 돌아옵니다. 외부 사이트의 표시 정책 변경이나 네트워크 오류가 있어도 HLB 복귀 버튼은 계속 이용할 수 있습니다.
+
 ## Notion 자료 자동 갱신
 
 [HLB그룹 인포뱅크](https://mysterious-bait-6ee.notion.site/HLB-HLB-Group-18fdd42135be809fbf3cc031182c8ff2)의 공개된 전체 하위 자료를 확인해 자료 목록·제목·본문·첨부 변경을 반영합니다. 새 자료는 추가하고 원본에서 삭제된 자료는 목록에서 제외합니다. 목록과 본문은 `assets/reading/notion/catalog.json`에, 내려받은 PDF와 이미지는 `assets/reading/notion/files/`에 저장합니다. 제공받은 에데꼬론 PDF 2건은 Notion 동기화와 별도로 보존합니다.
@@ -67,6 +75,7 @@ npm run sync:notion
 | `src/cafe.js`, `assets/cafe/` | 카페 건물과 주문대, 거북이 간판 원본 |
 | `src/player3d.js` | 3D 캐릭터와 관절, 보행, 회전한 벽·실내를 반영한 길찾기·카메라·입력 |
 | `src/blackcat-yacht.js`, `src/yacht-ride.js` | 블랙캣 요트·나무 간판과 탑승·왕복 비행 |
+| `src/warp-gate.js`, `src/warp-travel.js`, `src/warp-travel.css` | 입구 워프 장비, 확장 가능한 외부 목적지 목록과 방문·복귀 화면 |
 | `src/app.js` | 장면 렌더링, 위치에 따른 열람, 자료 검색, 모바일 조이스틱 |
 | `index.html`, `styles.css` | 조작 메뉴, 공간 안내, 열람창 |
 | `src/catalog-data.js` | 기본 자료 목록, 에데꼬론 제공 자료와 원문 주소 |

@@ -58,6 +58,15 @@
   }
   const music = window.HLBChamberMusic.create({onChange:syncSound});
   syncSound(music.getState());
+  const warpTravel = window.HLBWarpTravel.create({
+    onDepart: () => music.setSuspended(true),
+    onReturn: () => {
+      music.setSuspended(false);
+      if (dialog.open) dialog.close();
+      el("announcement").textContent = "HLB 온라인 체험관의 워프로 돌아왔습니다.";
+    }
+  });
+  warpTravel.renderList(el("warp-destinations"));
   function setSoundPanel(open) {
     soundPanel.hidden = !open;
     soundButton.setAttribute("aria-expanded", String(open));
@@ -102,7 +111,7 @@
     resetStick();
     destination = null;
     el("travel").hidden = true;
-    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader"]) el(pane + "-pane").hidden = pane !== name;
+    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp"]) el(pane + "-pane").hidden = pane !== name;
     const reading=name==="reader";
     dialog.classList.toggle("reading",reading);
     dialog.classList.toggle("cafe-order",name==="cafe");
@@ -178,7 +187,8 @@
   function interact() {
     if (yacht?.getState().busy) return;
     if (!station) return;
-    if (station.spaceId === "cafe") openCafe();
+    if (station.id === "warp") openPane("warp", "워프 · 목적지 선택");
+    else if (station.spaceId === "cafe") openCafe();
     else if (station.record) openRecord(station.record);
     else if (station.spaceId === "cologne") openGallery();
     else openLibrary(station.spaceId);
@@ -298,6 +308,18 @@
       });
       el("guide-list").append(button);
     }
+    const warpButton = make("button", "guide-row");
+    warpButton.type = "button";
+    warpButton.id = "visit-warp";
+    warpButton.disabled = true;
+    const warpCopy = make("span", "guide-copy");
+    warpCopy.append(make("strong", "", "워프"), make("small", "", "입구 왼쪽 · 다른 공간으로 떠나기"));
+    warpButton.append(icon("warp"), warpCopy, icon("arrow"));
+    warpButton.addEventListener("click", () => {
+      const stop = readingStops.find(item => item.id === "warp");
+      if (stop) walkToStop(stop);
+    });
+    el("guide-list").append(warpButton);
   }
 
 
@@ -334,18 +356,19 @@
       const arrived = destination.inspectOnArrival ? destination : null;
       destination = null;
       if (arrived?.spaceId === "cafe") openCafe();
+      else if (arrived?.id === "warp") openPane("warp", "워프 · 목적지 선택");
       else if (arrived?.record) openRecord(arrived.record);
     }
     const district = world.district;
     const inDistrict = district && p.x >= district.minX && p.x <= district.maxX && p.z >= district.minZ && p.z <= district.maxZ;
     const inPlaza=world.plaza && distance(p,world.plaza)<world.plaza.radius;
-    const nearby = locked ? "블랙캣 항공 투어" : inside ? spaces.get(inside.id).title : inPlaza ? world.plaza.title : inDistrict ? district.title : nearDistance < 7 ? spaces.get(nearest.spaceId).title : "칼데라 광장";
+    const nearby = locked ? "블랙캣 항공 투어" : inside ? spaces.get(inside.id).title : inPlaza ? world.plaza.title : inDistrict ? district.title : nearDistance < 7 ? (spaces.get(nearest.spaceId)?.title || nearest.title) : "칼데라 광장";
     el("gallery-guide").hidden = busy || inside?.id !== "cologne" || station?.id === "cologne";
     if (el("location-name").textContent !== nearby) el("location-name").textContent = nearby;
     const label = station?.action || "";
     if (label !== lastActionLabel) {
       el("interact").querySelector("span").textContent = label;
-      el("interact").querySelector("use").setAttribute("href", station?.spaceId === "cafe" ? "#coffee-icon" : "#book-icon");
+      el("interact").querySelector("use").setAttribute("href", station?.id === "warp" ? "#warp-icon" : station?.spaceId === "cafe" ? "#coffee-icon" : "#book-icon");
       lastActionLabel = label;
     }
     el("interact").hidden = !station;
@@ -496,6 +519,7 @@
     el("ride-yacht").hidden=true;
     el("yacht-status").hidden=true;
     if (el("visit-cafe")) el("visit-cafe").disabled=true;
+    if (el("visit-warp")) el("visit-warp").disabled=true;
   }
 
   async function start() {
@@ -548,7 +572,8 @@
         if (record) readingStops.push({...exhibit, record, spaceId:hall.id, action:exhibit.title+" 살펴보기", radius:2, indoorOnly:true});
       }
     }
-    const arrival = ["cologne","cafe"].includes(visitId) ? bySpace.get(visitId) : null;
+    if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 워프"});
+    const arrival = ["cologne","cafe"].includes(visitId) ? bySpace.get(visitId) : visitId === "warp" ? world.warpGate : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
       yacht?.cancelApproach();
       destination=null;
@@ -570,6 +595,7 @@
     });
     player.setActive(!dialog.open);
     el("visit-cafe").disabled=false;
+    el("visit-warp").disabled=!world.warpGate;
     resize();
     new ResizeObserver(resize).observe(canvas);
     canvas.addEventListener("webglcontextlost",event=>{
