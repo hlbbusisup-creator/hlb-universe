@@ -361,12 +361,16 @@
       }
       smile.visible=happy;
       eyes.visible=mouth.visible=!happy;
-      phase += travelled * 7.2;
-      weight += ((travelled > 0.0002 ? 1 : 0) - weight) * (1 - Math.exp(-dt * 15));
+      // Keep the pace unhurried: about 2.5 footfalls per second at full speed.
+      // Distance still drives the cycle, so stopped or blocked feet settle.
+      phase += travelled * 1.65;
+      weight += ((travelled > 0.0002 ? 1 : 0) - weight) * (1 - Math.exp(-dt * 10));
       const inAir = clamp(jumpHeight / .53,0,1);
       const stride = weight * (1-inAir);
-      hips.position.y = hipHeight + jumpHeight + stride * .010 * (1 + Math.cos(phase * 2));
-      chest.rotation.z = Math.sin(phase) * stride * .058;
+      const spring = (1-Math.cos(phase*2))*.5;
+      hips.position.y = hipHeight + jumpHeight + (reducedMotion ? 0 : stride*(spring*.028-.004));
+      chest.rotation.x = -.045*stride*(1-reach);
+      chest.rotation.z = (reducedMotion ? 0 : Math.sin(phase)*stride*.030);
       head.rotation.z = -chest.rotation.z * 0.6;
       head.rotation.x = -.055 * inAir - reach*.30 + chew*.025;
       mouth.scale.y = 1 + Math.max(0,chew)*.55;
@@ -377,21 +381,21 @@
       shadowMaterial.opacity = 1-.46*inAir;
       for (let i = 0; i < 2; i++) {
         const swing = Math.sin(phase + i * Math.PI) * stride;
-        legs[i].thigh.rotation.x = swing * .78 + inAir * (i ? .54 : .31);
-        legs[i].shin.rotation.x = -Math.max(0,swing)*.70 - inAir*.70;
+        legs[i].thigh.rotation.x = swing * .57 + inAir * (i ? .54 : .31);
+        legs[i].shin.rotation.x = -stride*.10-Math.max(0,swing)*.58-inAir*.70;
         const {arm,elbow}=arms[i], side=i ? 1 : -1;
         const drink=i===1, item=drink ? "coffee" : "bread", prop=treats[item];
         const lift=consuming===item ? reach : 0;
         // Swing an empty arm freely. Carry an order slightly to the side with
         // the wrist level, even while running or jumping.
-        const swingX=prop ? .48-swing*.15+inAir*.12 : -swing*.63+inAir*.25;
+        const swingX=prop ? .48-swing*.15+inAir*.12 : stride*.10-swing*.34+inAir*.25;
         const spread=prop ? .45+inAir*.30 : .14+inAir*.99;
         // Bring the cup's sipping edge and the croissant's inner tip to the lips.
         arm.position.set(side*(.202+(drink ? -.050 : .030)*lift),
           .366+(drink ? .069 : .045)*lift,-(drink ? .131 : .062)*lift);
         arm.rotation.set(T.MathUtils.lerp(swingX,1.80,lift),side*.60*lift,
           side*T.MathUtils.lerp(spread,-.30,lift));
-        const bend=prop ? .68 : .16+Math.max(0,-swing)*.32+inAir*.22;
+        const bend=prop ? .68 : .16+stride*.67+Math.max(0,-swing)*.12+inAir*.22;
         elbow.rotation.x=T.MathUtils.lerp(bend,.40,lift);
         if (prop) {
           tilt.set((drink ? .95 : .14)*lift,drink ? 0 : -1.29*lift,(drink ? .60 : .50)*lift);
@@ -539,7 +543,10 @@
     visitor.root.position.set(position.x,arrival ? 0.086 : 0.025,position.z);
     const nav = makeNavigation(world);
     const movementCodes = new Set(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","KeyW","KeyA","KeyS","KeyD"]);
-    const actionCodes = new Map([["Space","jump"],["KeyF","firework"],["KeyE","interact"]]);
+    const actionCodes = new Map([
+      ["KeyZ","eat-bread"],["KeyX","drink-coffee"],["KeyC","ride-yacht"],
+      ["Space","jump"],["KeyF","firework"],["KeyE","interact"]
+    ]);
     const held = new Set(), freshPresses = new Set(), pointers = new Map();
     const stick = {x:0,y:0};
     const firstDoor = world.spaces.find(space => space.id === "group") || world.spaces[0];

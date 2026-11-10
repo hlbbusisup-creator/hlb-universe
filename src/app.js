@@ -217,6 +217,19 @@
     openPane("cafe","Café Lento 1975");
   }
 
+  function consumeCafeItem(item) {
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden) return;
+    const state=player.getCafeState();
+    if (state.consuming) return;
+    if (!state[item]) {
+      el("announcement").textContent="카페 렌토에서 "+(item==="bread"?"빵을":"커피를")+" 주문해 주세요.";
+      return;
+    }
+    if (!player.consumeCafeItem(item)) return;
+    syncCafeActions();
+    canvas.focus({preventScroll:true});
+  }
+
   for (const {item, received, button} of cafeMenu) {
     el("order-" + item).addEventListener("click", () => {
       if (!dialog.open || el("cafe-pane").hidden || !atCafeCounter() || !player.orderCafeItem(item)) return;
@@ -224,11 +237,7 @@
       el("order-status").textContent = received;
       (el("cafe-pane").querySelector(".cafe-menu button:enabled") || el("leave-counter")).focus({preventScroll:true});
     });
-    button.addEventListener("click", () => {
-      if (!player || dialog.open || document.hidden || !player.consumeCafeItem(item)) return;
-      syncCafeActions();
-      canvas.focus({preventScroll:true});
-    });
+    button.addEventListener("click", () => consumeCafeItem(item));
   }
   el("leave-counter").addEventListener("click", () => dialog.close());
 
@@ -436,18 +445,23 @@
     if(player) canvas.focus({preventScroll:true});
   });
   el("interact").addEventListener("click",interact);
-  el("ride-yacht").addEventListener("click",()=>{
+  function rideYacht() {
+    if (!player || yacht?.getState().busy || dialog.open || document.hidden) return;
     const dock=yacht?.nearby();
-    if (dock===null || dock===undefined) return;
+    if (dock===null || dock===undefined) {
+      el("announcement").textContent="블랙캣 탑승장이나 그룹안내소에서 이동할 수 있어요.";
+      return;
+    }
     destination=null;
     resetStick();
     if (!yacht.request(dock)) el("announcement").textContent="탑승장으로 조금 더 가까이 와 주세요.";
     updateStatus();canvas.focus({preventScroll:true});
-  });
+  }
+  el("ride-yacht").addEventListener("click",rideYacht);
   function playAction(action) {
     if (!player || yacht?.getState().busy || dialog.open || document.hidden || el("play-actions").hidden) return;
     if (action === "jump") player.jump();
-    else fireworks.launch(player.getPosition(), stillScenery.matches);
+    else if (action === "firework") fireworks.launch(player.getPosition(), stillScenery.matches);
   }
   for (const action of ["jump", "firework"]) {
     el(action).addEventListener("click", event => {
@@ -540,6 +554,9 @@
     },action=>{
       if (action === "move") { destination=null;yacht?.cancelApproach(); }
       else if (action === "interact") interact();
+      else if (action === "eat-bread") consumeCafeItem("bread");
+      else if (action === "drink-coffee") consumeCafeItem("coffee");
+      else if (action === "ride-yacht") rideYacht();
       else playAction(action);
     });
     yacht=window.HLBYachtRide.create({scene,world,player,onChange:state=>{

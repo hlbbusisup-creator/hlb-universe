@@ -110,7 +110,7 @@ test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통�
   }
 });
 
-test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관이 그룹안내소 중심의 원형광장을 둘러싼다', () => {
+test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관은 그룹 뒤쪽 반원에서 모두 입구 쪽을 향한다', () => {
   const cafe=world.spaces.find(space=>space.id==='cafe');
   const cologne=world.spaces.find(space=>space.id==='cologne');
   assert.ok(Math.abs(cafe.x+cologne.x)<.001 && Math.abs(cafe.z-cologne.z)<.001);
@@ -120,11 +120,66 @@ test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관이 그룹�
   const surrounding=world.spaces.filter(space=>['brand','product','ir','esg'].includes(space.id));
   const radii=surrounding.map(space=>Math.hypot(space.x-world.plaza.x,space.z-world.plaza.z));
   assert.ok(Math.max(...radii)-Math.min(...radii)<.1);
-  assert.equal(new Set(surrounding.map(space=>[Math.sign(space.x),Math.sign(space.z-world.plaza.z)].join(','))).size,4);
+  assert.ok(surrounding.every(space=>space.z<=world.plaza.z));
+  assert.equal(new Set(surrounding.map(space=>space.x)).size,4);
   assert.ok(surrounding.every(space=>space.interior.maxZ<world.district.minZ));
-  assert.ok(scene.getObjectByName('Circular brand plaza promenade'));
+  assert.ok(scene.getObjectByName('Semicircular brand plaza promenade'));
+  scene.updateMatrixWorld(true);
+  for(const space of surrounding){
+    const hall=scene.children[0].children.find(object=>object.userData.hallId===space.id);
+    const forward=new THREE.Vector3(0,0,1).applyQuaternion(hall.getWorldQuaternion(new THREE.Quaternion()));
+    assert.ok(Math.abs(forward.x)<.001 && forward.z>.999,space.id+' 간판이 입구 쪽 +Z를 향함');
+    assert.ok(space.interior.minZ>world.bounds.minZ && space.interior.minX>world.bounds.minX && space.interior.maxX<world.bounds.maxX);
+  }
   for (let z=world.spawn.z;z>=world.district.minZ;z-=.25) {
     assert.ok(world.colliders.every(box=>box.minX>=.5 || box.maxX<=-.5 || z<box.minZ || z>box.maxZ), '거리 중앙 z='+z);
+  }
+});
+
+test('뒤쪽 IR·ESG 바닥에 화산 지형이나 외곽 주상절리가 침범하지 않는다', () => {
+  scene.updateMatrixWorld(true);
+  const terrain=['Eroded caldera escarpments','Layered basalt cone and breached summit','Volcanic ash plateau'].map(name=>scene.getObjectByName(name));
+  const columns=scene.getObjectByName('column stone'),matrix=new THREE.Matrix4(),columnBox=new THREE.Box3();
+  columns.geometry.computeBoundingBox();
+  for(const id of ['ir','esg']){
+    const room=world.spaces.find(space=>space.id===id).interior;
+    for(const x of [room.minX+.15,(room.minX+room.maxX)/2,room.maxX-.15]){
+      for(const z of [room.minZ+.15,(room.minZ+room.maxZ)/2,room.maxZ-.15]){
+        const ray=new THREE.Raycaster(new THREE.Vector3(x,12,z),new THREE.Vector3(0,-1,0));
+        const hit=ray.intersectObjects(terrain,false)[0];
+        assert.ok(hit && hit.point.y<.08,id+' 바닥 아래 지형 '+x+','+z);
+      }
+    }
+    for(let i=0;i<columns.count;i++){
+      columns.getMatrixAt(i,matrix);matrix.premultiply(columns.matrixWorld);
+      columnBox.copy(columns.geometry.boundingBox).applyMatrix4(matrix);
+      assert.ok(columnBox.max.x<=room.minX || columnBox.min.x>=room.maxX || columnBox.max.z<=room.minZ || columnBox.min.z>=room.maxZ,
+        id+' 공간의 외곽 주상절리 간섭 '+JSON.stringify({min:columnBox.min,max:columnBox.max}));
+    }
+  }
+});
+
+test('직선거리 끝의 낮은 정면 시선에서 네 전시관 간판의 좌우 글자 영역이 가리지 않는다', () => {
+  scene.updateMatrixWorld(true);
+  const signs=[],meshes=[],eye=new THREE.Vector3(0,3,-10);
+  scene.traverse(object=>{
+    if(object.isMesh)meshes.push(object);
+    if(object.userData.wayfindingSign && ['브랜드관','제품전시관','IR 자료관','ESG 정원'].includes(object.name))signs.push(object);
+  });
+  assert.equal(signs.length,4);
+  for(const sign of signs){
+    for(const side of [-.43,0,.43]){
+      const target=sign.localToWorld(new THREE.Vector3(sign.userData.wayfindingSign.width*side,0,0));
+      const ray=new THREE.Raycaster(eye,target.clone().sub(eye).normalize());
+      const hit=ray.intersectObjects(meshes,false).find(({object,face})=>{
+        const material=Array.isArray(object.material)?object.material[face.materialIndex]:object.material;
+        return material.visible && !(material.transparent && material.opacity<.7);
+      });
+      // A ray exactly on the plane's triangle seam can miss the text plane.
+      // A backing plate behind it is not an obstruction in front of the text.
+      assert.ok(!hit || hit.distance>=eye.distanceTo(target)-.001,
+        sign.name+' 글자 영역 '+side+'의 가림: '+hit?.object.name);
+    }
   }
 });
 

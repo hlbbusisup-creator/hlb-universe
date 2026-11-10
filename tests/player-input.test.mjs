@@ -132,3 +132,124 @@ test("포커스 상실·팝업·한글 조합은 입력을 해제하고 새 키�
     assert.deepEqual(player.getPosition(),paused);
   } finally { player.dispose(); }
 });
+
+test("Z·X·C 단축키는 동작을 한 번씩 전달하고 F·E 기존 키도 유지한다", () => {
+  const {player,actions,key}=controls();
+  try {
+    for (const [code,action] of [
+      ["KeyZ","eat-bread"],["KeyX","drink-coffee"],["KeyC","ride-yacht"],
+      ["KeyF","firework"],["KeyE","interact"]
+    ]) {
+      actions.length=0;
+      assert.equal(key("keydown",code).defaultPrevented,true,code);
+      key("keydown",code,{repeat:true});
+      key("keydown",code);
+      assert.deepEqual(actions,[action],code+"를 누르고 있는 동안 재실행하지 않는다");
+      key("keyup",code);
+      key("keydown",code);
+      assert.deepEqual(actions,[action,action],code+"를 새로 누르면 다시 실행한다");
+      key("keyup",code);
+    }
+  } finally { player.dispose(); }
+});
+
+test("W+D+Z+X+C+Space+F 동시 입력에서도 이동·점프와 각 동작을 빠짐없이 처리한다", () => {
+  const {player,actions,key}=controls();
+  try {
+    const start=player.getPosition();
+    const codes=["KeyW","KeyD","KeyZ","KeyX","KeyC","Space","KeyF"];
+    for (const code of codes) assert.equal(key("keydown",code).defaultPrevented,true,code);
+    player.update(.05);
+    const moved=player.getPosition();
+    assert.ok(moved.x>start.x && moved.z<start.z);
+    assert.ok(moved.y>start.y+.15,"Space 입력으로 점프한다");
+    assert.ok(Math.abs(Math.hypot(moved.x-start.x,moved.z-start.z)-4.8*.05)<.00001,
+      "동시 입력으로 이동 속도가 중복 적용되지 않는다");
+    assert.deepEqual(actions.filter(action=>action!=="move"),
+      ["eat-bread","drink-coffee","ride-yacht","firework"]);
+    for (const code of codes) key("keydown",code,{repeat:true});
+    assert.equal(actions.filter(action=>action!=="move").length,4);
+    for (const code of codes) key("keyup",code);
+    player.update(.05);
+    assert.equal(player.getPosition().x,moved.x);
+    assert.equal(player.getPosition().z,moved.z);
+  } finally { player.dispose(); }
+});
+
+test("Space 점프는 키 반복으로 착지 후 자동 재점프하지 않는다", () => {
+  const {player,key}=controls();
+  try {
+    const floor=player.getPosition().y;
+    key("keydown","Space");
+    player.update(.05);
+    assert.ok(player.getPosition().y>floor+.15);
+    for (let frame=0;frame<30;frame++) {
+      key("keydown","Space",{repeat:true});
+      player.update(.05);
+    }
+    assert.equal(player.getPosition().y,floor,"Space를 계속 눌러도 한 번만 점프한다");
+    key("keyup","Space");
+    key("keydown","Space");
+    player.update(.05);
+    assert.ok(player.getPosition().y>floor+.15,"Space를 다시 누르면 재점프한다");
+    key("keyup","Space");
+  } finally { player.dispose(); }
+});
+
+test("미래용으로 예약한 V·B는 이동·점프·폭죽 등 어떤 동작도 실행하지 않는다", () => {
+  const {player,actions,key}=controls();
+  try {
+    const start=player.getPosition();
+    for (const code of ["KeyV","KeyB"]) {
+      assert.equal(key("keydown",code).defaultPrevented,false);
+      key("keydown",code);
+      key("keydown",code,{repeat:true});
+    }
+    for (let frame=0;frame<30;frame++) {
+      player.update(.05);
+      assert.deepEqual(player.getPosition(),start,"예약 키로 캐릭터가 움직이거나 점프하지 않는다");
+    }
+    assert.deepEqual(actions,[],"예약 키로 폭죽이나 다른 동작을 호출하지 않는다");
+    for (const code of ["KeyV","KeyB"]) {
+      key("keyup",code);
+      key("keydown",code);
+      key("keyup",code);
+    }
+    player.update(.05);
+    assert.deepEqual(player.getPosition(),start);
+    assert.deepEqual(actions,[]);
+  } finally { player.dispose(); }
+});
+
+test("새 단축키는 텍스트 편집·팝업·IME·브라우저 조합키·숨김 탭에서 실행하지 않는다", () => {
+  const {page,player,actions,key}=controls();
+  const codes=["KeyZ","KeyX","KeyC","Space","KeyF","KeyE"];
+  function expectIgnored(flags={}) {
+    const start=player.getPosition();
+    for (const code of codes) {
+      assert.equal(key("keydown",code,flags).defaultPrevented,false,code);
+      key("keyup",code);
+    }
+    player.update(.05);
+    assert.deepEqual(player.getPosition(),start);
+    assert.deepEqual(actions,[]);
+  }
+  try {
+    for (const selector of ["input","textarea","select","[contenteditable]","[role=textbox]"]) {
+      page.document.activeElement={closest:query=>query.includes(selector) ? {} : null};
+      expectIgnored();
+    }
+    page.document.activeElement=null;
+    for (const flags of [{isComposing:true},{ctrlKey:true},{altKey:true},{metaKey:true}]) expectIgnored(flags);
+    player.setActive(false);
+    expectIgnored();
+    player.setActive(true);
+    expectIgnored({repeat:true});
+    page.document.hidden=true;
+    expectIgnored();
+    page.document.hidden=false;
+    key("keydown","KeyC");
+    assert.deepEqual(actions,["ride-yacht"],"차단 조건 해제 후 새 입력은 정상 동작한다");
+    key("keyup","KeyC");
+  } finally { player.dispose(); }
+});

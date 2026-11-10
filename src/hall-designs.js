@@ -157,7 +157,7 @@
       for(const side of [-1,1])form("crystal",cx+side*.10,cy+side*.17,cz+.03,.075,.25,.042,
         side<0?cream:magma,[0,0,-.5]);
       suspendedSign();
-      // The lobby plan follows the circular collection around the group hall.
+      // The lobby plan mirrors the rear semicircle and its front-facing halls.
       const gx=-half+1.32,gz=back+1.67;
       form("round",gx,.18,gz,.84,.24,.84,jade);
       form("round",gx,.67,gz,.29,.78,.29,brass);
@@ -171,14 +171,14 @@
       const planZ=back+.215;
       const marker=(x,y,w,h,col)=>box(x,y,planZ+.025,w,h,.04,col,null,"light");
       const ringColor=0xa9946e;
-      for(let i=0;i<32;i++){
-        const a=i*Math.PI/16;
-        marker(Math.cos(a)*1.05,1.96+Math.sin(a)*.43,.075,.035,ringColor);
+      for(let i=0;i<=24;i++){
+        const a=i*Math.PI/24;
+        marker(Math.cos(a)*1.30,1.85+Math.sin(a)*.48,.075,.035,ringColor);
       }
       marker(0,1.26,.05,.65,brass);
       marker(0,.98,2.46,.04,brass);
-      for(const [x,y,title,c] of [[0,1.96,"그룹안내소","#b94339"],[-1.30,1.57,"브랜드관","#9c5046"],
-        [1.30,1.57,"제품전시관","#476d82"],[-1.30,2.30,"IR 자료관","#74604b"],[1.30,2.30,"ESG 정원","#527351"],
+      for(const [x,y,title,c] of [[0,1.78,"그룹안내소","#b94339"],[-1.30,1.85,"브랜드관","#9c5046"],
+        [1.30,1.85,"제품전시관","#476d82"],[-.98,2.20,"IR 자료관","#74604b"],[.98,2.20,"ESG 정원","#527351"],
         [-1.30,.98,"카페 렌토","#785841"],[1.30,.98,"에데꼬론","#826b50"]]){
         sign(x,y,planZ+.055,.94,.24,title,"",c);
       }

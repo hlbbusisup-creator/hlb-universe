@@ -7,7 +7,7 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=circle-yacht">
+  <link rel="stylesheet" href="styles.css?v=semicircle-jog">
   <link rel="stylesheet" href="src/product-book.css?v=1">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js?v=cafe"></script>
@@ -20,16 +20,16 @@
   <script defer src="src/product-book.js?v=1"></script>
   <script defer src="src/reader.js?v=product-shelf"></script>
   <script defer src="src/cologne-gallery.js?v=circle-yacht"></script>
-  <script defer src="src/hall-designs.js?v=circle-yacht"></script>
+  <script defer src="src/hall-designs.js?v=semicircle-jog"></script>
   <script defer src="src/cafe.js?v=circle-yacht"></script>
-  <script defer src="src/world3d.js?v=circle-yacht"></script>
-  <script defer src="src/player3d.js?v=circle-yacht"></script>
+  <script defer src="src/world3d.js?v=semicircle-jog"></script>
+  <script defer src="src/player3d.js?v=semicircle-jog"></script>
   <script defer src="src/blackcat-yacht.js?v=circle-yacht"></script>
   <script defer src="src/yacht-ride.js?v=circle-yacht"></script>
   <script defer src="src/time-of-day.js?v=brand-street"></script>
   <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js?v=circle-yacht"></script>
+  <script defer src="src/app.js?v=semicircle-jog"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -52,7 +52,7 @@
   </svg>
   <main id="experience" aria-label="HLB 유니버스">
     <canvas id="world" tabindex="0" aria-label="HLB 유니버스에서 캐릭터 움직이기" aria-describedby="walk-instructions"></canvas>
-    <p id="walk-instructions" class="sr">방향키나 WASD 또는 바닥 클릭으로 이동하고 드래그로 둘러봅니다. 스페이스바로 점프하고 F 키로 폭죽을 쏩니다. 열람대 가까이에서 E 키를 누르면 자료가 열립니다.</p>
+    <p id="walk-instructions" class="sr">방향키나 WASD 또는 바닥 클릭으로 이동하고 드래그로 둘러봅니다. Z는 빵 먹기, X는 커피 마시기, C는 블랙캣 이동하기입니다. 스페이스바로 점프하고 F 키로 폭죽을 쏩니다. 열람대 가까이에서 E 키를 누르면 자료가 열립니다.</p>
     <div class="top-hud">
       <header class="identity glass"><span lang="en" class="hlb">HLB</span> <span class="identity-text">유니버스</span></header>
       <nav class="tools glass" aria-label="HLB 유니버스 메뉴">
@@ -88,25 +88,25 @@
     <div id="stick" aria-label="이동 조이스틱"><span class="stick-thumb"></span></div>
     <div id="play-actions" role="group" aria-label="캐릭터 동작" hidden>
       <div id="carry-actions" hidden>
-        <button type="button" id="drink-coffee" class="play-button glass" hidden><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 마시기</span></button>
-        <button type="button" id="eat-bread" class="play-button glass" hidden><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 먹기</span></button>
+        <button type="button" id="eat-bread" class="play-button glass" aria-keyshortcuts="z" hidden><svg aria-hidden="true"><use href="#bread-icon"/></svg><span>빵 먹기</span><kbd>Z</kbd></button>
+        <button type="button" id="drink-coffee" class="play-button glass" aria-keyshortcuts="x" hidden><svg aria-hidden="true"><use href="#coffee-icon"/></svg><span>커피 마시기</span><kbd>X</kbd></button>
       </div>
       <button type="button" id="jump" class="play-button glass" aria-keyshortcuts="Space"><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>점프</span><kbd>Space</kbd></button>
-      <button type="button" id="firework" class="play-button glass" aria-keyshortcuts="F"><svg aria-hidden="true"><use href="#firework-icon"/></svg><span>폭죽</span><kbd>F</kbd></button>
+      <button type="button" id="firework" class="play-button glass" aria-keyshortcuts="f"><svg aria-hidden="true"><use href="#firework-icon"/></svg><span>폭죽</span><kbd>F</kbd></button>
     </div>
     <div class="lower-controls">
       <p id="yacht-status" class="yacht-status glass" role="status" hidden></p>
-      <button type="button" id="ride-yacht" class="interact yacht-button" hidden><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>이동하기<small id="ride-destination">그룹안내소로</small></span><span class="yacht-name">블랙캣</span></button>
+      <button type="button" id="ride-yacht" class="interact yacht-button" aria-keyshortcuts="c" hidden><svg aria-hidden="true"><use href="#jump-icon"/></svg><span>이동하기<small id="ride-destination">그룹안내소로</small></span><span class="yacht-name">블랙캣</span><kbd>C</kbd></button>
       <div id="travel" class="travel glass" hidden><span id="travel-text"></span><button type="button" id="cancel-travel" aria-label="길 안내 해제"><svg><use href="#close-icon"/></svg></button></div>
       <button type="button" class="interact" id="interact" hidden><svg><use href="#book-icon"/></svg><span></span><kbd>E</kbd></button>
-      <p class="hint glass" id="hint"><span class="desktop-hint">방향키로 걷기 <i></i> 드래그로 둘러보기 <i></i> 바닥 클릭으로 이동</span><span class="mobile-hint">왼쪽 원으로 걷고 화면을 밀어 둘러보세요</span></p>
+      <p class="hint glass" id="hint"><span class="desktop-hint">방향키로 이동 <i></i> 드래그로 둘러보기 <i></i> 바닥 클릭으로 이동</span><span class="mobile-hint">왼쪽 원으로 이동하고 화면을 밀어 둘러보세요</span></p>
     </div>
     <div class="sr" id="announcement" role="status" aria-live="polite"></div>
   </main>
   <dialog id="panel" aria-labelledby="panel-title">
     <div class="panel-inner">
       <header class="panel-head"><div class="panel-heading"><button type="button" id="reader-back" hidden>← 자료 목록</button><h1 id="panel-title" tabindex="-1"></h1></div><button type="button" id="close-panel" class="icon-button" aria-label="HLB 유니버스로 돌아가기"><svg><use href="#close-icon"/></svg></button></header>
-      <section id="guide-pane" hidden><p class="panel-desc">방문할 공간을 고르면 캐릭터가 그곳까지 걸어갑니다.</p><div class="guide-list" id="guide-list"></div></section>
+      <section id="guide-pane" hidden><p class="panel-desc">방문할 공간을 고르면 캐릭터가 그곳까지 가볍게 뛰어갑니다.</p><div class="guide-list" id="guide-list"></div></section>
       <section id="cafe-pane" hidden>
         <p class="panel-desc">메뉴를 골라 주세요. 두 가지 모두 가져갈 수 있어요.</p>
         <div class="cafe-menu">
@@ -122,11 +122,12 @@
       </section>
       <section id="help-pane" hidden>
         <dl class="help-list">
-          <div><dt>걷기</dt><dd>WASD · 방향키 · 바닥 클릭</dd></div>
-          <div><dt>모바일에서 걷기</dt><dd>왼쪽 조이스틱 또는 바닥 터치</dd></div>
-            <div><dt>블랙캣 요트</dt><dd>입구 오른쪽의 나무 간판 근처에서 ‘이동하기’를 누르면 요트를 타고 그룹안내소 앞으로 날아갑니다. 그룹안내소 안이나 앞 탑승장에서 다시 누르면 입구로 돌아옵니다.</dd></div>
-          <div><dt>점프</dt><dd>스페이스바 또는 오른쪽 아래 점프 버튼</dd></div>
-          <div><dt>폭죽 쏘기</dt><dd>F 키 또는 오른쪽 아래 폭죽 버튼</dd></div>
+          <div><dt>이동</dt><dd>WASD · 방향키 · 바닥 클릭으로 가볍게 뛰어갑니다. 모바일에서는 왼쪽 조이스틱 또는 바닥 터치를 이용하세요.</dd></div>
+          <div><dt>Z · 빵 먹기</dt><dd>주문한 빵을 먹습니다.</dd></div>
+          <div><dt>X · 커피 마시기</dt><dd>주문한 커피를 마십니다.</dd></div>
+          <div><dt>C · 블랙캣 이동</dt><dd>입구 오른쪽 나무 간판 근처에서 요트를 타고 그룹안내소 앞으로 날아갑니다. 그룹안내소 안이나 앞 탑승장에서 다시 누르면 입구로 돌아옵니다.</dd></div>
+          <div><dt>Space · 점프</dt><dd>스페이스바 또는 오른쪽 아래 점프 버튼으로 점프합니다.</dd></div>
+          <div><dt>F · 폭죽</dt><dd>F 키 또는 오른쪽 아래 폭죽 버튼을 누릅니다. 모든 동작은 화면의 버튼으로도 이용할 수 있습니다.</dd></div>
           <div><dt>둘러보기</dt><dd>화면 드래그</dd></div>
           <div><dt>카메라 거리</dt><dd>마우스 휠이나 두 손가락으로 조절합니다. 야외에서 전경을 누르면 넓게 내려다보고, 다시 누르면 캐릭터 가까이 돌아옵니다.</dd></div>
           <div><dt>분위기</dt><dd>낮과 밤을 바꿀 수 있습니다. 화면을 처음 조작하면 음악이 시작되고, 음향에서 음량과 음소거를 조절할 수 있습니다.</dd></div>

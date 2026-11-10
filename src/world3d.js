@@ -16,14 +16,14 @@
     const site = new T.Group();
     site.name = "HLB Universe";
     scene.add(site);
-    const bounds = {minX:-25, maxX:25, minZ:-45, maxZ:28};
+    const bounds = {minX:-27, maxX:27, minZ:-52, maxZ:28};
     const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-8,maxZ:19.5};
-    const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:22};
+    const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:26};
     const yachtDocks = [
       {id:"entrance",title:"입구",x:10,z:23,yaw:0,station:{x:7,z:23},sign:{x:7,z:25}},
       {id:"group",title:"그룹안내소",x:7.6,z:-17.5,yaw:0,station:{x:4.4,z:-17.5},sign:{x:4.3,z:-15.6}}
     ];
-    const lavaLights = [[-4.9,3],[4.9,3],[-22,-26],[22,-26]];
+    const lavaLights = [[-4.9,3],[4.9,3],[-25.8,-18],[25.8,-18]];
     const colliders = [], roofs = [], spaces = [];
     let seed = 1171;
     function random() { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; }
@@ -129,7 +129,8 @@
     // A triangulated, eroded stratovolcano. The lava follows the very same
     // triangles as the crust, including the channels below the crater rim.
     const flowVerts=[],flowColors=[];
-    const summit = {x:-10, z:-94};
+    // Keep the volcanic foot behind the rear archive walls and their exits.
+    const summit = {x:-10, z:-100};
     const mountainMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:1,side:T.DoubleSide,flatShading:true});
     function volcano() {
       const centerX=summit.x,centerZ=summit.z,segments=72;
@@ -365,22 +366,29 @@
       hotRock.push([x,z]);
     }
     function siteDetail(){
-      // The cafe and perfume hall line the avenue. A separate circular walk
-      // surrounds the central group information hall and connects four archives.
+      // The cafe and perfume hall line the avenue. Four front-facing archives
+      // form a rear semicircle, so every sign faces the arriving visitor.
       path(0,28,0,-22.4,8.2);
       path(-5.5,11,5.5,11,2.8);
+      path(-13.5,-10,13.5,-10,5);
       const paving=[],pavingColors=[],tone=new T.Color();
-      const point=(r,a)=>[Math.sin(a)*r,.045,plaza.z+Math.cos(a)*r];
-      for(let i=0;i<96;i++){
-        const a=i/96*TAU+.002,b=(i+1)/96*TAU-.002;
-        const innerA=point(11.35,a),outerA=point(14.05,a),innerB=point(11.35,b),outerB=point(14.05,b);
+      const point=(r,a)=>[Math.sin(a)*r,.045,-22+Math.cos(a)*r];
+      for(let i=0;i<64;i++){
+        const a=Math.PI/2+i/64*Math.PI+.002,b=Math.PI/2+(i+1)/64*Math.PI-.002;
+        const innerA=point(12,a),outerA=point(15,a),innerB=point(12,b),outerB=point(15,b);
         tone.setHex(choose([0x938a83,0xa0978b,0x958d89,0x877e7c]));
         face(paving,pavingColors,innerA,innerB,outerB,tone);
         face(paving,pavingColors,innerA,outerB,outerA,tone);
       }
-      triangles("Circular brand plaza promenade",paving,pavingColors,mountainMaterial).receiveShadow=true;
-      for(const side of [-1,1]) for(const row of [-1,1]){
-        path(side*8.98,plaza.z+row*8.98,side*12,plaza.z+row*12,2.75);
+      triangles("Semicircular brand plaza promenade",paving,pavingColors,mountainMaterial).receiveShadow=true;
+      for(const side of [-1,1]){
+        // The right branch passes outside the yacht pad. Each final approach
+        // reaches the doorway from its open front rather than through a wing.
+        path(side*13.5,-10,side*13.5,-22,3.4);
+        path(side*13.5,-22,side*20,-22,3.4);
+        path(side*20,-22,side*20,-26,3.4);
+        path(side*6.75,-33.691,side*15,-36.4,3.4);
+        path(side*15,-36.4,side*15,plaza.z-Math.sqrt(175),3.4);
       }
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
@@ -391,9 +399,10 @@
       for(const side of [-1,1]){
         vent(side*4.9,17.2,.45,2);
         vent(side*4.9,3,.45,3.3);
-        for(const z of [-14,-26,-38]) vent(side*22,z,1.8,3.2);
-        vent(side*9,-5.8,2.2,2.2);
-        vent(side*7,-43,2.1,1.1);
+        for(const z of [-18,-38]) vent(side*25.8,z,1,2.4);
+        vent(side*25.5,-44,1,2.2);
+        vent(side*9,-4.4,2.2,1.6);
+        vent(side*2.2,-45,1.4,2.1);
         vent(side*7.5,-26,.8,1.35);
         vent(side*19.5,-3.8,1.7,2.4);
       }
@@ -421,11 +430,15 @@
 
       for(let i=0;i<94;i++){
         const a=TAU*i/94+random()*.035,scale=1+random()*2.3;
-        outcrop(Math.sin(a)*(33+random()*10),Math.cos(a)*(47+random()*11)-10,scale,false);
+        const x=Math.sin(a)*(33+random()*10),z=Math.cos(a)*(47+random()*11)-10;
+        const clearance=scale*1.4+1;
+        if(spaces.some(({interior:b})=>x>b.minX-clearance && x<b.maxX+clearance &&
+          z>b.minZ-clearance && z<b.maxZ+clearance)) continue;
+        outcrop(x,z,scale,false);
       }
       for(let i=0;i<430;i++){
-        const x=random()*50-25,z=random()*70-45;
-        if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<22 || yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
+        const x=random()*54-27,z=random()*80-52;
+        if(Math.abs(x)<6 || Math.hypot(x,z-plaza.z)<27 || yachtDocks.some(dock=>Math.abs(x-dock.x)<4 && Math.abs(z-dock.z)<4) || spaces.some(({interior:b})=>
           x>b.minX-.6 && x<b.maxX+.6 && z>b.minZ-.6 && z<b.maxZ+.6)) continue;
         const s=.08+random()*.21;
         place("rock",choose(basalt),x,s*.16,z,s,.36*s,s*(.75+random()),[.06,random()*TAU,.05],"stone");
@@ -433,9 +446,9 @@
       // Lamps repeat between the entrances without narrowing any door approach.
       const lampPositions=[];
       for(const side of [-1,1]) for(const z of [14,8,2]) lampPositions.push([side*3.85,z]);
-      for(const degrees of [-150,-120,-90,-60,-30,30,60,90,120,150,180]){
+      for(const degrees of [105,120,150,180,210,240,255]){
         const a=degrees*Math.PI/180;
-        lampPositions.push([Math.sin(a)*14.5,plaza.z+Math.cos(a)*14.5]);
+        lampPositions.push([Math.sin(a)*11.5,-22+Math.cos(a)*11.5]);
       }
       for(const [x,z] of lampPositions){
         box(x,.35,z,.18,.70,.18,dark);
@@ -499,8 +512,8 @@
     const summitLogo=makeSummitLogo();
     const hallKit={T,site,box,place,tube,collider,colliders,roofs};
     const placements={
-      group:[0,-22.4,0], brand:[-12,-14,Math.PI/2], product:[12,-14,-Math.PI/2],
-      ir:[-12,-38,Math.PI/2], esg:[12,-38,-Math.PI/2]
+      group:[0,-22.4,0], brand:[-20,-26,0], product:[20,-26,0],
+      ir:[-15,plaza.z-Math.sqrt(175),0], esg:[15,plaza.z-Math.sqrt(175),0]
     };
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
