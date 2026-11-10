@@ -1,9 +1,57 @@
 (() => {
   const { spaces } = globalThis.HLBCatalogData;
   const spaceNames = new Map(spaces.map(space => [space.id, space.title]));
+  let syncState={status:"bundled",updatedAt:null,count:0};
+  const isNotionResource=resource=>/^https:\/\/mysterious-bait-6ee\.notion\.site\//.test(resource.url);
+  function mergeSnapshot(snapshot) {
+    if (snapshot?.schemaVersion!==1 || !Array.isArray(snapshot.resources) ||
+      !snapshot.resources.length || snapshot.resources.length>5000 ||
+      !Number.isFinite(Date.parse(snapshot.checkedAt))) throw new Error("Invalid catalog snapshot");
+    const ids=new Set();
+    for (const resource of snapshot.resources) {
+      if (!resource || typeof resource.id!=="string" || !/^[\w-]+$/.test(resource.id) || ids.has(resource.id) ||
+        typeof resource.title!=="string" || !resource.title.trim() || !spaceNames.has(resource.space) ||
+        typeof resource.url!=="string" || !Array.isArray(resource.keywords) ||
+        !resource.keywords.every(word=>typeof word==="string") || !Array.isArray(resource.reading?.sections)) {
+        throw new Error("Incomplete catalog snapshot");
+      }
+      ids.add(resource.id);
+    }
+    // The two locally supplied AI de cologne brochures are independent of Notion.
+    const local=globalThis.HLBCatalogData.resources.filter(resource=>!isNotionResource(resource));
+    if (local.some(resource=>ids.has(resource.id))) throw new Error("Conflicting catalog IDs");
+    return [...local,...snapshot.resources];
+  }
 
-  async function loadResources() {
-    return globalThis.HLBCatalogData.resources.map(resource => ({
+  async function loadResources(options={}) {
+    let resources=globalThis.HLBCatalogData.resources;
+    syncState={status:"bundled",updatedAt:null,count:0};
+    const base=options.baseURI || globalThis.document?.baseURI;
+    const fetcher=options.fetcher || globalThis.fetch;
+    if (base && fetcher) {
+      let storage;
+      try { storage=globalThis.localStorage; } catch {}
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),8000);
+      try {
+        const response=await fetcher(new URL("assets/reading/notion/catalog.json",base),{
+          cache:"no-cache",signal:controller.signal
+        });
+        if (!response.ok) throw new Error("Catalog is unavailable");
+        const snapshot=await response.json();
+        resources=mergeSnapshot(snapshot);
+        syncState={status:"synced",updatedAt:snapshot.checkedAt,count:snapshot.resources.length};
+        try { storage?.setItem("hlb-catalog-v1",JSON.stringify(snapshot)); } catch {}
+      } catch {
+        syncState={status:"bundled",updatedAt:null,count:0};
+        try {
+          const snapshot=JSON.parse(storage?.getItem("hlb-catalog-v1") || "null");
+          resources=mergeSnapshot(snapshot);
+          syncState={status:"cached",updatedAt:snapshot.checkedAt,count:snapshot.resources.length};
+        } catch {}
+      } finally { clearTimeout(timeout); }
+    }
+    return resources.map(resource => ({
       language: "",
       year: null,
       ...resource,
@@ -46,5 +94,5 @@
     });
   }
 
-  globalThis.HLBCatalog = { spaces, loadResources, searchResources };
+  globalThis.HLBCatalog = { spaces, loadResources, searchResources, getSyncState:()=>({...syncState}) };
 })();

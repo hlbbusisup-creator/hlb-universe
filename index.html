@@ -7,29 +7,30 @@
   <meta name="description" content="HLB 유니버스에서 에데꼬론 상품관과 HLB그룹 전시관을 걸으며 제품과 그룹 자료를 살펴보세요.">
   <title>HLB 유니버스</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=semicircle-jog">
+  <link rel="stylesheet" href="styles.css?v=fan-sync">
   <link rel="stylesheet" href="src/product-book.css?v=1">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js?v=cafe"></script>
-  <script defer src="src/catalog.js"></script>
+  <script defer src="src/catalog.js?v=fan-sync"></script>
   <script defer src="src/reading-data.js?v=product-shelf"></script>
   <script defer src="src/report-reading-data.js"></script>
   <script defer src="src/cologne-reading.js"></script>
   <script defer src="src/pdf-viewer.js"></script>
   <script defer src="src/product-data.js?v=1"></script>
+  <script defer src="src/product-source-hashes.js"></script>
   <script defer src="src/product-book.js?v=1"></script>
-  <script defer src="src/reader.js?v=product-shelf"></script>
+  <script defer src="src/reader.js?v=fan-sync"></script>
   <script defer src="src/cologne-gallery.js?v=circle-yacht"></script>
-  <script defer src="src/hall-designs.js?v=semicircle-jog"></script>
+  <script defer src="src/hall-designs.js?v=fan-sync"></script>
   <script defer src="src/cafe.js?v=circle-yacht"></script>
-  <script defer src="src/world3d.js?v=semicircle-jog"></script>
-  <script defer src="src/player3d.js?v=semicircle-jog"></script>
+  <script defer src="src/world3d.js?v=fan-sync"></script>
+  <script defer src="src/player3d.js?v=fan-sync"></script>
   <script defer src="src/blackcat-yacht.js?v=circle-yacht"></script>
   <script defer src="src/yacht-ride.js?v=circle-yacht"></script>
   <script defer src="src/time-of-day.js?v=brand-street"></script>
   <script defer src="src/chamber-music.js"></script>
   <script defer src="src/fireworks.js"></script>
-  <script defer src="src/app.js?v=semicircle-jog"></script>
+  <script defer src="src/app.js?v=fan-sync"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -151,6 +152,7 @@
       </section>
       <section id="library-pane" hidden>
         <p class="panel-desc" id="library-desc"></p>
+        <p class="catalog-status" id="catalog-status"></p>
         <label class="search-field"><svg><use href="#search-icon"/></svg><input type="search" id="query" placeholder="자료명 또는 그룹사명" aria-label="자료 검색어" maxlength="120"></label>
         <div class="filter-list"><select id="space-filter" aria-label="공간"></select><select id="type-filter" aria-label="유형"></select><select id="language-filter" aria-label="언어"></select><select id="year-filter" aria-label="연도"></select></div>
         <p class="result-count" id="count" aria-live="polite"></p><ul class="resources" id="resources"></ul>

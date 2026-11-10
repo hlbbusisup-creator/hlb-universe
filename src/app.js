@@ -188,7 +188,7 @@
     const cafe = bySpace.get("cafe");
     if (!cafe || !player) return false;
     const p = player.getPosition(), room = cafe.interior;
-    return p.x >= room.minX && p.x <= room.maxX && p.z >= room.minZ && p.z <= room.maxZ &&
+    return world.containsPoint(room,p) &&
       distance(p, cafe.station) <= cafeCounterRadius;
   }
 
@@ -265,6 +265,10 @@
   }
 
   function prepareLibrary() {
+    const sync=catalog.getSyncState();
+    el("catalog-status").textContent=sync.updatedAt
+      ? "노션 자료 반영 · "+new Intl.DateTimeFormat("ko-KR",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Seoul"}).format(new Date(sync.updatedAt))+(sync.status==="cached"?" · 저장된 자료":"")
+      : "저장된 전시 자료를 표시하고 있습니다.";
     const defaults = {space:"모든 공간",type:"모든 유형",language:"모든 언어",year:"모든 연도"};
     for (const [name, select] of Object.entries(fields)) {
       select.add(new Option(defaults[name], ""));
@@ -316,8 +320,7 @@
     for (const id of ["open-guide","open-search","open-help","overview","jump","firework","drink-coffee","eat-bread"]) {
       el(id).disabled=locked || (["drink-coffee","eat-bread"].includes(id) && Boolean(player.getCafeState().consuming));
     }
-    const inside = world.spaces.find(({interior}) => interior && p.x >= interior.minX &&
-      p.x <= interior.maxX && p.z >= interior.minZ && p.z <= interior.maxZ);
+    const inside = world.spaces.find(({interior}) => interior && world.containsPoint(interior,p));
     overview.hidden = Boolean(inside);
     overview.setAttribute("aria-pressed", String(player.isOverview()));
     const eligible = readingStops.filter(stop => !stop.indoorOnly || inside?.id === stop.spaceId);

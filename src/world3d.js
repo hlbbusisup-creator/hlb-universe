@@ -11,12 +11,24 @@
     {id:"esg", title:"ESG 정원", en:"SUSTAINABILITY", x:10.5, front:-19.5, width:9.2, depth:6.2}
   ];
 
+  function containsPoint(rect, point, padding=0) {
+    if (!rect || !point) return false;
+    const o=rect.obb;
+    if (o) {
+      const dx=point.x-o.x,dz=point.z-o.z;
+      return Math.abs(dx*o.cos-dz*o.sin)<=o.halfX+padding &&
+        Math.abs(dx*o.sin+dz*o.cos)<=o.halfZ+padding;
+    }
+    return point.x>=rect.minX-padding && point.x<=rect.maxX+padding &&
+      point.z>=rect.minZ-padding && point.z<=rect.maxZ+padding;
+  }
+
   function build(scene) {
     const T = globalThis.THREE;
     const site = new T.Group();
     site.name = "HLB Universe";
     scene.add(site);
-    const bounds = {minX:-27, maxX:27, minZ:-52, maxZ:28};
+    const bounds = {minX:-29, maxX:29, minZ:-52, maxZ:28};
     const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-8,maxZ:19.5};
     const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:26};
     const yachtDocks = [
@@ -99,8 +111,14 @@
           point({x:rect.minX,z:rect.minZ}), point({x:rect.maxX,z:rect.minZ}),
           point({x:rect.minX,z:rect.maxZ}), point({x:rect.maxX,z:rect.maxZ})
         ];
-        return {...rect,minX:Math.min(...corners.map(p=>p.x)),maxX:Math.max(...corners.map(p=>p.x)),
+        const bounds={...rect,minX:Math.min(...corners.map(p=>p.x)),maxX:Math.max(...corners.map(p=>p.x)),
           minZ:Math.min(...corners.map(p=>p.z)),maxZ:Math.max(...corners.map(p=>p.z))};
+        if(Math.abs(yaw)>1e-8){
+          const center=point({x:(rect.minX+rect.maxX)/2,z:(rect.minZ+rect.maxZ)/2});
+          bounds.obb={x:center.x,z:center.z,halfX:(rect.maxX-rect.minX)/2,halfZ:(rect.maxZ-rect.minZ)/2,
+            cos:Math.cos(yaw),sin:Math.sin(yaw)};
+        }
+        return bounds;
       }
       for(let i=firstChild;i<site.children.length;i++) site.children[i].applyMatrix4(transform);
       for(const [key,batch] of batches) {
@@ -314,6 +332,22 @@
       }
     }
 
+    function curvedPath(points,width) {
+      const curve=new T.CatmullRomCurve3(points.map(([x,z])=>new T.Vector3(x,.045,z)),false,"centripetal");
+      const rows=Math.ceil(curve.getLength()/1.15),vertices=[],colors=[],tone=new T.Color();
+      const edge=(t,side)=>{
+        const p=curve.getPoint(t),d=curve.getTangent(t);
+        return [p.x+d.z*side*width/2,.045,p.z-d.x*side*width/2];
+      };
+      for(let i=0;i<rows;i++){
+        const start=(i+.025)/rows,end=(i+.975)/rows;
+        const a=edge(start,-1),b=edge(start,1),c=edge(end,-1),d=edge(end,1);
+        tone.setHex(choose([0x938a83,0xa0978b,0x958d89,0x877e7c]));
+        face(vertices,colors,a,c,d,tone);face(vertices,colors,a,d,b,tone);
+      }
+      triangles("Curved plaza approach",vertices,colors,mountainMaterial).receiveShadow=true;
+    }
+
     const basalt=[0x453f48,0x514951,0x5f5559,0x473f43,0x675551,0x554949];
     function outcrop(x,z,scale,block=true) {
       const count=6;
@@ -366,11 +400,10 @@
       hotRock.push([x,z]);
     }
     function siteDetail(){
-      // The cafe and perfume hall line the avenue. Four front-facing archives
-      // form a rear semicircle, so every sign faces the arriving visitor.
+      // Curved entry walks join a compact semicircle. Short spokes lead
+      // straight into gently turned halls, keeping their signs visible on arrival.
       path(0,28,0,-22.4,8.2);
       path(-5.5,11,5.5,11,2.8);
-      path(-13.5,-10,13.5,-10,5);
       const paving=[],pavingColors=[],tone=new T.Color();
       const point=(r,a)=>[Math.sin(a)*r,.045,-22+Math.cos(a)*r];
       for(let i=0;i<64;i++){
@@ -382,13 +415,9 @@
       }
       triangles("Semicircular brand plaza promenade",paving,pavingColors,mountainMaterial).receiveShadow=true;
       for(const side of [-1,1]){
-        // The right branch passes outside the yacht pad. Each final approach
-        // reaches the doorway from its open front rather than through a wing.
-        path(side*13.5,-10,side*13.5,-22,3.4);
-        path(side*13.5,-22,side*20,-22,3.4);
-        path(side*20,-22,side*20,-26,3.4);
-        path(side*6.75,-33.691,side*15,-36.4,3.4);
-        path(side*15,-36.4,side*15,plaza.z-Math.sqrt(175),3.4);
+        curvedPath([[0,-11],[side*7,-11],[side*12.5,-14],[side*13.5,-22]],3.4);
+        path(side*13.5,-22,side*20,-31,3.4);
+        path(side*9.546,-31.546,side*15,-41,3.4);
       }
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
@@ -399,8 +428,9 @@
       for(const side of [-1,1]){
         vent(side*4.9,17.2,.45,2);
         vent(side*4.9,3,.45,3.3);
-        for(const z of [-18,-38]) vent(side*25.8,z,1,2.4);
-        vent(side*25.5,-44,1,2.2);
+        vent(side*25.8,-18,1,2.4);
+        vent(side*27,-42,1,2.4);
+        vent(side*25.5,-48,1,2.2);
         vent(side*9,-4.4,2.2,1.6);
         vent(side*2.2,-45,1.4,2.1);
         vent(side*7.5,-26,.8,1.35);
@@ -512,8 +542,8 @@
     const summitLogo=makeSummitLogo();
     const hallKit={T,site,box,place,tube,collider,colliders,roofs};
     const placements={
-      group:[0,-22.4,0], brand:[-20,-26,0], product:[20,-26,0],
-      ir:[-15,plaza.z-Math.sqrt(175),0], esg:[15,plaza.z-Math.sqrt(175),0]
+      group:[0,-22.4,0], brand:[-20,-31,Math.atan2(6.5,9)], product:[20,-31,-Math.atan2(6.5,9)],
+      ir:[-15,-41,Math.atan2(5.454,9.454)], esg:[15,-41,-Math.atan2(5.454,9.454)]
     };
     for(const hall of halls) spaces.push(buildAt(()=>globalThis.HLBHalls.build(hallKit,hall),...placements[hall.id]));
     spaces.push(buildAt(()=>globalThis.HLBCologneGallery.build(hallKit),5.5,11));
@@ -540,8 +570,8 @@
       summitLogo.rotation.y=-angle;
       updateAtmosphere(dt);
     }
-    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,lavaLights,
+    return {spaces,colliders,cameraColliders:[...colliders,...roofs],bounds,district,plaza,yachtDocks,lavaLights,containsPoint,
       spawn:{x:0,z:23},update};
   }
-  globalThis.HLBWorld3D={build};
+  globalThis.HLBWorld3D={build,containsPoint};
 })();

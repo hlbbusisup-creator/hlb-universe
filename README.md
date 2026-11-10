@@ -17,16 +17,16 @@ npm start
 - **이동** — 방향키 또는 WASD로 가볍게 조깅합니다. 휴대폰에서는 왼쪽 조이스틱을 끕니다. 바닥을 클릭하거나 터치하면 해당 지점까지 이동합니다.
 - **동작 단축키** — Z는 빵 먹기, X는 커피 마시기, C는 블랙캣 이동입니다. 빵과 커피는 주문 후 사용할 수 있고, 요트는 탑승장 근처나 그룹안내소에서 이용합니다. 검색창·자료 팝업·탑승 중에는 동작 단축키가 실행되지 않습니다. V·B는 추후 기능을 위해 배정하지 않았습니다.
 - **점프와 폭죽** — 스페이스바로 점프하고 F 키로 폭죽을 쏩니다. 휴대폰에서는 오른쪽 아래의 점프와 폭죽 버튼을 사용합니다. 폭죽이 터지면 ‘Human Life Better HLB’가 나타납니다.
-- **전시관 배치와 요트** — 카페 렌토와 에데꼬론은 진입로 양옆에, 네 전시관은 그룹안내소 뒤쪽 반원에 간판이 입구를 향하도록 배치했습니다. 입구 오른쪽 ‘블랙캣’ 나무 간판 근처에서 C 또는 ‘이동하기’를 누르면 그룹안내소 앞으로 날아갑니다. 그룹안내소 안이나 앞 탑승장에서도 같은 방법으로 입구에 돌아올 수 있습니다.
+- **전시관 배치와 요트** — 카페 렌토와 에데꼬론은 직선 진입로 양옆에 있습니다. 그룹안내소를 중심으로 작은 반원 산책로와 부드러운 진입 곡선을 연결하고, 네 전시관은 방사형 가지길을 향해 조금씩 회전해 배치했습니다. 중앙 진입 방향에서도 간판을 볼 수 있습니다. 입구 오른쪽 ‘블랙캣’ 나무 간판 근처에서 C 또는 ‘이동하기’를 누르면 그룹안내소 앞으로 날아갑니다. 그룹안내소 안이나 앞 탑승장에서도 같은 방법으로 입구에 돌아올 수 있습니다.
 - **시점** — 화면을 드래그해 캐릭터 주위를 둘러봅니다. 휠 또는 두 손가락으로 카메라 거리를 조절합니다. 야외에서 ‘전경’을 누르면 유니버스를 위에서 넓게 내려다보고, 다시 누르면 캐릭터 가까이 돌아옵니다.
 - **낮과 밤** — 화면 오른쪽 위에서 낮이나 밤을 선택합니다. 선택한 시간대는 다음 방문에도 적용됩니다.
 - **음향** — 피아노·비올라·첼로를 위한 80초 길이의 무가사 창작곡 ‘칼데라의 산책’이 반복됩니다. 브라우저가 자동 재생을 제한하면 첫 클릭·터치·키 입력 후 시작합니다. ‘음향’에서 음량을 조절하거나 음소거할 수 있습니다.
 - **방문** — 건물의 열린 정문으로 들어갑니다. 길을 찾으려면 ‘공간 안내’에서 목적지를 선택합니다.
 - **열람** — 실내 열람대 앞에서 E 키나 ‘자료 보기’ 버튼을 누릅니다. 상단 ‘자료 검색’에서도 같은 열람창을 사용할 수 있습니다. ‘자료 목록’으로 돌아가면 검색과 필터가 유지되고, ×를 누르면 그 자리에서 산책을 이어갑니다.
-- **문서와 표** — 자료를 선택하면 주요 내용이나 표가 즉시 표시됩니다. ‘원본 보기’에서 PDF 전체 페이지를 넘기거나 쪽 번호로 이동하고 확대할 수 있습니다. 연락처·공식 채널·비전 표에는 자료 내 검색이 있습니다.
+- **문서와 영상** — 첨부 PDF나 영상이 있는 자료를 선택하면 팝업 안에서 원본을 바로 엽니다. PDF는 전체 페이지를 넘기거나 쪽 번호로 이동하고 확대할 수 있습니다. 첨부가 여러 개면 ‘첨부 자료’에서 선택합니다. ‘자료 내용’에서는 본문과 표를 읽고 검색할 수 있으며, 원본 첨부가 없는 자료는 본문부터 표시합니다. 외부 영상의 자동 재생 여부는 해당 플레이어와 브라우저 설정에 따릅니다.
 - **에데꼬론** — 공간 안내에서 걸어가거나 [상품관 내부에서 시작](http://127.0.0.1:4173/?visit=cologne)할 수 있습니다. 디퓨저나 카트리지 진열대를 클릭하면 캐릭터가 다가가 설명을 엽니다. ‘전시 안내’에서 목적지를 선택하거나 직접 걸어가 E를 눌러도 됩니다.
 - **카페 렌토** — 광장 서쪽에서 흰 거북이와 ‘Café Lento 1975’ 간판을 찾거나 [주문대 앞에서 시작](https://hlbbusisup-creator.github.io/hlb-universe/?visit=cafe)할 수 있습니다. 주문대를 누르거나 앞에서 E를 눌러 커피와 빵을 주문합니다. 두 가지를 함께 들고 다닐 수 있고, ‘커피 마시기’나 ‘빵 먹기’를 누르면 캐릭터가 한입 즐긴 뒤 미소를 짓습니다.
-- **연결 범위** — 팝업 본문과 PDF 19권은 로컬 서버만으로 열립니다. 영상 3편과 대화형 사업장 지도는 원 게시자의 플레이어를 팝업 안에 표시하므로 인터넷이 필요합니다. 사업장 주소 목록과 영상 소개는 연결 없이도 읽을 수 있습니다.
+- **연결 범위** — 저장된 팝업 본문과 내려받은 PDF는 로컬 서버만으로 열립니다. 외부 영상과 대화형 사업장 지도는 원 게시자의 플레이어를 팝업 안에 표시하므로 인터넷이 필요합니다. 원본 자료의 업데이트를 확인하고 내려받을 때도 인터넷이 필요합니다.
 
 | 공간 | 열람 자료와 체험 |
 | --- | --- |
@@ -38,27 +38,49 @@ npm start
 | 에데꼬론 상품관 | AI de cologne 퍼스널 디퓨저, 세 계열의 향 카트리지 9종과 조합 |
 | [카페 렌토 미리보기](docs/preview/cafe.jpg) | Café Lento 1975 주문대와 창가 좌석, 커피와 빵 |
 
+## Notion 자료 자동 갱신
+
+[HLB그룹 인포뱅크](https://mysterious-bait-6ee.notion.site/HLB-HLB-Group-18fdd42135be809fbf3cc031182c8ff2)의 공개된 전체 하위 자료를 확인해 자료 목록·제목·본문·첨부 변경을 반영합니다. 새 자료는 추가하고 원본에서 삭제된 자료는 목록에서 제외합니다. 목록과 본문은 `assets/reading/notion/catalog.json`에, 내려받은 PDF와 이미지는 `assets/reading/notion/files/`에 저장합니다. 제공받은 에데꼬론 PDF 2건은 Notion 동기화와 별도로 보존합니다.
+
+- **자동 확인** — `.github/workflows/pages.yml`에서 매시 17분과 47분, 30분 간격으로 실행합니다. 변경이 있으면 검증·빌드 후 같은 GitHub Pages 주소에 배포합니다. GitHub 예약 실행은 부하에 따라 지연되거나 누락될 수 있어 정확히 30분 안에 반영되는 것을 보장하지 않습니다.
+- **즉시 확인** — 저장소의 **Actions → Deploy HLB Universe to GitHub Pages → Run workflow**에서 `main`을 선택해 실행합니다. 완료 후 체험관 브라우저를 새로고침하면 갱신된 자료를 불러옵니다.
+- **로컬 확인** — 아래 명령으로 현재 공개 자료를 내려받습니다. 로컬 변경을 공개 사이트에 반영하려면 생성된 자료와 목록을 커밋·푸시해 배포합니다.
+
+```sh
+npm run sync:notion
+```
+
+동기화는 전체 자료를 수집·검증한 다음 목록을 교체합니다. 수집이나 다운로드에 실패하면 마지막 정상 목록과 PDF를 유지하고 워크플로 로그에 실패를 남깁니다. 공개 페이지가 비공개로 바뀌거나 Notion의 공개 게시 API 형식이 변경되면 `scripts/sync-notion.mjs`의 수집 어댑터 또는 `config/notion-sync.json` 설정을 점검해야 합니다.
+
+기존 384개 제품의 책 형태 미리보기는 연결된 카탈로그 PDF의 SHA-256이 기존 추출 원본과 같을 때 유지합니다. PDF가 바뀌면 최신 PDF를 우선 제공하며, 제품명·사진·설명을 담은 책 데이터의 재추출은 별도 갱신 작업입니다.
+
+공개 GitHub 저장소에 60일 동안 활동이 없으면 예약 워크플로가 자동으로 비활성화될 수 있습니다. 자동 확인이 멈추면 Actions에서 활성화 상태와 최근 실행 결과를 확인하세요. [GitHub 예약 실행 안내](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
 ## 개발
 
 | 파일 | 역할 |
 | --- | --- |
-| `src/world3d.js`, `src/hall-designs.js` | 화산 지형, 건물별 외관·실내 전시와 충돌 영역 |
+| `src/world3d.js`, `src/hall-designs.js` | 화산 지형, 곡선 산책로·회전 건물 배치, 외관·실내 전시와 회전 충돌 영역 |
 | `src/time-of-day.js` | 낮·밤 하늘, 광원과 건물 야간 조명 |
 | `src/chamber-music.js` | ‘칼데라의 산책’ 악보, 연주와 음량 설정 |
 | `src/cologne-gallery.js`, `src/cologne-reading.js` | 에데꼬론 상품관의 건축·전시물과 제품 설명·향별 데이터 |
 | `src/cafe.js`, `assets/cafe/` | 카페 건물과 주문대, 거북이 간판 원본 |
-| `src/player3d.js` | 3D 캐릭터와 관절, 보행, 길찾기, 카메라와 입력 |
+| `src/player3d.js` | 3D 캐릭터와 관절, 보행, 회전한 벽·실내를 반영한 길찾기·카메라·입력 |
 | `src/blackcat-yacht.js`, `src/yacht-ride.js` | 블랙캣 요트·나무 간판과 탑승·왕복 비행 |
 | `src/app.js` | 장면 렌더링, 위치에 따른 열람, 자료 검색, 모바일 조이스틱 |
 | `index.html`, `styles.css` | 조작 메뉴, 공간 안내, 열람창 |
-| `src/catalog-data.js` | 자료 목록과 원문 주소 |
-| `src/catalog.js` | 비동기 조회와 검색·필터 |
+| `src/catalog-data.js` | 기본 자료 목록, 에데꼬론 제공 자료와 원문 주소 |
+| `src/catalog.js` | 최신 동기화 목록 조회, 마지막 정상 목록 보관, 검색·필터 |
+| `scripts/sync-notion.mjs` | 공개 Notion 하위 자료 수집, 첨부 PDF·이미지 다운로드·검증, 목록 교체 |
+| `config/notion-sync.json` | 공개 원본 주소, 기존 자료 ID와 전시관 매핑, 다운로드 허용 범위·수집 한도 |
+| `assets/reading/notion/catalog.json`, `assets/reading/notion/files/` | 마지막 정상 동기화 목록·본문·첨부 정보와 PDF·이미지 원본 |
+| `.github/workflows/pages.yml` | 30분 간격·수동 동기화, 자동 검사·빌드·GitHub Pages 배포 |
 | `src/reading-data.js`, `src/report-reading-data.js` | 자료 ID별 본문·표·미디어 및 보고서 요약 |
 | `src/reader.js`, `src/pdf-viewer.js` | 열람창, 자료 내 검색, PDF 페이지·확대·텍스트 보기 |
 | `assets/reading/` | 브로슈어·제품·ESG 등 원본 PDF와 정기보고서 |
 | `assets/vendor/` | 로컬 Three.js, Mozilla PDF.js 및 라이선스 |
 
-자료 26건은 [HLB그룹 인포뱅크](https://mysterious-bait-6ee.notion.site/HLB-HLB-Group-18fdd42135be809fbf3cc031182c8ff2)에서 선별한 24건과 제공받은 에데꼬론 원본 PDF 2건입니다. 자료를 갱신할 때는 카탈로그와 열람 데이터의 자료 ID를 일치시키고 로컬 원본을 교체하세요. 서버·DB를 연결할 때는 공간 ID와 자료 ID를 유지한 채 `HLBCatalog.loadResources()` 및 `src/reader.js`의 상세 조회를 API로 교체하면 됩니다.
+자료 수는 공개 인포뱅크의 변경에 따라 달라집니다. 동기화 대상의 자료 ID와 전시관 매핑은 설정 파일에서 관리하고, 로컬에서 별도로 제공하는 자료는 카탈로그와 열람 데이터의 자료 ID를 일치시킵니다. 서버·DB를 연결할 때는 공간 ID와 자료 ID를 유지한 채 `HLBCatalog.loadResources()` 및 `src/reader.js`의 상세 조회를 API로 교체하면 됩니다.
 
 자동 검사는 아래 명령으로 실행합니다.
 
@@ -74,4 +96,4 @@ npm test
 
 배포 후에는 GitHub 로그인 없이 [HLB 유니버스](https://hlbbusisup-creator.github.io/hlb-universe/)와 [에데꼬론 상품관](https://hlbbusisup-creator.github.io/hlb-universe/?visit=cologne)에 접속할 수 있습니다.
 
-전시 자료를 수정한 뒤 VS Code에서 커밋하고 **변경 내용 동기화**를 누르면 `main`에 올린 버전이 같은 주소에 반영됩니다. 워크플로는 `npm test`와 `npm run build`를 실행하고 `dist/site`에 담긴 화면과 전시 자료를 배포합니다. [GitHub Pages 배포 설정 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+화면이나 로컬 전시 자료를 수정한 뒤 VS Code에서 커밋하고 **변경 내용 동기화**를 누르면 `main`에 올린 버전이 같은 주소에 반영됩니다. 푸시는 현재 저장소 내용으로 검사·배포하며, Notion 새 자료 확인은 위의 예약 실행 또는 **Run workflow**로 수행합니다. 배포 워크플로는 `npm test`와 `npm run build`를 실행하고 `dist/site`에 담긴 화면과 전시 자료를 배포합니다. [GitHub Pages 배포 설정 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)

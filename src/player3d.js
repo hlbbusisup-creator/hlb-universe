@@ -415,6 +415,11 @@
   }
 
   function segmentHits(a,b,box) {
+    if(box.obb){
+      const o=box.obb;
+      const local=p=>({x:(p.x-o.x)*o.cos-(p.z-o.z)*o.sin,z:(p.x-o.x)*o.sin+(p.z-o.z)*o.cos});
+      return segmentHits(local(a),local(b),{minX:-o.halfX,maxX:o.halfX,minZ:-o.halfZ,maxZ:o.halfZ});
+    }
     let start = 0, end = 1;
     for (const [axis,min,max] of [["x",box.minX,box.maxX],["z",box.minZ,box.maxZ]]) {
       const delta = b[axis] - a[axis];
@@ -434,7 +439,11 @@
   // route planning. A body that fits the route can also walk it with the keys.
   function makeNavigation(world) {
     const boxes = world.colliders.filter(b => (b.minY ?? 0) < 1.8 && (b.maxY ?? 3) > 0.2)
-      .map(b => ({minX:b.minX-radius,maxX:b.maxX+radius,minZ:b.minZ-radius,maxZ:b.maxZ+radius}));
+      .map(b => {
+        const padding=b.obb ? radius*(Math.abs(b.obb.cos)+Math.abs(b.obb.sin)) : radius;
+        return {minX:b.minX-padding,maxX:b.maxX+padding,minZ:b.minZ-padding,maxZ:b.maxZ+padding,
+          obb:b.obb ? {...b.obb,halfX:b.obb.halfX+radius,halfZ:b.obb.halfZ+radius} : null};
+      });
     const b = world.bounds;
     function insideBounds(p) {
       return p.x >= b.minX+radius && p.x <= b.maxX-radius && p.z >= b.minZ+radius && p.z <= b.maxZ-radius;
@@ -474,7 +483,13 @@
       const minRow = Math.max(0,Math.ceil((box.minZ-b.minZ)/cell-0.5));
       const maxRow = Math.min(rows-1,Math.floor((box.maxZ-b.minZ)/cell-0.5));
       if (minCol>maxCol || minRow>maxRow) continue;
-      for (let row=minRow;row<=maxRow;row++) blocked.fill(1,at(minCol,row),at(maxCol,row)+1);
+      for (let row=minRow;row<=maxRow;row++) {
+        if(!box.obb) blocked.fill(1,at(minCol,row),at(maxCol,row)+1);
+        else for(let col=minCol;col<=maxCol;col++) {
+          const id=at(col,row);
+          if(world.containsPoint(box,worldPoint(id))) blocked[id]=1;
+        }
+      }
     }
     function closest(point,requireVisible) {
       const cx = clamp(Math.floor((point.x-b.minX)/cell),0,cols-1);
@@ -514,6 +529,8 @@
           const next=at(x,z);
           if (blocked[next] || parent[next]!==-1) continue;
           if (dx && dz && (blocked[at(col+dx,row)] || blocked[at(col,row+dz)])) continue;
+          // A rotated thin wall can pass between two unblocked grid centres.
+          if (!clear(worldPoint(id),worldPoint(next))) continue;
           parent[next]=id; queue[write++]=next;
         }
       }
@@ -565,27 +582,40 @@
     const rideCamera = new T.Vector3();
     const baseFov=camera.fov;
     let route=[], pinchGap=0, touchingMultiple=false;
-    const cameraBoxes = (world.cameraColliders || world.colliders).map(b=>new T.Box3(
-      new T.Vector3(b.minX-0.17,(b.minY??0)-0.12,b.minZ-0.17),
-      new T.Vector3(b.maxX+0.17,(b.maxY??3)+0.12,b.maxZ+0.17)));
-    const ray = new T.Ray(), hit = new T.Vector3(), target = new T.Vector3(), direction = new T.Vector3();
+    function volume(b,padding=0,verticalPadding=0) {
+      const o=b.obb;
+      return {box:new T.Box3(
+        new T.Vector3((o?-o.halfX:b.minX)-padding,(b.minY??0)-verticalPadding,(o?-o.halfZ:b.minZ)-padding),
+        new T.Vector3((o?o.halfX:b.maxX)+padding,(b.maxY??3)+verticalPadding,(o?o.halfZ:b.maxZ)+padding)),
+        inverse:o ? new T.Matrix4().makeRotationY(-Math.atan2(o.sin,o.cos))
+          .multiply(new T.Matrix4().makeTranslation(-o.x,0,-o.z)) : null};
+    }
+    const cameraBoxes = (world.cameraColliders || world.colliders).map(b=>volume(b,.17,.12));
+    const volumeRay=new T.Ray(),volumeHit=new T.Vector3();
+    function volumeDistance(inputRay,body) {
+      const testRay=body.inverse ? volumeRay.copy(inputRay).applyMatrix4(body.inverse) : inputRay;
+      return testRay.intersectBox(body.box,volumeHit) ? testRay.origin.distanceTo(volumeHit) : Infinity;
+    }
+    const ray = new T.Ray(), target = new T.Vector3(), direction = new T.Vector3();
     const lookAt = new T.Vector3();
     const terrain = ["Eroded caldera escarpments","Layered basalt cone and breached summit"]
       .map(name=>scene.getObjectByName(name)).filter(Boolean);
     const terrainRay = new T.Raycaster(), terrainHits = [];
     const raycaster = new T.Raycaster(), ndc = new T.Vector2(), floor = new T.Plane(new T.Vector3(0,1,0),0);
-    const indoors = world.spaces.filter(s=>s.interior).map(s=>({space:s,box:new T.Box3(
-      new T.Vector3(s.interior.minX,0,s.interior.minZ),
-      new T.Vector3(s.interior.maxX,s.interior.ceilingY || 3.6,s.interior.maxZ))}));
+    const indoors = world.spaces.filter(s=>s.interior).map(s=>({space:s,
+      volume:volume({...s.interior,minY:0,maxY:s.interior.ceilingY || 3.6}),box:new T.Box3(
+        new T.Vector3(s.interior.minX,0,s.interior.minZ),
+        new T.Vector3(s.interior.maxX,s.interior.ceilingY || 3.6,s.interior.maxZ))}));
     const campusBounds=new T.Box3();
     for (const room of indoors) campusBounds.union(room.box);
     const campusCenter=campusBounds.getCenter(new T.Vector3());
     const exhibitBoxes = world.spaces.flatMap(space => (space.exhibits || []).filter(exhibit => exhibit.hitBox).map(exhibit => {
       const b = exhibit.hitBox;
-      return {space, exhibit, bounds:new T.Box3(new T.Vector3(b.minX,b.minY,b.minZ), new T.Vector3(b.maxX,b.maxY,b.maxZ))};
+      return {space, exhibit, volume:volume(b)};
     }));
     function roomAt(p) {
-      return indoors.find(({box}) => p.x>=box.min.x && p.x<=box.max.x && p.z>=box.min.z && p.z<=box.max.z);
+      return indoors.find(({space}) => world.containsPoint ? world.containsPoint(space.interior,p) :
+        p.x>=space.interior.minX && p.x<=space.interior.maxX && p.z>=space.interior.minZ && p.z<=space.interior.maxZ);
     }
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const markerMaterial = new T.MeshBasicMaterial({color:0xef4136,side:T.DoubleSide,depthWrite:false});
@@ -645,7 +675,7 @@
       ray.set(target,direction);
       let limit=desired;
       for (const box of cameraBoxes) {
-        if (ray.intersectBox(box,hit)) limit=Math.min(limit,hit.distanceTo(target)-.06);
+        limit=Math.min(limit,volumeDistance(ray,box)-.06);
       }
       if (direction.y<0) limit=Math.min(limit,(target.y-.2)/-direction.y);
       // Only a low orbit outside the plateau can meet the distant ridges.
@@ -843,8 +873,8 @@
       if (onScenePick) {
         let picked = null, closest = Infinity;
         for (const display of exhibitBoxes) {
-          if (room !== display.space || !raycaster.ray.intersectBox(display.bounds, hit)) continue;
-          const range = raycaster.ray.origin.distanceTo(hit);
+          if (room !== display.space) continue;
+          const range=volumeDistance(raycaster.ray,display.volume);
           if (range < closest) { picked = display.exhibit; closest = range; }
         }
         onScenePick(picked);
@@ -854,9 +884,9 @@
       if (!floorHit) return;
       let nearestHit=raycaster.ray.origin.distanceTo(floorHit), chosen=null;
       for (const room of indoors) {
-        if (room.box.containsPoint(raycaster.ray.origin) || room.box.containsPoint(target)) continue;
-        if (!raycaster.ray.intersectBox(room.box,hit)) continue;
-        const d=raycaster.ray.origin.distanceTo(hit);
+        const contains=p=>roomAt(p)===room && p.y>=0 && p.y<=room.box.max.y;
+        if (contains(raycaster.ray.origin) || contains(target)) continue;
+        const d=volumeDistance(raycaster.ray,room.volume);
         if (d<nearestHit) { chosen=room.space; nearestHit=d; }
       }
       if (chosen) walkTo(chosen.station);

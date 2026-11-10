@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
 
 concurrency:
   group: github-pages
@@ -14,22 +16,56 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: read
+    outputs:
+      publish: ${{ steps.changes.outputs.publish }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+      - name: Synchronize public Notion documents
+        if: github.event_name != 'push'
+        timeout-minutes: 20
+        run: npm run sync:notion
+      - name: Check for changed publications
+        id: changes
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain -- assets/reading/notion/)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/configure-pages@v5
+        if: steps.changes.outputs.publish == 'true'
       - run: npm test
+        if: steps.changes.outputs.publish == 'true'
       - run: npm run build
+        if: steps.changes.outputs.publish == 'true'
+      - name: Save verified Notion snapshot
+        if: steps.changes.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- assets/reading/notion/
+          git commit -m "Sync public Notion InfoBank"
+          git push origin HEAD:main
       - uses: actions/upload-pages-artifact@v4
+        if: steps.changes.outputs.publish == 'true'
         with:
           path: dist/site
 
   deploy:
     needs: build
+    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write

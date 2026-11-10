@@ -83,10 +83,8 @@ function visit(player, space) {
   for (let frame = 0; frame < 1800; frame++) {
     player.update(1 / 30);
     const position = player.getPosition();
-    assert.ok(world.colliders.every(box =>
-      position.x <= box.minX || position.x >= box.maxX ||
-      position.z <= box.minZ || position.z >= box.maxZ
-    ), space.id + ' 경로가 벽을 통과함');
+    assert.ok(world.colliders.every(box => !world.containsPoint(box,position,-.00001)),
+      space.id + ' 경로가 회전한 벽을 통과함');
     if (distance(position, space.station) < 0.15) return;
   }
   assert.fail(space.id + ' 열람대까지 도달할 수 없음');
@@ -110,7 +108,7 @@ test('산책 시작점에서 일곱 건물의 실내 목적지까지 벽을 통�
   }
 });
 
-test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관은 그룹 뒤쪽 반원에서 모두 입구 쪽을 향한다', () => {
+test('직선거리 끝의 작은 반원에서 방사형 가지길을 향해 네 전시관이 완만하게 회전한다', () => {
   const cafe=world.spaces.find(space=>space.id==='cafe');
   const cologne=world.spaces.find(space=>space.id==='cologne');
   assert.ok(Math.abs(cafe.x+cologne.x)<.001 && Math.abs(cafe.z-cologne.z)<.001);
@@ -119,16 +117,19 @@ test('카페와 에데꼬론은 직선거리 양옆에 있고 네 관은 그룹 
   assert.ok(Math.abs((group.minZ+group.maxZ)/2-world.plaza.z)<.4);
   const surrounding=world.spaces.filter(space=>['brand','product','ir','esg'].includes(space.id));
   const radii=surrounding.map(space=>Math.hypot(space.x-world.plaza.x,space.z-world.plaza.z));
-  assert.ok(Math.max(...radii)-Math.min(...radii)<.1);
+  assert.ok(radii.every(radius=>radius>19 && radius<23));
   assert.ok(surrounding.every(space=>space.z<=world.plaza.z));
   assert.equal(new Set(surrounding.map(space=>space.x)).size,4);
   assert.ok(surrounding.every(space=>space.interior.maxZ<world.district.minZ));
   assert.ok(scene.getObjectByName('Semicircular brand plaza promenade'));
+  assert.ok(scene.getObjectByName('Curved plaza approach'));
   scene.updateMatrixWorld(true);
   for(const space of surrounding){
     const hall=scene.children[0].children.find(object=>object.userData.hallId===space.id);
     const forward=new THREE.Vector3(0,0,1).applyQuaternion(hall.getWorldQuaternion(new THREE.Quaternion()));
-    assert.ok(Math.abs(forward.x)<.001 && forward.z>.999,space.id+' 간판이 입구 쪽 +Z를 향함');
+    assert.ok(forward.x*space.x<0 && Math.abs(forward.x)>.35 && Math.abs(forward.x)<.65 && forward.z>.75,
+      space.id+' 간판이 광장과 진입 방향을 함께 향함');
+    assert.ok(space.interior.obb,space.id+' 실제 회전 실내 범위');
     assert.ok(space.interior.minZ>world.bounds.minZ && space.interior.minX>world.bounds.minX && space.interior.maxX<world.bounds.maxX);
   }
   for (let z=world.spawn.z;z>=world.district.minZ;z-=.25) {
@@ -143,8 +144,11 @@ test('뒤쪽 IR·ESG 바닥에 화산 지형이나 외곽 주상절리가 침범
   columns.geometry.computeBoundingBox();
   for(const id of ['ir','esg']){
     const room=world.spaces.find(space=>space.id===id).interior;
-    for(const x of [room.minX+.15,(room.minX+room.maxX)/2,room.maxX-.15]){
-      for(const z of [room.minZ+.15,(room.minZ+room.maxZ)/2,room.maxZ-.15]){
+    for(const u of [-.94,0,.94]){
+      for(const v of [-.94,0,.94]){
+        const o=room.obb;
+        const x=o.x+u*o.halfX*o.cos+v*o.halfZ*o.sin;
+        const z=o.z-u*o.halfX*o.sin+v*o.halfZ*o.cos;
         const ray=new THREE.Raycaster(new THREE.Vector3(x,12,z),new THREE.Vector3(0,-1,0));
         const hit=ray.intersectObjects(terrain,false)[0];
         assert.ok(hit && hit.point.y<.08,id+' 바닥 아래 지형 '+x+','+z);
@@ -156,6 +160,25 @@ test('뒤쪽 IR·ESG 바닥에 화산 지형이나 외곽 주상절리가 침범
       assert.ok(columnBox.max.x<=room.minX || columnBox.min.x>=room.maxX || columnBox.max.z<=room.minZ || columnBox.min.z>=room.maxZ,
         id+' 공간의 외곽 주상절리 간섭 '+JSON.stringify({min:columnBox.min,max:columnBox.max}));
     }
+  }
+});
+
+test('회전한 건물의 바깥 AABB 모서리를 실내나 벽으로 오인하지 않는다', () => {
+  for(const id of ['brand','product','ir','esg']){
+    const hall=world.spaces.find(space=>space.id===id),b=hall.interior;
+    const corners=[{x:b.minX+.04,z:b.minZ+.04},{x:b.maxX-.04,z:b.minZ+.04},
+      {x:b.minX+.04,z:b.maxZ-.04},{x:b.maxX-.04,z:b.maxZ-.04}];
+    const outside=corners.find(p=>!world.containsPoint(b,p) && !world.colliders.some(c=>world.containsPoint(c,p,.32)));
+    assert.ok(outside,id+' 회전 평면 바깥의 안전한 모서리');
+    assert.ok(world.containsPoint(b,hall.station),id+' 회전된 열람대는 실내');
+    const camera=new THREE.PerspectiveCamera(55,1.6,.1,200),canvas=makeCanvas();
+    const player=HLBPlayer3D.create(scene,camera,canvas,world,{station:outside,lookAt:hall.lookAt});
+    try {
+      player.toggleOverview();
+      assert.equal(player.isOverview(),true,id+' 외부 모서리에서 전경 가능');
+      visit(player,hall);
+      assert.equal(player.isOverview(),false,id+' 문을 통과한 뒤 실내 카메라 적용');
+    } finally { player.dispose(); }
   }
 });
 

@@ -157,7 +157,7 @@
       for(const side of [-1,1])form("crystal",cx+side*.10,cy+side*.17,cz+.03,.075,.25,.042,
         side<0?cream:magma,[0,0,-.5]);
       suspendedSign();
-      // The lobby plan mirrors the rear semicircle and its front-facing halls.
+      // The lobby plan shows short spokes from the curved walk to each hall.
       const gx=-half+1.32,gz=back+1.67;
       form("round",gx,.18,gz,.84,.24,.84,jade);
       form("round",gx,.67,gz,.29,.78,.29,brass);
@@ -173,7 +173,11 @@
       const ringColor=0xa9946e;
       for(let i=0;i<=24;i++){
         const a=i*Math.PI/24;
-        marker(Math.cos(a)*1.30,1.85+Math.sin(a)*.48,.075,.035,ringColor);
+        marker(Math.cos(a)*1.03,1.75+Math.sin(a)*.38,.075,.035,ringColor);
+      }
+      for(const side of [-1,1]) for(const [x1,y1,x2,y2] of [[1.03,1.75,1.3,1.85],[.73,2.02,.98,2.2]]){
+        box(side*(x1+x2)/2,(y1+y2)/2,planZ+.025,Math.hypot(x2-x1,y2-y1),.035,.04,ringColor,
+          [0,0,Math.atan2(y2-y1,side*(x2-x1))],"light");
       }
       marker(0,1.26,.05,.65,brass);
       marker(0,.98,2.46,.04,brass);

@@ -64,6 +64,10 @@ svg:not(.symbols) { width: 20px; height: 20px; flex: none; fill: none; stroke: c
 .error-panel button,.empty button { color:#9c2d22; padding:8px; text-decoration:underline; }
 .lower-controls { position:absolute; bottom:max(22px,env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); display:grid; gap:8px; justify-items:center; width:max-content; max-width:calc(100% - 32px); pointer-events:none; }
 .lower-controls button { pointer-events:auto; }
+.catalog-status { margin:-5px 0 15px; color:#756c63; font-size:11px; line-height:1.6; }
+.reader-attachments { display:flex; align-items:center; gap:10px; margin:0 0 14px; font-size:13px; }
+.reader-attachments > span { flex-shrink:0; }
+.reader-attachments select { min-width:0; max-width:100%; flex:1; padding:9px 12px; border:1px solid #cfc5b6; border-radius:8px; color:inherit; background:#fffdf7; }
 .interact.yacht-button { background:#204d60; border-color:#bde4e2; }
 .yacht-button > span:first-of-type { text-align:left; }
 .yacht-button small { display:block; margin-top:2px; font-size:11px; font-weight:500; color:#d2e9eb; }

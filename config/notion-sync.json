@@ -1,0 +1,121 @@
+{
+  "source": "https://mysterious-bait-6ee.notion.site/HLB-HLB-Group-18fdd42135be809fbf3cc031182c8ff2",
+  "rootPageId": "18fdd421-35be-809f-bf3c-c031182c8ff2",
+  "output": "assets/reading/notion/catalog.json",
+  "downloadHosts": [
+    "heyzine.com",
+    "cdnm.heyzine.com",
+    "prod-files-secure.s3.us-west-2.amazonaws.com",
+    "s3.us-west-2.amazonaws.com",
+    "file.notion.so",
+    "file.notion.com"
+  ],
+  "limits": {
+    "maxBlocks": 5000,
+    "maxPages": 500,
+    "maxApiRequests": 250,
+    "maxCollectionRows": 1000,
+    "maxPdfBytes": 83886080,
+    "maxImageBytes": 8388608,
+    "maxTotalBytes": 838860800,
+    "maxDownloads": 300
+  },
+  "records": {
+    "1c0dd421-35be-8034-bac4-c17a611a7ec9": {
+      "id": "group-map",
+      "space": "group"
+    },
+    "1aedd421-35be-80d6-a71d-f553a5aaa895": {
+      "id": "contact",
+      "space": "group"
+    },
+    "19fdd421-35be-80fb-a0eb-f0e3a67d0851": {
+      "id": "social",
+      "space": "group"
+    },
+    "198dd421-35be-80f4-a101-f511ffd5c37f": {
+      "id": "vision",
+      "space": "brand"
+    },
+    "18fdd421-35be-80b4-bbac-f156facc2286": {
+      "id": "brochure-ko",
+      "space": "brand"
+    },
+    "18fdd421-35be-8015-b19b-e48f72c906be": {
+      "id": "brochure-en",
+      "space": "brand"
+    },
+    "1d2dd421-35be-80fc-9e85-d6c301ce46d6": {
+      "id": "brand-film-ko",
+      "space": "brand"
+    },
+    "1d1dd421-35be-8072-9a2e-f4543ebe61f7": {
+      "id": "brand-film-en",
+      "space": "brand"
+    },
+    "1c3dd421-35be-80a8-a968-fb4df4c22f07": {
+      "id": "brand-profile",
+      "space": "brand"
+    },
+    "18fdd421-35be-8075-a45b-d209799b54c6": {
+      "id": "products-ko",
+      "space": "product"
+    },
+    "222dd421-35be-80d0-95e0-d9e476c1b6b6": {
+      "id": "products-en",
+      "space": "product"
+    },
+    "1cadd421-35be-8095-b85f-f806b8b27f04": {
+      "id": "ir-film",
+      "space": "ir"
+    },
+    "19fdd421-35be-80d2-9d85-fa2b3ebdb8dd": {
+      "id": "ir-pharma",
+      "space": "ir"
+    },
+    "402dd421-35be-8041-823a-ff8406dcddeb": {
+      "id": "ir-half",
+      "space": "ir"
+    },
+    "402dd421-35be-8058-bd23-c09f72ddca8f": {
+      "id": "ir-pharma-half-2026",
+      "space": "ir"
+    },
+    "36cdd421-35be-800f-970a-ee826f21a4bd": {
+      "id": "ir-quarter-2026-05",
+      "space": "ir"
+    },
+    "22ddd421-35be-8195-a5e2-df0713d05a22": {
+      "id": "ir-annual-2026",
+      "space": "ir"
+    },
+    "364dd421-35be-81e9-9321-d9d50c482efb": {
+      "id": "ir-quarter-2025-11",
+      "space": "ir"
+    },
+    "364dd421-35be-8160-a41a-c89ad1bf1259": {
+      "id": "ir-lifescience-half-2025",
+      "space": "ir"
+    },
+    "364dd421-35be-8118-a560-caf9a89e347b": {
+      "id": "ir-annual-2025",
+      "space": "ir"
+    },
+    "1addd421-35be-8092-a3c2-caf8453b0778": {
+      "id": "ir-quarter-2024-11",
+      "space": "ir"
+    },
+    "1addd421-35be-8076-a88f-c74ffeb7541e": {
+      "id": "ir-pharma-half-2024",
+      "space": "ir"
+    },
+    "1cbdd421-35be-80f7-8086-f94fbb2d4028": {
+      "id": "esg-ko",
+      "space": "esg"
+    },
+    "1cbdd421-35be-805a-94ce-fecbe6dac33b": {
+      "id": "esg-en",
+      "space": "esg"
+    }
+  }
+}
