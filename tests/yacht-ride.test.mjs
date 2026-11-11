@@ -26,10 +26,12 @@ function createTrip(t,{spawnDock=0}={}) {
   const T=page.THREE, scene=new T.Scene(), camera=new T.PerspectiveCamera(55,1.6,.1,200);
   const docks=[
     {id:"entrance",title:"입구",x:6,z:12,yaw:0,station:{x:3,z:12},sign:{x:8,z:12}},
-    {id:"group",title:"그룹안내소",x:0,z:-28,yaw:0,station:{x:0,z:-24},sign:{x:3,z:-28}}
+    {id:"group",title:"그룹안내소",x:0,z:-28,yaw:0,station:{x:0,z:-24},sign:{x:3,z:-28}},
+    {id:"history",title:"HLB 역사관",x:-35.4,y:4.5,z:-6.55,yaw:Math.PI/2,
+      station:{x:-40.5,y:4.5,z:-5.35},sign:{x:-41.9,y:4.5,z:-5.25}}
   ];
-  const world={bounds:{minX:-40,maxX:40,minZ:-45,maxZ:25},colliders:[],
-    spawn:{...docks[spawnDock].station},yachtDocks:docks,
+  const world={bounds:{minX:-45,maxX:40,minZ:-45,maxZ:25},colliders:[],
+    spawn:{...docks[spawnDock].station},yachtDocks:docks,groundHeight:p=>p.x<-30?4.5:0,
     spaces:[{id:"group",x:0,z:-34,interior:{minX:-3,maxX:3,minZ:-37,maxZ:-31,ceilingY:4}}]};
   const actions=[], changes=[];
   const player=page.HLBPlayer3D.create(scene,camera,canvas(),world,null,null,action=>actions.push(action));
@@ -63,13 +65,13 @@ function atStation(player,dock) {
   const position=player.getPosition();
   close(position.x,dock.station.x,"Disembark X");
   close(position.z,dock.station.z,"Disembark Z");
-  close(position.y,.025,"Disembark at ground level");
+  close(position.y,(dock.y??0)+.025,"Disembark at dock ground level");
 }
 
 test("BlackCAT carries the real avatar above the roofs and returns to both stations",t=>{
   const {T,scene,docks,player,yacht,craft,avatar,changes,step,until}=createTrip(t);
   assert.equal(yacht.nearby(),0);
-  assert.equal(yacht.request(0),true);
+  assert.equal(yacht.request(0,1),true);
   until(()=>yacht.getState().phase==="boarding");
   assert.equal(player.isRiding(),true);
   assert.equal(avatar.parent,craft,"Avatar must become a real child of the moving yacht");
@@ -100,7 +102,7 @@ test("BlackCAT carries the real avatar above the roofs and returns to both stati
   close(craft.position.z,docks[1].z,"Destination dock Z");
   close(craft.position.y,.08,"Yacht rests above the docking platform");
 
-  assert.equal(yacht.request(1),true);
+  assert.equal(yacht.request(1,0),true);
   until(()=>yacht.getState().phase==="flying");
   until(()=>!yacht.getState().busy);
   atStation(player,docks[0]);
@@ -116,7 +118,7 @@ test("BlackCAT carries the real avatar above the roofs and returns to both stati
 test("A visitor at the other station can summon the empty yacht and then board",t=>{
   const {scene,docks,player,yacht,craft,avatar,changes,step,until}=createTrip(t,{spawnDock:1});
   assert.equal(yacht.getState().dockIndex,0);
-  assert.equal(yacht.request(1),true);
+  assert.equal(yacht.request(1,0),true);
   until(()=>yacht.getState().phase==="calling");
   const waitingPosition=player.getPosition();
   for (let frame=0;frame<40;frame++) step();
@@ -134,17 +136,51 @@ test("A visitor at the other station can summon the empty yacht and then board",
   assert.deepEqual(changes.map(state=>state.phase),["walking","calling","boarding","flying","idle"]);
 });
 
+test("All six routes land at the selected dock and history flights cover 1.3 times the distance per second",t=>{
+  const {docks,yacht,player,craft,step,until}=createTrip(t);
+  const length=(from,to)=>Math.hypot(docks[to].x-docks[from].x,docks[to].z-docks[from].z);
+  const ordinarySpeed=length(0,1)/9;
+  let from=0;
+  for (const to of [2,1,2,0,1,0]) {
+    assert.equal(yacht.nearby(),from);
+    assert.equal(yacht.request(from,to),true);
+    until(()=>yacht.getState().phase==="flying");
+    let elapsed=0,peak=0;
+    while (yacht.getState().phase==="flying" && elapsed<30) {
+      step(.025);elapsed+=.025;
+      peak=Math.max(peak,craft.position.y);
+    }
+    assert.equal(yacht.getState().phase,"idle");
+    const historyRoute=from===2 || to===2;
+    close(length(from,to)/elapsed,ordinarySpeed*(historyRoute?1.3:1),"Actual flight speed",.03);
+    close(peak,historyRoute?13.58:9.08,"Cruise above both docks");
+    close(craft.position.y,(docks[to].y??0)+.08,"Hull lands on its platform");
+    atStation(player,docks[to]);from=to;
+  }
+});
+
+test("A call from the hill lands the empty yacht at the raised dock before boarding",t=>{
+  const {docks,yacht,player,craft,until}=createTrip(t,{spawnDock:2});
+  assert.equal(yacht.request(2,1),true);
+  until(()=>yacht.getState().phase==="calling");
+  atStation(player,docks[2]);
+  until(()=>yacht.getState().phase==="boarding");
+  close(craft.position.y,4.58,"Summoned hull height");
+  until(()=>!yacht.getState().busy);
+  atStation(player,docks[1]);
+});
+
 test("Duplicate travel requests are refused and boarding clears walking, jump and held inputs",t=>{
   const {player,yacht,craft,avatar,actions,step,until,key,docks}=createTrip(t);
   key("keydown","KeyW");key("keydown","KeyD");
   assert.equal(player.jump(),true);
-  assert.equal(yacht.request(0),true);
-  assert.equal(yacht.request(1),false);
+  assert.equal(yacht.request(0,1),true);
+  assert.equal(yacht.request(1,0),false);
   // The controller boards before the first walking frame, clearing the keys.
   step();
   assert.equal(avatar.parent,craft);
   actions.length=0;
-  assert.equal(yacht.request(0),false);
+  assert.equal(yacht.request(0,1),false);
   assert.equal(player.beginRide(craft,{x:0,y:1,z:0}),false);
   assert.equal(player.walkTo({x:10,z:0}),false);
   assert.equal(player.jump(),false);
@@ -153,7 +189,7 @@ test("Duplicate travel requests are refused and boarding clears walking, jump an
   player.toggleOverview();
   assert.equal(player.isOverview(),false);
   until(()=>yacht.getState().phase==="flying");
-  assert.equal(yacht.request(1),false);
+  assert.equal(yacht.request(1,0),false);
   assert.equal(yacht.cancelApproach(),false);
   assert.deepEqual(actions,[],"No firework or interaction action while riding");
   close(avatar.position.x,0,"Blocked movement cannot displace the passenger");
@@ -169,7 +205,7 @@ test("Duplicate travel requests are refused and boarding clears walking, jump an
 
 test("Paused or invalid frame deltas cannot advance a flight, and reduced motion disables banking",t=>{
   const {player,yacht,craft,avatar,camera,step,until}=createTrip(t);
-  yacht.request(0);until(()=>yacht.getState().phase==="flying");
+  yacht.request(0,1);until(()=>yacht.getState().phase==="flying");
   for (let frame=0;frame<50;frame++) step();
   assert.ok(Math.abs(craft.rotation.z)>.001,"Normal flight has a gentle bank");
   const craftPosition=craft.position.clone(), rotation=craft.rotation.clone();
@@ -192,11 +228,12 @@ test("Paused or invalid frame deltas cannot advance a flight, and reduced motion
 
 test("Invalid requests and a refused walking route cannot take ownership of the character",t=>{
   const {world,player,yacht,avatar,scene,step}=createTrip(t);
-  assert.equal(yacht.request(-1),false);
-  assert.equal(yacht.request(2),false);
+  for (const [from,to] of [[-1,0],[0,3],[0,0],[0,undefined]]) {
+    assert.equal(yacht.request(from,to),false);
+  }
   world.yachtDocks[0].station={x:4,z:12};
   player.setActive(false);
-  assert.equal(yacht.request(0),false);
+  assert.equal(yacht.request(0,1),false);
   step();
   assert.equal(yacht.getState().phase,"idle");
   assert.equal(player.isRiding(),false);

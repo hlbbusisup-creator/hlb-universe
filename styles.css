@@ -105,6 +105,9 @@ dialog::backdrop { background:#261c235c; }
 .icon-button:hover { background:#edece3; }
 .panel-desc { color:var(--muted); font-size:14px; margin:8px 0 16px; }
 .guide-list { border-top:1px solid var(--line); }
+.yacht-picker { width:min(420px,calc(100% - 28px)); }
+.yacht-picker .guide-row { min-height:56px; }
+.yacht-picker .guide-row > svg { color:#204d60; }
 .guide-row,.resource-link { display:flex; align-items:center; gap:12px; width:100%; padding:13px 3px; text-align:left; text-decoration:none; border-bottom:1px solid var(--line); color:var(--ink); }
 .guide-row:hover,.resource-link:hover { background:#f6eee7; }
 .guide-row:disabled { opacity:.55; cursor:default; }

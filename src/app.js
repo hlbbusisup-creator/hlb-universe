@@ -115,11 +115,12 @@
     resetStick();
     destination = null;
     el("travel").hidden = true;
-    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp", "history"]) el(pane + "-pane").hidden = pane !== name;
+    for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp", "history", "yacht"]) el(pane + "-pane").hidden = pane !== name;
     const reading=name==="reader";
     dialog.classList.toggle("reading",reading);
     dialog.classList.toggle("cafe-order",name==="cafe");
     dialog.classList.toggle("history-reading",name==="history");
+    dialog.classList.toggle("yacht-picker",name==="yacht");
     el("reader-back").hidden=!reading;
     el("panel-title").textContent = title;
     if (!dialog.open) dialog.showModal();
@@ -372,9 +373,7 @@
     const rideState=yacht.getState(), busy=rideState.busy;
     const locked=busy && rideState.phase!=="walking";
     const dock=busy?null:yacht.nearby();
-    el("ride-yacht").hidden=dock===null || inside?.id==="group";
-    const rideDestination=dock===0?"그룹안내소로":"입구로";
-    if (dock!==null && el("ride-destination").textContent!==rideDestination) el("ride-destination").textContent=rideDestination;
+    el("ride-yacht").hidden=dock===null || Boolean(inside);
     el("yacht-status").hidden=!locked;
     const rideMessage=locked?rideState.message:"";
     if (el("yacht-status").textContent!==rideMessage) el("yacht-status").textContent=rideMessage;
@@ -517,15 +516,34 @@
   el("interact").addEventListener("click",interact);
   function rideYacht() {
     if (!player || yacht?.getState().busy || dialog.open || document.hidden || historyFilm?.isWatching()) return;
-    const dock=yacht?.nearby();
-    if (dock===null || dock===undefined) {
-      el("announcement").textContent="블랙캣 탑승장이나 그룹안내소에서 이동할 수 있어요.";
+    const source=yacht.nearby();
+    if (source===null) {
+      el("announcement").textContent="블랙캣 정박소 가까이에서 이용해 주세요.";
       return;
     }
-    destination=null;
-    resetStick();
-    if (!yacht.request(dock)) el("announcement").textContent="탑승장으로 조금 더 가까이 와 주세요.";
-    updateStatus();canvas.focus({preventScroll:true});
+    el("yacht-departure").textContent="출발 · "+world.yachtDocks[source].title+" 정박소";
+    const choices=el("yacht-destinations");
+    choices.replaceChildren();
+    world.yachtDocks.forEach((dock,index)=>{
+      if (index===source) return;
+      const button=make("button","guide-row");
+      button.type="button";
+      const label=make("span","guide-copy");
+      label.append(make("strong","",dock.title));
+      button.append(icon("pin"),label,icon("arrow"));
+      button.addEventListener("click",()=>{
+        if (!dialog.open || document.hidden) return;
+        dialog.close();
+        player.setActive(true);
+        if (yacht.nearby()!==source || !yacht.request(source,index)) {
+          el("announcement").textContent="정박소에 가까이 와서 다시 선택해 주세요.";
+        }
+        updateStatus();
+      });
+      choices.append(button);
+    });
+    openPane("yacht","블랙캣 목적지 선택");
+    choices.querySelector("button")?.focus({preventScroll:true});
   }
   el("ride-yacht").addEventListener("click",rideYacht);
   function playAction(action) {

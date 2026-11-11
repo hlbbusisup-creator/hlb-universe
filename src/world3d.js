@@ -82,8 +82,10 @@
     const district = {title:"HLB 브랜드 거리",minX:-6,maxX:6,minZ:-8,maxZ:19.5};
     const plaza = {title:"HLB 브랜드 광장",x:0,z:-26,radius:26};
     const yachtDocks = [
-      {id:"entrance",title:"입구",x:10,z:23,yaw:0,station:{x:7,z:23},sign:{x:7,z:25}},
-      {id:"group",title:"그룹안내소",x:7.6,z:-17.5,yaw:0,station:{x:4.4,z:-17.5},sign:{x:4.3,z:-15.6}}
+      {id:"entrance",title:"입구",x:10,y:0,z:23,yaw:0,station:{x:7,y:0,z:23},sign:{x:7,z:25}},
+      {id:"group",title:"그룹안내소",x:7.6,y:0,z:-17.5,yaw:0,station:{x:4.4,y:0,z:-17.5},sign:{x:4.3,z:-15.6}},
+      {id:"history",title:"HLB 역사관",x:-35.4,y:historyHill.height,z:-6.55,yaw:Math.PI/2,
+        station:{x:-40.5,y:historyHill.height,z:-5.35},sign:{x:-41.9,z:-5.25},signYaw:-.65}
     ];
     const lavaLights = [[-4.9,3],[4.9,3],[-25.8,-18],[25.8,-18]];
     const colliders = [], roofs = [], spaces = [];
@@ -240,13 +242,15 @@
         const a=rings[j][i], d=rings[j+1][n], middle=t>u?rings[j+1][i]:rings[j][n];
         return a.map((value,k)=>value*(1-Math.max(t,u))+d[k]*Math.min(t,u)+middle[k]*Math.abs(t-u)+(k===1?lift:0));
       }
-      function lavaRibbon(start,end,bearing,width,phase,strength) {
+      function lavaRibbon(start,end,bearing,width,phase,strength,splits=[]) {
+        const course=r=>bearing+Math.sin(r*13+phase)*.055+Math.sin(r*43+phase)*(.012+.025*r)
+          +Math.sin(r*7+phase)*(r-start)/(end-start)*.11;
         const strips=[[-1,-.63,0xad2c21],[-.63,-.25,red],[-.25,.15,0xffba4c],[.15,.60,0xff6d29],[.6,1,0xbd3022]];
         for (const [left,right,shade] of strips) {
           let prevA,prevB;
           for (let step=0;step<=70;step++) {
             const f=step/70,r=start+(end-start)*f;
-            const a=bearing + Math.sin(r*13+phase)*.055 + Math.sin(r*43+phase)*(.012+.025*r) + Math.sin(r*7+phase)*f*.11;
+            const a=course(r);
             const breadth=width*(1+.22*Math.sin(r*63+phase))*(.17+.83*Math.pow(1-f,.33))/Math.max(.11,r);
             const pa=surface(r,a+breadth*left,.09),pb=surface(r,a+breadth*right,.09);
             if (step) {
@@ -256,17 +260,63 @@
             prevA=pa;prevB=pb;
           }
         }
+        // Old channels split around basalt shelves, then drain into the hot trunk.
+        // Interrupt the narrow glow where a tongue has cooled over.
+        const crust=new T.Color(0x79423a),melt=new T.Color(0xf05a36);
+        for(const [from,to,sweep] of splits){
+          let previous;
+          for(let i=0;i<=30;i++){
+            const t=i/30,r=from+(to-from)*t,arc=Math.sin(Math.PI*t);
+            const angle=course(r)+sweep*Math.pow(arc,.81)*(1+.15*Math.sin(t*7+phase));
+            const halfWidth=.0042*(.35+.65*arc)*(1+.24*Math.sin(t*21+phase))/r;
+            const edges=[surface(r,angle-halfWidth,.081),surface(r,angle+halfWidth,.081)];
+            const heat=.48+.34*Math.sin(t*15+phase)+.16*Math.cos(t*37+from*15);
+            if(previous && heat>.19){
+              lightShade.copy(crust).lerp(melt,heat);
+              face(flowVerts,flowColors,previous[0],edges[0],edges[1],lightShade);
+              face(flowVerts,flowColors,previous[0],edges[1],previous[1],lightShade);
+            }
+            previous=edges;
+          }
+        }
       }
       lavaRibbon(.103,.97,-.26,.038,1,1);
       lavaRibbon(.143,.91,.34,.025,2.9,1);
       lavaRibbon(.15,.76,-.71,.020,3,.93);
       lavaRibbon(.15,.85,1.15,.022,.4,.96);
-      lavaRibbon(.15,.91,-1.14,.021,1.6,.93);
-      lavaRibbon(.15,.74,.74,.015,4.3,1);
+      lavaRibbon(.15,.91,-1.14,.021,1.6,.93,[[.39,.54,.22],[.53,.75,.24]]);
+      lavaRibbon(.15,.74,.74,.015,4.3,1,[[.36,.50,.19],[.49,.70,.24]]);
       lavaRibbon(.15,.89,1.72,.020,2.1,.92);
       lavaRibbon(.15,.82,-1.73,.017,.8,.94);
       lavaRibbon(.35,.98,.06,.010,2.6,1);
       lavaRibbon(.42,.94,-.47,.011,4.8,.96);
+      // Low, sinuous seams emerge from the central slope in broken clusters.
+      // Their connecting saddle is deliberately lower than the two outer ridges.
+      const seamStone=[0x74615b,0x685551,0x53494b,0x7a6059,0x665856];
+      const seams=[
+        {trace:[[.51,.073],[.56,.128],[.63,.113],[.68,.085],[.74,.061]],stones:17},
+        {trace:[[.51,.265],[.56,.251],[.63,.277],[.68,.249],[.727,.220],[.749,.257]],stones:18},
+        {trace:[[.627,.122],[.61,.168],[.619,.211],[.604,.251]],stones:9}
+      ];
+      seams.forEach(({trace,stones},row)=>{
+        const curve=new T.CatmullRomCurve3(trace.map(([r,a])=>new T.Vector3(r,0,a)));
+        for(let i=0;i<stones;i++){
+          const phase=i*4.17+row*2.7;
+          if(Math.sin(phase)>.94)continue;
+          const p=curve.getPoint(i/(stones-1));
+          const [x,y,z]=surface(p.x,p.z+.006*Math.sin(phase),.03);
+          const size=.38+.17*Math.cos(phase*1.8);
+          place("rock",seamStone[(i+row)%seamStone.length],x,y,z,size,.44*size,(row===2 ? .79 : 1.53)*size,
+            [.08,Math.sin(phase)*.49,.15],"stone");
+          if(i%2===0){
+            const drift=(i%4===0 ? -1 : 1)*(.023+.013*Math.sin(phase));
+            const [xx,yy,zz]=surface(p.x+.011,p.z+drift,.015);
+            const chip=size*(.38+.16*Math.cos(phase));
+            place("rock",seamStone[(i+2)%seamStone.length],xx,yy,zz,chip,.60*chip,.85*chip,
+              [0,phase,.12],"stone");
+          }
+        }
+      });
       const hot=new T.Color(0xff9c4d);
       for(let i=0;i<segments;i++){
         const a=i/segments*TAU,b=(i+1)/segments*TAU;
@@ -439,12 +489,13 @@
       const cs=Math.cos(angle),sn=Math.sin(angle),midX=(x1+x2)/2,midZ=(z1+z2)/2;
       box(midX,-.037,midZ,width,.09,length,0x4e494a,[0,angle,0],"stone");
       const rows=Math.ceil(length/1.3);
+      const rowLength=length/rows;
       for(let i=0;i<rows;i++){
-        const along=(i+.5)*length/rows-length/2;
+        const along=(i+.5)*rowLength-length/2;
         const seam=(i%3-1)*width*.09;
         for (const [a,b] of [[-width/2,seam],[seam,width/2]]) {
           const across=(a+b)/2;
-          box(midX+sn*along+cs*across,.011,midZ+cs*along-sn*across,b-a-.036,.036,length/rows-.045,
+          box(midX+sn*along+cs*across,.011,midZ+cs*along-sn*across,b-a-.036,.036,rowLength-.045,
               choose([0x938a83,0xa0978b,0x958d89,0x877e7c]),[0,angle,0],"stone");
         }
         if(i%3===0)for(const side of [-1,1]){
@@ -452,6 +503,7 @@
           box(midX+sn*along+cs*across,.034,midZ+cs*along-sn*across,.064,.014,.25,0xf2b075,[0,angle,0],"light");
         }
       }
+      return rowLength;
     }
 
     function curvedPath(points,width) {
@@ -530,8 +582,8 @@
         box(x,historyHill.height+.13,top.minZ+.18,1.23,.24,.30,0x756757,null,"stone");
         if(Math.abs(x-historyHill.hall.x)>2.6)box(x,historyHill.height+.13,top.maxZ-.18,1.23,.24,.30,0x756757,null,"stone");
       }
-      for(const x of [-51.5,-38.5]){
-        const y=historyHill.height,z=-6.4;
+      for(const [x,z] of [[-51.5,-6.4],[-40,-8.35]]){
+        const y=historyHill.height;
         box(x,y+.25,z,1.8,.50,.95,0x736459,null,"stone");
         box(x,y+.51,z,1.66,.035,.82,0x433b33,null,"stone");
         for(const dx of [-.52,0,.52])place("leaf",0x61724f,x+dx,y+.74,z,.38,.32,.31,null,"stone");
@@ -606,7 +658,8 @@
     function siteDetail(){
       // Curved entry walks join a compact semicircle. Short spokes lead
       // straight into gently turned halls, keeping their signs visible on arrival.
-      path(0,28,0,-22.4,8.2);
+      const avenueWidth=8.2,avenueStartZ=28;
+      const avenueRow=path(0,avenueStartZ,0,-22.4,avenueWidth);
       path(-5.5,11,5.5,11,2.8);
       const paving=[],pavingColors=[],tone=new T.Color();
       const point=(r,a)=>[Math.sin(a)*r,.045,-22+Math.cos(a)*r];
@@ -627,10 +680,22 @@
       }
       // Small embarkation pads stay outside the continuous walking line.
       for(const dock of yachtDocks){
-        path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
-        colliders.push(collider(dock.x,dock.z,3.7,6,3.7));
+        if(dock.id==="history"){
+          // A low berth paved into the court, parallel to the palace façade.
+          for(let i=0;i<6;i++)
+            box(dock.x+i-2.5,dock.y+.038,dock.z,.98,.065,3.89,0x887f73,null,"stone");
+        }else{
+          path(dock.station.x-.9,dock.station.z,dock.x+2.05,dock.z,7.0);
+        }
+        const sin=Math.abs(Math.sin(dock.yaw)),cos=Math.abs(Math.cos(dock.yaw));
+        const obstruction=collider(dock.x,dock.z,3.7*cos+6*sin,6*cos+3.7*sin,dock.y+3.7,dock.y);
+        obstruction.floorY=dock.y;
+        colliders.push(obstruction);
       }
-      path(warpGate.station.x,warpGate.station.z,-.8,23,2.4);
+      // Continue two full courses out from the avenue's west edge to the warp console.
+      const junctionZ=avenueStartZ-Math.round((avenueStartZ-warpGate.station.z)/avenueRow)*avenueRow;
+      const west=warpGate.console.x-.45,east=-avenueWidth/2,centerX=(west+east)/2;
+      path(centerX,junctionZ+avenueRow,centerX,junctionZ-avenueRow,east-west);
       // The molten beds are kept clear of the promenade, doors and yacht pads.
       for(const side of [-1,1]){
         vent(side*4.9,17.2,.45,2);

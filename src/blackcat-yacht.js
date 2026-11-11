@@ -195,6 +195,7 @@
       const group=new T.Group();
       group.name="BlackCAT " + dock.id + " dock";
       group.userData.yachtDock=dock.id;
+      group.position.y=dock.y ?? 0;
       scene.add(group);
       const sign=dock.sign || {x:dock.x+2.8,z:dock.z};
       const stand=new T.Group();
@@ -246,7 +247,7 @@
     }
     scene.add(craft);
     const first=docks[0];
-    if (first) {craft.position.set(first.x,.08,first.z);craft.rotation.y=first.yaw || 0;}
+    if (first) {craft.position.set(first.x,(first.y ?? 0)+.08,first.z);craft.rotation.y=first.yaw || 0;}
     return {
       craft, dockGroups,
       passenger:{x:0,y:1.14,z:-1.70},

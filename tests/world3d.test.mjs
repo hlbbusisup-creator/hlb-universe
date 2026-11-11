@@ -121,6 +121,27 @@ test('입구 왼쪽 워프 콘솔과 기존 거리 사이를 충돌 없이 왕�
   } finally { player.dispose(); }
 });
 
+test('워프 진입로와 본선의 경계 양옆에 동일한 두 줄의 포장 블록이 이어진다', () => {
+  const stone=scene.getObjectByName('box stone'),matrix=new THREE.Matrix4();
+  const z=world.warpGate.station.z;
+  stone.geometry.computeBoundingBox();
+  function coursesAt(x) {
+    const courses=[];
+    for(let i=0;i<stone.count;i++) {
+      stone.getMatrixAt(i,matrix);
+      const panel=stone.geometry.boundingBox.clone().applyMatrix4(matrix);
+      if(panel.max.y<.015 || panel.max.y>.05 || x<panel.min.x || x>panel.max.x) continue;
+      if(panel.min.z<z+.5 && panel.max.z>z-.5) {
+        courses.push([panel.min.z,panel.max.z].map(value=>Math.round(value*1000)));
+      }
+    }
+    return courses.sort((a,b)=>a[0]-b[0]);
+  }
+  const avenue=coursesAt(-3.7),branch=coursesAt(-4.5);
+  assert.equal(avenue.length,2,'본선 타일 위에 다른 포장면이 겹치지 않아야 한다');
+  assert.deepEqual(branch,avenue,'워프 길의 줄눈이 본선 줄눈과 만나야 한다');
+});
+
 test('역사관 제단과 영상 관람점은 실제 실내에 있고 연속으로 방문할 수 있다', () => {
   const hall=world.spaces.find(space=>space.id==='history');
   assert.ok(hall?.projection?.screen?.isMesh);
@@ -390,11 +411,21 @@ test('직선거리 끝의 낮은 정면 시선에서 네 전시관 간판의 좌
   }
 });
 
-test('블랙캣 양쪽 승하차 장소와 그룹안내소에 걸어서 접근할 수 있다', () => {
-  assert.deepEqual(Array.from(world.yachtDocks,dock=>dock.id),['entrance','group']);
-  const {player}=createPlayer();
+test('블랙캣 세 정박소를 걸어서 방문하고 언덕 위 정박소에서 역사관으로 들어갈 수 있다', () => {
+  assert.deepEqual(Array.from(world.yachtDocks,dock=>dock.id),['entrance','group','history']);
+  const {player,camera}=createPlayer();
   try {
-    for(const dock of world.yachtDocks) visit(player,dock);
+    for(const dock of world.yachtDocks) {
+      assert.equal(dock.y,world.groundHeight(dock));
+      assert.equal(dock.station.y,world.groundHeight(dock.station));
+      visit(player,dock);
+      assert.ok(Math.abs(player.getPosition().y-dock.y)<.04);
+    }
+    const arrival=player.getPosition();
+    player.facePoint(world.spaces.find(space=>space.id==='history'));
+    assert.ok(camera.position.distanceTo(new THREE.Vector3(arrival.x,arrival.y+1.5,arrival.z))>4,
+      '하선 후 궁궐을 바라보는 카메라 뒤편이 정박한 요트에 막히지 않는다');
+    visit(player,world.spaces.find(space=>space.id==='history'));
     visit(player,world.spaces.find(space=>space.id==='group'));
     visit(player,world.yachtDocks[0]);
   } finally { player.dispose(); }
