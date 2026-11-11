@@ -8,6 +8,12 @@
       title:"THE RIVER",
       description:"강 위에서 만나는 또 하나의 경험",
       url:"https://the-river-moments.brawnyswan21.chatgpt.site/"
+    }),
+    Object.freeze({
+      id:"hlb-brand-garden",
+      title:"HLB 브랜드가든",
+      description:"정원에서 둘러보는 HLB 브랜드",
+      url:"https://hlb-campus.bloomingtick2.chatgpt.site/"
     })
   ]);
   const sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads";
@@ -20,7 +26,7 @@
     return node;
   }
 
-  function create({onDepart,onReturn}={}) {
+  function create({onSelect,onDepart,onReturn}={}) {
     const instance=++nextInstance;
     let dialog=null,frame=null,active=null,noticeTimer=null,previousFocus=null;
 
@@ -134,13 +140,14 @@
         button.setAttribute("aria-label",destination.title+" 방문하기");
         const art=element("span","warp-travel-destination-art");
         art.setAttribute("aria-hidden","true");
-        art.append(element("span","warp-travel-river-line"),element("span","warp-travel-river-line"));
         const copy=element("span","warp-travel-destination-copy");
-        copy.append(element("small","warp-travel-eyebrow","새로운 공간으로"),
-          element("strong","",destination.title),element("span","",destination.description));
+        copy.append(element("strong","",destination.title),element("span","",destination.description));
         const visit=element("span","warp-travel-visit","방문하기 ↗");
         button.append(art,copy,visit);
-        button.addEventListener("click",()=>open(destination.id));
+        button.addEventListener("click",()=>{
+          if (onSelect) onSelect(destination);
+          else open(destination.id);
+        });
         list.append(button);
       }
       container.replaceChildren(list);

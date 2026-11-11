@@ -53,11 +53,11 @@ npm start
 
 동쪽 외곽의 용암 강은 이동 경계 바깥의 풍경입니다. 마그마 레드를 바탕으로 밝은 용암 줄기가 흐르며, 기기의 동작 줄이기 설정에서는 흐름 애니메이션을 멈춥니다.
 
-## 입구 워프와 외부 공간 방문
+## 입구 포탈과 외부 공간 방문
 
-입구 왼쪽의 워프 장비를 클릭하면 캐릭터가 콘솔 앞으로 이동합니다. 가까이에서 **이동하기 · 워프** 또는 기존 상호작용 키 **E**를 눌러 목적지를 선택할 수도 있습니다. 공간 안내의 **워프** 항목은 콘솔까지 길을 안내합니다.
+입구 왼쪽의 붉은 포탈을 클릭하면 캐릭터가 포탈 앞으로 이동합니다. 가까이에서 **이동하기 · 포탈** 또는 **E**를 누르면 목적지를 선택할 수 있습니다. 공간 안내의 **포탈** 항목에서도 길을 찾을 수 있습니다.
 
-현재 목적지는 [THE RIVER](https://the-river-moments.brawnyswan21.chatgpt.site/)입니다. 체험관을 유지한 채 별도 방문 화면에 사이트를 표시하며, 상단 **HLB 온라인 체험관으로 돌아가기** 버튼으로 원래 워프 위치에 복귀합니다. 방문 중에는 HLB의 배경음악과 3D 동작을 멈추고, 복귀하면 기존 설정으로 이어갑니다.
+목적지는 [THE RIVER](https://the-river-moments.brawnyswan21.chatgpt.site/)와 [HLB 브랜드가든](https://hlb-campus.bloomingtick2.chatgpt.site/)입니다. 목적지를 선택하면 카메라가 캐릭터를 가까이 비추고, 캐릭터가 포탈에 손을 대면 방문 화면이 열립니다. 상단 **HLB 온라인 체험관으로 돌아가기** 버튼으로 포탈 앞에 복귀합니다.
 
 목적지는 `src/warp-travel.js`의 `destinations` 배열에 고유 `id`, `title`, `description`, HTTPS `url`을 추가해 확장합니다. 목적지 사이트가 iframe 표시를 허용해야 복귀 버튼과 함께 볼 수 있습니다. 외부 사이트에서 별도 새 탭을 열거나 도움말의 새 탭 링크를 사용한 경우, 해당 탭 위에 복귀 버튼을 표시할 수 없으므로 원래 HLB 탭으로 돌아옵니다. 외부 사이트의 표시 정책 변경이나 네트워크 오류가 있어도 HLB 복귀 버튼은 계속 이용할 수 있습니다.
 
@@ -90,7 +90,7 @@ npm run sync:notion
 | `src/cafe.js`, `assets/cafe/` | 카페 건물과 주문대, 거북이 간판 원본 |
 | `src/player3d.js` | 3D 캐릭터와 관절, 보행, 회전한 벽·실내를 반영한 길찾기·카메라·입력 |
 | `src/blackcat-yacht.js`, `src/yacht-ride.js` | 블랙캣 요트와 정박소, 목적지 간 비행 |
-| `src/warp-gate.js`, `src/warp-travel.js`, `src/warp-travel.css` | 입구 워프 장비, 확장 가능한 외부 목적지 목록과 방문·복귀 화면 |
+| `src/warp-gate.js`, `src/warp-travel.js`, `src/warp-travel.css` | 입구 포탈, 외부 목적지 목록과 방문·복귀 화면 |
 | `src/history-hall.js`, `src/history-film.js` | 역사관 건축·제단·프로젝터, 무음 반복 영상과 고정 시점 |
 | `src/history-book.js`, `src/history-data.js`, `src/history.css` | 역사책의 표지·페이지 넘김·검증 연혁·관련 사진과 출처 |
 | `assets/history/`, `docs/history-sources.md` | 웹용 무음 영상·포스터·공식 사진, 연혁 교차 확인과 사진 출처 |

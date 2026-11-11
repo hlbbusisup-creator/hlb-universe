@@ -108,8 +108,8 @@ test('산책 시작점에서 여덟 건물의 실내 목적지까지 벽을 통�
   }
 });
 
-test('입구 왼쪽 워프 콘솔과 기존 거리 사이를 충돌 없이 왕복한다', () => {
-  assert.ok(world.warpGate, '워프 장비');
+test('입구 왼쪽 포탈과 기존 거리 사이를 충돌 없이 왕복한다', () => {
+  assert.equal(world.warpGate.title,'포탈');
   assert.ok(world.warpGate.station.x < world.spawn.x, '입구 왼쪽');
   assert.ok(world.warpGate.pickBox, '클릭 가능한 3D 영역');
   const {player} = createPlayer();
@@ -121,7 +121,31 @@ test('입구 왼쪽 워프 콘솔과 기존 거리 사이를 충돌 없이 왕�
   } finally { player.dispose(); }
 });
 
-test('워프 진입로와 본선의 경계 양옆에 동일한 두 줄의 포장 블록이 이어진다', () => {
+test('회전하는 포탈을 정렬하면 접근 가능한 손 접촉점이 V자 유리 표면에 놓인다', () => {
+  const gate=world.warpGate,body=gate.object.getObjectByName('Portal sculpture');
+  const angle=body.rotation.y;
+  gate.update(.1,false);
+  assert.notEqual(body.rotation.y,angle,'대기 중 수직축 회전');
+  gate.setTouchPose(true);
+  const {player}=createPlayer();
+  try {
+    visit(player,{id:'portal-touch',station:gate.touchStation});
+    for (let i=0;i<24;i++) gate.update(1/60,false);
+    const locked=body.rotation.y;
+    gate.update(.1,false);
+    assert.equal(body.rotation.y,locked,'손이 닿는 동안 표면 고정');
+    gate.object.updateWorldMatrix(true,true);
+    const p=gate.touchPoint,normal=new THREE.Vector3(Math.sin(gate.touchYaw),0,Math.cos(gate.touchYaw));
+    const contact=new THREE.Vector3(p.x,p.y,p.z);
+    const ray=new THREE.Raycaster(contact.clone().addScaledVector(normal,.20),normal.negate(),0,.3);
+    const hits=ray.intersectObject(body.getObjectByName('Portal folded chevron'));
+    assert.ok(hits.length && hits[0].point.distanceTo(contact)<.001,'실제 조형물 앞면과 접촉');
+  } finally {
+    gate.setTouchPose(false);player.dispose();
+  }
+});
+
+test('포탈 진입로와 본선의 경계 양옆에 동일한 두 줄의 포장 블록이 이어진다', () => {
   const stone=scene.getObjectByName('box stone'),matrix=new THREE.Matrix4();
   const z=world.warpGate.station.z;
   stone.geometry.computeBoundingBox();
@@ -139,7 +163,7 @@ test('워프 진입로와 본선의 경계 양옆에 동일한 두 줄의 포장
   }
   const avenue=coursesAt(-3.7),branch=coursesAt(-4.5);
   assert.equal(avenue.length,2,'본선 타일 위에 다른 포장면이 겹치지 않아야 한다');
-  assert.deepEqual(branch,avenue,'워프 길의 줄눈이 본선 줄눈과 만나야 한다');
+  assert.deepEqual(branch,avenue,'포탈 길의 줄눈이 본선 줄눈과 만나야 한다');
 });
 
 test('역사관 제단과 영상 관람점은 실제 실내에 있고 연속으로 방문할 수 있다', () => {

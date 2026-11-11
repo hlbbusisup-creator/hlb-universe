@@ -405,13 +405,42 @@
       }
       return turn;
     }
+    const contactLocal=new T.Vector3();
+    function reachPortal(point,amount) {
+      const {arm,elbow,hand}=arms[1];
+      // Aim the two arm bones so the skin near the end of the palm meets the surface.
+      const offset=chest.worldToLocal(contactLocal.copy(point)).sub(arm.position);
+      // Bring the reaching shoulder forward while leaving space between the face and the crystal.
+      const extension=amount*clamp(-offset.z-.28,0,.12);
+      arm.position.z-=extension;
+      offset.z+=extension;
+      const upper=-elbow.position.y;
+      const palmEnd=hand.position.y-.065;
+      const lower=Math.hypot(palmEnd,hand.position.z);
+      const length=Math.hypot(offset.y,offset.z);
+      const bend=Math.acos(clamp((length*length-upper*upper-lower*lower)/(2*upper*lower),-1,1));
+      const shoulder=Math.atan2(-offset.z,-offset.y)-
+        Math.atan2(lower*Math.sin(bend),upper+lower*Math.cos(bend));
+      arm.position.x+=amount*clamp(offset.x,-.025,.025);
+      arm.rotation.x=T.MathUtils.lerp(arm.rotation.x,shoulder,amount);
+      arm.rotation.y*=1-amount;
+      arm.rotation.z*=1-amount;
+      const forearmTilt=Math.atan2(-hand.position.z,-palmEnd);
+      elbow.rotation.x=T.MathUtils.lerp(elbow.rotation.x,bend-forearmTilt,amount);
+      head.rotation.x-=.12*amount;
+      if (treats.coffee) {
+        // Keep the cup upright and turn it clear of the touching side of the hand.
+        wrist.copy(arm.quaternion).multiply(elbow.quaternion).invert();
+        treats.coffee.quaternion.setFromEuler(tilt.set(0,Math.PI*amount,0)).premultiply(wrist);
+      }
+    }
     function dispose() {
       root.removeFromParent();
       root.traverse(object => object.geometry?.dispose());
       material.dispose(); shadowMap.dispose(); shadowMaterial.dispose();
       labelMap.dispose(); labelMaterial.dispose();
     }
-    return {root,animate,dispose,orderCafeItem,consumeCafeItem,getCafeState};
+    return {root,animate,reachPortal,dispose,orderCafeItem,consumeCafeItem,getCafeState};
   }
 
   function segmentHits(a,b,box) {
@@ -589,6 +618,7 @@
     let jumpHeight = 0;
     let cafeTurn = null;
     let ride = null;
+    let portal = null;
     const ridePosition = new T.Vector3();
     const rideCamera = new T.Vector3();
     const baseFov=camera.fov;
@@ -638,7 +668,7 @@
     marker.rotation.x=-Math.PI/2; marker.visible=false; scene.add(marker);
 
     function walkTo(point) {
-      if (!active || ride) return false;
+      if (!active || ride || portal) return false;
       route=nav.route(position,point);
       marker.visible=route.length>0;
       if (!marker.visible) return false;
@@ -655,17 +685,17 @@
     }
     function setActive(value) { active=Boolean(value); if (!active) release(); }
     function jump() {
-      if (!active || ride || jumpTime < jumpDuration) return false;
+      if (!active || ride || portal || jumpTime < jumpDuration) return false;
       jumpTime = 0;
       return true;
     }
     function setStick(x,y) {
-      if (!active || ride) return;
+      if (!active || ride || portal) return;
       stick.x=clamp(x,-1,1); stick.y=clamp(y,-1,1);
       if (Math.hypot(x,y)>0.08) stopRoute();
     }
     function consumeCafeItem(item) {
-      if (!active || ride || !visitor.consumeCafeItem(item)) return false;
+      if (!active || ride || portal || !visitor.consumeCafeItem(item)) return false;
       const movingKeys = [...held].some(code => movementCodes.has(code));
       if (!route.length && !movingKeys && !freshPresses.size && Math.hypot(stick.x,stick.y)<=.04) {
         const start=visitor.root.rotation.y, home=cafeTurn?.home ?? start;
@@ -682,7 +712,7 @@
     }
     function isOverview() { return !ride && !roomAt(position) && outdoorZoom>=5.7; }
     function toggleOverview() {
-      if (!active || ride || roomAt(position)) return;
+      if (!active || ride || portal || roomAt(position)) return;
       outdoorZoom=isOverview() ? 1 : 6;
     }
     function surfaceClearance(surfaces,limit) {
@@ -762,8 +792,78 @@
       pitch = entryPitch;
       updateCamera(1);
     }
+    function beginPortalTouch(gate,onContact) {
+      if (!active || ride || portal || !gate?.touchPoint || !Number.isFinite(gate.touchYaw)) return false;
+      const path=nav.route(position,gate.touchStation);
+      if (!path.length || distance(path[path.length-1],gate.touchStation)>.01) return false;
+      release();
+      jumpTime=jumpDuration;
+      jumpHeight=0;
+      cafeTurn=null;
+      portal={
+        gate,path,onContact,shot:null,
+        origin:{position:{...position},body:visitor.root.position.clone(),facing:visitor.root.rotation.y,
+          eye:camera.position.clone(),rotation:camera.quaternion.clone(),fov:camera.fov,cameraDistance,obstacleLift}
+      };
+      return true;
+    }
+    function updatePortalTouch(dt) {
+      const {gate}=portal;
+      if (!portal.shot) {
+        // Frame the character in profile from the reaching-hand side.
+        const aim=new T.Vector3((position.x+gate.touchPoint.x)/2,groundAt(position)+.99,
+          (position.z+gate.touchPoint.z)/2);
+        const sideDistance=Math.max(1.88,1.32/camera.aspect);
+        const c=Math.cos(gate.touchYaw),s=Math.sin(gate.touchYaw);
+        const eye=aim.clone().add(new T.Vector3(sideDistance*c-.16*s,.38,-sideDistance*s-.16*c));
+        const rotation=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().lookAt(eye,aim,camera.up));
+        const startYaw=visitor.root.rotation.y;
+        portal.shot={time:0,contactFrames:0,done:false,startYaw,
+          turn:Math.atan2(Math.sin(gate.touchYaw-startYaw),Math.cos(gate.touchYaw-startYaw)),
+          startEye:camera.position.clone(),startRotation:camera.quaternion.clone(),
+          startFov:camera.fov,eye,rotation};
+      }
+      const shot=portal.shot;
+      if (shot.done) return;
+      shot.time+=dt;
+      const reduced=reducedMotion.matches;
+      const eased=T.MathUtils.smootherstep;
+      const framing=reduced ? 1 : eased(shot.time,0,.82);
+      const amount=eased(shot.time,reduced?0:.42,reduced?.25:1.13);
+      visitor.root.rotation.y=shot.startYaw+shot.turn*(reduced ? 1 : eased(shot.time,0,.46));
+      visitor.root.visible=true;
+      visitor.animate(dt,0,reduced,0);
+      visitor.reachPortal(gate.touchPoint,amount);
+      camera.position.lerpVectors(shot.startEye,shot.eye,framing);
+      camera.quaternion.slerpQuaternions(shot.startRotation,shot.rotation,framing);
+      const fov=T.MathUtils.lerp(shot.startFov,51,framing);
+      if (camera.fov!==fov) {camera.fov=fov;camera.updateProjectionMatrix();}
+      // Present the held contact for several rendered frames before opening the destination.
+      if (amount===1) shot.contactFrames++;
+      if (shot.contactFrames>=3 && shot.time>=(reduced?.56:1.65)) {
+        shot.done=true;
+        portal.onContact?.();
+      }
+    }
+    function endPortalTouch() {
+      if (!portal) return false;
+      const {origin}=portal;
+      portal=null;
+      release();
+      position=origin.position;
+      visitor.root.position.copy(origin.body);
+      visitor.root.rotation.y=origin.facing;
+      visitor.animate(0,0,reducedMotion.matches,0);
+      cameraDistance=origin.cameraDistance;
+      obstacleLift=origin.obstacleLift;
+      updateCamera(0);
+      camera.position.copy(origin.eye);
+      camera.quaternion.copy(origin.rotation);
+      camera.fov=origin.fov;camera.updateProjectionMatrix();
+      return true;
+    }
     function beginRide(craft, passenger) {
-      if (ride) return false;
+      if (ride || portal) return false;
       release();
       jumpTime=jumpDuration;
       jumpHeight=0;
@@ -812,6 +912,10 @@
     function update(dt) {
       dt=clamp(Number(dt)||0,0,0.07);
       if (ride) { updateRide(dt); return position; }
+      if (portal && !portal.path.length) {
+        if (active && !document.hidden) updatePortalTouch(dt);
+        return position;
+      }
       // A quick keyboard tap can start and finish between two rendered frames.
       let right=stick.x + Number(down("KeyD","ArrowRight")) - Number(down("KeyA","ArrowLeft"));
       let forward=stick.y + Number(down("KeyW","ArrowUp")) - Number(down("KeyS","ArrowDown"));
@@ -824,11 +928,12 @@
         const dx=(right*Math.cos(yaw)-forward*Math.sin(yaw))*speed*dt;
         const dz=(-right*Math.sin(yaw)-forward*Math.cos(yaw))*speed*dt;
         position=nav.move(position,dx,dz);
-      } else if (active && route.length) {
+      } else if (active && (portal || route.length)) {
+        const path=portal ? portal.path : route;
         let budget=speed*dt;
-        while (route.length && budget>0) {
-          const dest=route[0], left=distance(position,dest);
-          if (left<=budget) { position=dest; budget-=left; route.shift(); }
+        while (path.length && budget>0) {
+          const dest=path[0], left=distance(position,dest);
+          if (left<=budget) { position=dest; budget-=left; path.shift(); }
           else {
             position={x:position.x+(dest.x-position.x)*budget/left,z:position.z+(dest.z-position.z)*budget/left};
             budget=0;
@@ -864,7 +969,7 @@
     function keyDown(event) {
       const moving = movementCodes.has(event.code);
       const action = actionCodes.get(event.code);
-      if (!active || ride || document.hidden || (!moving && !action) || event.isComposing ||
+      if (!active || ride || portal || document.hidden || (!moving && !action) || event.isComposing ||
         event.altKey || event.ctrlKey || event.metaKey || editing(event)) return;
       if (event.code === "Space" && event.target?.closest?.("button,a")) return;
       // A key kept down across a dialog or a lost window focus needs a new press.
@@ -917,7 +1022,7 @@
         floorHit.z>=world.bounds.minZ && floorHit.z<=world.bounds.maxZ) walkTo(floorHit);
     }
     function pointerDown(event) {
-      if (!active || ride || (event.pointerType==="mouse" && event.button!==0)) return;
+      if (!active || ride || portal || (event.pointerType==="mouse" && event.button!==0)) return;
       pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,drag:false});
       canvas.setPointerCapture(event.pointerId);
       canvas.focus({preventScroll:true});
@@ -954,7 +1059,7 @@
       if (tapped && active) pointOnGround(event.clientX,event.clientY);
     }
     function wheel(event) {
-      if (!active || ride) return;
+      if (!active || ride || portal) return;
       event.preventDefault();
       const pixels=event.deltaY*(event.deltaMode===1 ? 16 : event.deltaMode===2 ? 600 : 1);
       changeZoom(Math.exp(clamp(pixels,-900,900)*.0012));
@@ -985,6 +1090,7 @@
     }
     return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose,
       beginRide,endRide,isRiding:()=>Boolean(ride),
+      beginPortalTouch,endPortalTouch,isPortalTouching:()=>Boolean(portal),
       getCafeState:visitor.getCafeState, orderCafeItem:visitor.orderCafeItem,consumeCafeItem};
   }
 

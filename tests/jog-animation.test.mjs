@@ -29,7 +29,7 @@ function visitor(t,{reducedMotion=false}={}) {
   const elbows=hands.map(hand=>hand.parent);
   const tick=(seconds)=>{for(let i=0;i<Math.round(seconds*60);i++)player.update(1/60);};
   t.after(()=>player.dispose());
-  return {T,player,avatar,hips,chest,head,thighs,hands,elbows,tick};
+  return {T,player,avatar,hips,chest,head,thighs,hands,elbows,tick,camera};
 }
 
 test("조깅은 이동속도를 유지하면서 초당 2~3보로 움직이고 멈추면 자세가 풀린다",t=>{
@@ -88,4 +88,56 @@ test("동작 줄이기에서는 조깅의 상하 탄성을 제거한다",t=>{
     player.update(1/60);
     assert.equal(hips.position.y,.354);
   }
+});
+
+for (const reducedMotion of [false,true]) {
+  test(`포탈 도보 접근·손 접촉·복귀 (동작 줄이기 ${reducedMotion})`,t=>{
+    const {T,player,camera,hands,tick}=visitor(t,{reducedMotion});
+    const gate={touchYaw:Math.PI/2,touchStation:{x:-1.89,z:.2},touchPoint:{x:-2.28,y:.82,z:0}};
+    const target=new T.Vector3().copy(gate.touchPoint);
+    const start=player.getPosition(),eye=camera.position.clone(),orientation=camera.quaternion.clone();
+    player.orderCafeItem("coffee");player.orderCafeItem("bread");
+
+    let opened=0,contactFrames=0;
+    const palmDistance=()=>hands[1].localToWorld(new T.Vector3(0,-.065,0)).distanceTo(target);
+    assert.ok(player.beginPortalTouch(gate,()=>{
+      assert.ok(contactFrames>=2,"목적지를 열기 전 실제 손 접촉을 여러 프레임 표시");
+      opened++;
+    }));
+    assert.equal(player.beginPortalTouch(gate),false);
+    assert.equal(player.walkTo({x:2,z:3}),false);
+    assert.equal(player.jump(),false);
+    tick(1/60);
+    assert.ok(Math.abs(player.getPosition().x-start.x)<=4.8/60,"접촉점으로 순간 이동하지 않는다");
+    for(let i=0;i<180;i++){
+      player.update(1/60);
+      if (palmDistance()<.012) contactFrames++;
+    }
+    assert.ok(palmDistance()<.012,`접촉면과 손끝의 거리 ${palmDistance()}`);
+    assert.equal(opened,1);
+    assert.ok(camera.position.distanceTo(target)<2.4,"측면 클로즈업");
+    camera.updateMatrixWorld();
+    const screen=target.clone().project(camera);
+    assert.ok(Math.abs(screen.x)<1 && Math.abs(screen.y)<1);
+    assert.ok(player.isPortalTouching());
+    assert.ok(player.endPortalTouch());
+    assert.deepEqual(player.getPosition(),start);
+    assert.ok(camera.position.equals(eye) && camera.quaternion.equals(orientation));
+    assert.ok(hands[1].getObjectByName("cafe-coffee") && hands[0].getObjectByName("cafe-bread"));
+    assert.ok(player.jump(),"입력이 복구된다");
+  });
+}
+
+test("포탈 접근 취소와 도달할 수 없는 접촉 지점은 목적지를 열지 않는다",t=>{
+  const {player,tick}=visitor(t);
+  const gate={touchYaw:0,touchStation:{x:0,z:-2},touchPoint:{x:.2,y:.82,z:-2.28}};
+  const start=player.getPosition();
+  let opened=false;
+  assert.ok(player.beginPortalTouch(gate,()=>{opened=true;}));
+  tick(.2);
+  assert.ok(player.endPortalTouch());tick(2);
+  assert.deepEqual(player.getPosition(),start);
+  assert.equal(opened,false);
+  assert.equal(player.beginPortalTouch({...gate,touchStation:{x:200,z:0}}),false);
+  assert.equal(player.isPortalTouching(),false);
 });

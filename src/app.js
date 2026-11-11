@@ -59,15 +59,52 @@
   }
   const music = window.HLBChamberMusic.create({onChange:syncSound});
   syncSound(music.getState());
+  let portalDestination=null;
   const warpTravel = window.HLBWarpTravel.create({
-    onDepart: () => music.setSuspended(true),
-    onReturn: () => {
-      music.setSuspended(false);
-      if (dialog.open) dialog.close();
-      el("announcement").textContent = "HLB 온라인 체험관의 워프로 돌아왔습니다.";
-    }
+    onSelect:beginPortalJourney,
+    onDepart:()=>{
+      player.setActive(false);
+      music.setSuspended(true);
+      cancelAnimationFrame(frame); frame=0;
+    },
+    onReturn:()=>finishPortalJourney("HLB 온라인 체험관의 포탈로 돌아왔습니다.")
   });
   warpTravel.renderList(el("warp-destinations"));
+  function finishPortalJourney(message) {
+    if (!portalDestination) return;
+    portalDestination=null;
+    player.endPortalTouch();
+    world.warpGate.setTouchPose(false);
+    el("experience").classList.remove("portal-travelling");
+    el("cancel-travel").setAttribute("aria-label","길 안내 해제");
+    music.setSuspended(false);
+    player.setActive(!document.hidden && !dialog.open);
+    updateStatus();
+    el("announcement").textContent=message;
+    if (!document.hidden) { canvas.focus({preventScroll:true}); resumeRendering(); }
+  }
+  function beginPortalJourney(visit) {
+    if (portalDestination || !dialog.open || el("warp-pane").hidden || document.hidden) return;
+    portalDestination=visit;
+    dialog.close();
+    player.setActive(true);
+    const gate=world.warpGate;
+    gate.setTouchPose(true);
+    el("experience").classList.add("portal-travelling");
+    el("travel-text").textContent=visit.title+" 이동 중";
+    el("travel").hidden=false;
+    el("cancel-travel").setAttribute("aria-label","포탈 이동 취소");
+    el("announcement").textContent=visit.title+" 방문을 위해 포탈로 다가갑니다.";
+    const started=player.beginPortalTouch(gate,()=>{
+      if (portalDestination!==visit) return;
+      try {
+        if (warpTravel.open(visit.id)) return;
+      } catch (error) { console.error(error); }
+      finishPortalJourney("방문 화면을 열지 못했습니다. 포탈에서 다시 시도해 주세요.");
+    });
+    if (!started) { finishPortalJourney("포탈로 가는 길을 찾지 못했습니다. 가까이에서 다시 시도해 주세요."); return; }
+    resumeRendering();
+  }
   function setSoundPanel(open) {
     soundPanel.hidden = !open;
     soundButton.setAttribute("aria-expanded", String(open));
@@ -105,7 +142,7 @@
   }
 
   function openPane(name, title) {
-    if (historyFilm?.isWatching()) return;
+    if (portalDestination || historyFilm?.isWatching()) return;
     if (yacht?.getState().busy && yacht.getState().phase !== "walking") return;
     yacht?.cancelApproach();
     setSoundPanel(false);
@@ -195,7 +232,7 @@
     if (!station) return;
     if (station.id === "history-book") openHistoryBook();
     else if (station.id === "history-film") beginHistoryWatch();
-    else if (station.id === "warp") openPane("warp", "워프 · 목적지 선택");
+    else if (station.id === "warp") openPane("warp", "포탈 · 목적지 선택");
     else if (station.spaceId === "cafe") openCafe();
     else if (station.record) openRecord(station.record);
     else if (station.spaceId === "cologne") openGallery();
@@ -230,6 +267,9 @@
   el("retry-history-video").addEventListener("click",()=>historyFilm?.retry());
   document.addEventListener("keydown",event=>{
     if(event.key==="Escape" && !event.isComposing && historyFilm?.isWatching()) {event.preventDefault();endHistoryWatch();}
+    if(event.key==="Escape" && !event.isComposing && portalDestination && !warpTravel.isOpen()) {
+      event.preventDefault();finishPortalJourney("포탈 이동을 취소했습니다.");
+    }
   });
 
   function atCafeCounter() {
@@ -351,7 +391,7 @@
     warpButton.id = "visit-warp";
     warpButton.disabled = true;
     const warpCopy = make("span", "guide-copy");
-    warpCopy.append(make("strong", "", "워프"), make("small", "", "입구 왼쪽 · 다른 공간으로 떠나기"));
+    warpCopy.append(make("strong", "", "포탈"), make("small", "", "입구 왼쪽 · 다른 공간으로 떠나기"));
     warpButton.append(icon("warp"), warpCopy, icon("arrow"));
     warpButton.addEventListener("click", () => {
       const stop = readingStops.find(item => item.id === "warp");
@@ -365,7 +405,7 @@
 
   function updateStatus() {
     if (!world || !player) return;
-    if(historyFilm?.isWatching())return;
+    if(portalDestination || historyFilm?.isWatching())return;
     syncCafeActions();
     const p = player.getPosition();
     const inside = world.spaces.find(({interior}) => interior && world.containsPoint(interior,p));
@@ -396,7 +436,7 @@
       if (arrived?.spaceId === "cafe") openCafe();
       else if (arrived?.id === "history-book") openHistoryBook();
       else if (arrived?.id === "history-film") beginHistoryWatch();
-      else if (arrived?.id === "warp") openPane("warp", "워프 · 목적지 선택");
+      else if (arrived?.id === "warp") openPane("warp", "포탈 · 목적지 선택");
       else if (arrived?.record) openRecord(arrived.record);
     }
     const district = world.district;
@@ -424,7 +464,7 @@
 
   function renderFrame(now) {
     frame = 0;
-    if (document.hidden || !renderer || renderer.getContext().isContextLost()) return;
+    if (document.hidden || warpTravel.isOpen() || !renderer || renderer.getContext().isContextLost()) return;
     const dt = previousTime ? Math.min(.08,(now-previousTime)/1000) : 1/60;
     previousTime = now;
     if (!dialog.open) {
@@ -436,11 +476,11 @@
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
     }
     renderer.render(scene,camera);
-    if (!dialog.open) frame=requestAnimationFrame(renderFrame);
+    if (!frame && !dialog.open && !warpTravel.isOpen()) frame=requestAnimationFrame(renderFrame);
   }
 
   function resumeRendering() {
-    if (renderer && player && !frame && !document.hidden) { previousTime=0; frame=requestAnimationFrame(renderFrame); }
+    if (renderer && player && !frame && !document.hidden && !warpTravel.isOpen()) { previousTime=0; frame=requestAnimationFrame(renderFrame); }
   }
 
   function resize() {
@@ -508,6 +548,7 @@
     window.HLBReader.clear();
     historyBook.close();
     returnRow=null;
+    if (portalDestination) return;
     player?.setActive(!document.hidden && !historyFilm?.isWatching());
     historyFilm?.setPresent(inHistoryHall() && !document.hidden);
     resumeRendering();
@@ -558,19 +599,24 @@
     });
   }
   el("cancel-travel").addEventListener("click",()=>{
+    if (portalDestination) { finishPortalJourney("포탈 이동을 취소했습니다."); return; }
     destination=null;
     yacht?.cancelApproach();
     player?.setActive(false); player?.setActive(true);
     updateStatus(); canvas.focus({preventScroll:true});
   });
   document.addEventListener("visibilitychange",()=>{
+    if(document.hidden && portalDestination && !warpTravel.isOpen()) finishPortalJourney("포탈 이동을 취소했습니다.");
     if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; yacht?.cancelApproach(); resetStick(); player?.setActive(false); }
-    else { player?.setActive(!dialog.open && !historyFilm?.isWatching()); resumeRendering(); }
+    else { player?.setActive(!dialog.open && !warpTravel.isOpen() && !historyFilm?.isWatching()); resumeRendering(); }
     historyFilm?.setPresent(inHistoryHall() && !document.hidden && !dialog.open);
   });
   el("retry").addEventListener("click",()=>location.reload());
   el("fallback-search").addEventListener("click",()=>openLibrary());
   function showError(message) {
+    if (portalDestination) {
+      if (!warpTravel.close()) finishPortalJourney("포탈 이동이 중단되었습니다.");
+    }
     el("loading").hidden=true;
     el("no-graphics").hidden=false;
     el("graphics-reason").textContent=message;
@@ -646,8 +692,8 @@
         if (record) readingStops.push({...exhibit, record, spaceId:hall.id, action:exhibit.title+" 살펴보기", radius:2, indoorOnly:true});
       }
     }
-    if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 워프"});
-    const arrival = ["cologne","cafe","history"].includes(visitId) ? bySpace.get(visitId) : visitId === "warp" ? world.warpGate : null;
+    if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 포탈"});
+    const arrival = ["cologne","cafe","history"].includes(visitId) ? bySpace.get(visitId) : ["portal","warp"].includes(visitId) ? world.warpGate : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
       yacht?.cancelApproach();
       destination=null;

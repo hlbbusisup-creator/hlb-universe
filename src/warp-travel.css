@@ -38,12 +38,38 @@
   background: #ef4136;
 }
 
-.warp-travel-river-line {
+.warp-travel-destination-art::before,
+.warp-travel-destination-art::after {
+  content: "";
   display: block;
   height: 15px;
   border-top: 3px solid #fff5e6;
   border-radius: 50%;
   transform: rotate(-12deg);
+}
+
+[data-destination-id="hlb-brand-garden"] .warp-travel-destination-art {
+  position: relative;
+  background: #345e49;
+}
+
+[data-destination-id="hlb-brand-garden"] .warp-travel-destination-art::before,
+[data-destination-id="hlb-brand-garden"] .warp-travel-destination-art::after {
+  position: absolute;
+  width: 34%;
+  height: 24%;
+  border: 0;
+  border-radius: 4% 78%;
+  background: #f4eacf;
+  transform: rotate(6deg);
+  left: 20%;
+  top: 38%;
+}
+
+[data-destination-id="hlb-brand-garden"] .warp-travel-destination-art::after {
+  left: 48%;
+  top: 31%;
+  transform: scaleX(-1) rotate(16deg);
 }
 
 .warp-travel-destination-copy {
@@ -54,16 +80,10 @@
   overflow-wrap: anywhere;
 }
 
-.warp-travel-eyebrow {
-  color: #886754;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .warp-travel-destination-copy strong {
   color: #342a27;
   font-size: 24px;
-  letter-spacing: .06em;
+  letter-spacing: -.025em;
   line-height: 1.15;
 }
 
