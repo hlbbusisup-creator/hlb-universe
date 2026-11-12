@@ -1,8 +1,12 @@
-import { cp, lstat, mkdir, realpath, rm } from 'node:fs/promises';
+import { cp, lstat, mkdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { localRelease } from './release.mjs';
+import { reviewProducts } from './review-products.mjs';
 
 const root = await realpath(fileURLToPath(new URL('../', import.meta.url)));
+const release = await localRelease();
+await reviewProducts();
 const dist = join(root, 'dist');
 const output = join(dist, 'site');
 
@@ -29,4 +33,5 @@ for (const entry of ['index.html', 'styles.css', 'src', 'assets']) {
   });
 }
 
-console.log('배포 파일을 dist/site에 생성했습니다.');
+await writeFile(join(output, 'release.json'), JSON.stringify(release) + '\n');
+console.log(`v${release.version} 배포 파일을 dist/site에 생성했습니다.`);

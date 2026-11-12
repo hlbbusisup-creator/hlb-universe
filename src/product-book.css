@@ -36,6 +36,15 @@ dialog.product-book {
   touch-action: manipulation;
 }
 .pb-back { padding: 0 4px; font-size: 14px; font-weight: 650; }
+.pb-toolbar { gap: 8px; flex-wrap: wrap; }
+.pb-toolbar .exhibit-share { margin-inline-start:auto; }
+.exhibit-share { display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:13px; }
+.exhibit-share [role=status]:empty { display:none; }
+.exhibit-share button,.product-reset { border:1px solid currentColor; border-radius:8px; padding:5px 10px; color:inherit; }
+.exhibit-share input { max-width:min(36vw,240px); color:#292224; }
+.reader-meta-row { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:5px; }
+.search-kind { font-size:16px; margin:14px 0 4px; }
+.product-reset { font-size:12px; }
 .pb-arrow {
   display: inline-block;
   font: 32px/.8 Georgia, serif;

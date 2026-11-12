@@ -1,0 +1,58 @@
+#lupe-guide {
+  position: absolute;
+  top: max(127px, calc(env(safe-area-inset-top) + 112px));
+  left: max(22px, env(safe-area-inset-left));
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+#lupe-guide button, #lupe-card { pointer-events: auto; }
+#lupe-launcher {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 24px;
+  gap: 6px;
+  padding: 3px 11px 3px 3px;
+  font-size: 13px;
+  font-weight: 700;
+}
+#lupe-launcher img { border-radius: 50%; object-fit: cover; }
+#lupe-card {
+  position: relative;
+  width: min(310px, 64vw);
+  padding: 15px 16px;
+  color: #352626;
+  background: #fffaf4;
+  border: 1px solid #d7b7a9;
+  border-radius: 4px 18px 18px 18px;
+  box-shadow: 0 5px 24px #381b2633;
+  max-height: 53dvh;
+  overflow: auto;
+}
+#lupe-title { display: block; padding-right: 28px; font-size: 16px; }
+#lupe-copy { margin: 7px 0 12px; font-size: 14px; line-height: 1.55; word-break: keep-all; }
+#lupe-dismiss { position: absolute; right: 5px; top: 5px; width: 30px; height: 30px; border: 0; }
+#lupe-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+#lupe-actions button, #lupe-talk {
+  padding: 7px 10px; min-height: 35px; border-radius: 9px;
+  font: inherit; font-size: 13px; font-weight: 650; color: #653a31; background: #f1e3da;
+}
+#lupe-tour, #lupe-talk { background: #a93028 !important; color: white !important; }
+#lupe-actions :is(#lupe-end,#lupe-voice) { text-decoration: underline; background: transparent; }
+.history-watching #lupe-guide, .portal-travelling #lupe-guide { visibility: hidden; }
+#release-notes { margin: 16px 0; font-size: 14px; }
+#release-notes summary { cursor: pointer; }
+#release-notes ul { padding-left: 20px; margin-top: 8px; }
+@media (max-width: 620px) {
+  #lupe-guide { top: max(115px, calc(env(safe-area-inset-top) + 99px)); left: 10px; gap: 5px; }
+  #lupe-launcher { padding: 2px; }
+  #lupe-launcher span { display: none; }
+  #lupe-card { width: min(285px, calc(100vw - 70px)); }
+}
+@media (max-height: 480px) {
+  #lupe-guide { top: 93px; }
+  #lupe-card { max-height: 45dvh; }
+}

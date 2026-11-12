@@ -3,7 +3,7 @@ import {readFile} from "node:fs/promises";
 import {createContext, runInContext} from "node:vm";
 import test from "node:test";
 
-const paths=["assets/vendor/three.min.js","src/blackcat-yacht.js","src/player3d.js","src/yacht-ride.js"];
+const paths=["assets/vendor/three.min.js","src/blackcat-yacht.js","src/lupe3d.js","src/player3d.js","src/yacht-ride.js"];
 const scripts=await Promise.all(paths.map(path=>readFile(new URL("../"+path,import.meta.url),"utf8")));
 
 function createTrip(t,{spawnDock=0}={}) {
@@ -17,6 +17,9 @@ function createTrip(t,{spawnDock=0}={}) {
     const element=new EventTarget();
     element.classList={add(){},remove(){}};
     element.focus=()=>{page.document.activeElement=element;};
+    element.setPointerCapture=element.releasePointerCapture=()=>{};
+    element.hasPointerCapture=()=>false;
+    element.getBoundingClientRect=()=>({left:0,top:0,width:800,height:500});
     element.getContext=()=>({fillRect(){},strokeRect(){},fillText(){},
       createRadialGradient:()=>({addColorStop(){}})});
     return element;
@@ -33,8 +36,8 @@ function createTrip(t,{spawnDock=0}={}) {
   const world={bounds:{minX:-45,maxX:40,minZ:-45,maxZ:25},colliders:[],
     spawn:{...docks[spawnDock].station},yachtDocks:docks,groundHeight:p=>p.x<-30?4.5:0,
     spaces:[{id:"group",x:0,z:-34,interior:{minX:-3,maxX:3,minZ:-37,maxZ:-31,ceilingY:4}}]};
-  const actions=[], changes=[];
-  const player=page.HLBPlayer3D.create(scene,camera,canvas(),world,null,null,action=>actions.push(action));
+  const actions=[], changes=[],picked=[],surface=canvas();
+  const player=page.HLBPlayer3D.create(scene,camera,surface,world,null,item=>picked.push(item?.id),action=>actions.push(action));
   player.setActive(true);
   const yacht=page.HLBYachtRide.create({scene,world,player,onChange:state=>changes.push(state)});
   const craft=scene.getObjectByName("BlackCAT flying catamaran");
@@ -55,7 +58,7 @@ function createTrip(t,{spawnDock=0}={}) {
     const event=new Event(type,{cancelable:true});Object.assign(event,{code,...extra});
     page.dispatchEvent(event);return event;
   }
-  return {T,page,scene,camera,world,docks,player,yacht,craft,avatar,actions,changes,step,until,key};
+  return {T,page,scene,camera,world,docks,player,yacht,craft,avatar,actions,changes,step,until,key,surface,picked};
 }
 
 function close(actual,expected,message,tolerance=1e-7) {
@@ -67,6 +70,41 @@ function atStation(player,dock) {
   close(position.z,dock.station.z,"Disembark Z");
   close(position.y,(dock.y??0)+.025,"Disembark at dock ground level");
 }
+
+test("루페는 육지와 블랙캣에서 선택할 수 있고 다음 승선에서는 다른 자리에 앉는다",t=>{
+  const {scene,camera,world,docks,player,yacht,avatar,step,until,surface,picked}=createTrip(t);
+  const lupe=scene.getObjectByName("루페");
+  function tapGuide() {
+    camera.updateMatrixWorld();
+    const point=player.getLupePosition().project(camera);
+    for(const type of ["pointerdown","pointerup"]) {
+      const event=new Event(type);
+      Object.assign(event,{pointerType:"touch",pointerId:1,clientX:400*(1+point.x),clientY:250*(1-point.y)});
+      surface.dispatchEvent(event);
+    }
+    assert.equal(picked.pop(),"lupe");
+  }
+  tapGuide();
+  const origin=player.getLupePosition();
+  for(let i=0;i<30;i++)step();
+  assert.ok(origin.distanceTo(player.getLupePosition())>.3,"루페가 제자리에서만 떠 있지 않고 주변을 비행");
+  player.setGuideTarget(docks[1].station);
+  for(let i=0;i<20;i++)step();
+  assert.ok(player.getLupePosition().z<world.spawn.z-.4,"다음 정거장을 향해 앞서 비행");
+  player.setGuideTarget(null);
+  let last;
+  for(const [from,to] of [[0,1],[1,2],[2,0]]) {
+    assert.ok(yacht.request(from,to));
+    until(()=>yacht.getState().phase==="flying");
+    assert.equal(lupe.parent,avatar);
+    assert.ok(!last || last.distanceTo(lupe.position)>.1);
+    last=lupe.position.clone();
+    tapGuide();
+    until(()=>!yacht.getState().busy);
+    assert.equal(lupe.parent,scene);
+    assert.ok(player.getLupePosition().distanceTo(avatar.position)<5,"도착 정박소에서도 동행");
+  }
+});
 
 test("BlackCAT carries the real avatar above the roofs and returns to both stations",t=>{
   const {T,scene,docks,player,yacht,craft,avatar,changes,step,until}=createTrip(t);

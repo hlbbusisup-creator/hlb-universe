@@ -3,6 +3,7 @@
   "use strict";
   const el = id => document.getElementById(id);
   let entry = null;
+  let recordId = null;
   let mediaURL = null;
   let closePDF = null;
   let textReady = false;
@@ -87,12 +88,28 @@
     result.attachments=(Array.isArray(result.attachments) ? result.attachments : []).map(normalizeMedia);
     return result;
   }
+  function matchingEdition(language, media) {
+    const hash = String(media?.sha256 || "").toLowerCase();
+    return /^[a-f0-9]{64}$/.test(hash) && hash === globalThis.HLBProductSourceHashes?.[language]?.toLowerCase()
+      && (media.type || media.kind) === "pdf" && Boolean(mediaLocation({...media,type:"pdf"}));
+  }
+  function productEdition(record) {
+    if (!record) return null;
+    const data = readingEntry(record);
+    if (!data.productPreview) {
+      const language = data.sections.find(part => part.productLanguage)?.productLanguage;
+      return language ? {language, attachment:null} : null;
+    }
+    const language = data.productPreview.productLanguage;
+    const attachments = [data.media,...data.attachments].filter(Boolean);
+    // Use the first published PDF, as the reader does, when indexing the catalog.
+    const source = attachments.find(media => media.type === "pdf" && mediaLocation(media));
+    return matchingEdition(language, source) ? {language, attachment:source.sha256} : null;
+  }
   function configureControls() {
     if (entry.productPreview) {
       const section=entry.productPreview;
-      const hash=String(entry.media?.sha256 || "").toLowerCase();
-      const source=String(globalThis.HLBProductSourceHashes?.[section.productLanguage] || "").toLowerCase();
-      const sameEdition=mediaURL && /^[a-f0-9]{64}$/.test(hash) && hash===source;
+      const sameEdition=mediaURL && matchingEdition(section.productLanguage, entry.media);
       entry.sections=entry.sections.filter(part=>!part.productLanguage);
       if (sameEdition) entry.sections.push(section);
       entry.previewNotice=sameEdition ? "" : "제품별 미리보기가 없는 판본입니다. PDF에서 제품을 확인해 주세요.";
@@ -208,17 +225,35 @@
     for (const label of labels) columns.append(node("span", "", label));
     const list = node("ul", "product-rows");
     list.setAttribute("aria-label", part.heading);
-    const terms = searchText.trim().split(/\s+/).filter(Boolean).map(normalize);
-    for (const [index, product] of products.entries()) {
-      if (terms.length) {
-        const fields = [product.name, product.brand, product.company, product.category, product.description, product.price,
-          ...(product.details || []).map(pair => pair[1])].map(normalize);
-        if (!terms.every(term => fields.some(field => field.includes(term)))) continue;
-      }
+    if (!globalThis.HLBProducts) {
+      const status = node("p", "reading-empty", "제품 목록을 불러오는 중…");
+      status.setAttribute("role", "status"); section.append(status);
+      const active = entry;
+      globalThis.HLBProductLibrary.load().then(() => {
+        if (active === entry && section.isConnected && !el("reader-text").hidden) drawText();
+        else if (active === entry) textReady = false;
+      }).catch(() => {
+        if (active !== entry || !section.isConnected) return;
+        const retry = node("button", "copy-address", "다시 시도"); retry.type = "button";
+        retry.addEventListener("click", drawText);
+        status.replaceChildren("제품 목록을 불러오지 못했습니다. ", retry);
+      });
+      return section;
+    }
+    const filtered = Boolean(searchText.trim());
+    const matches = globalThis.HLBProductLibrary.search(products, searchText);
+    if (filtered) {
+      const reset = node("button","product-reset",english ? "Show all" : "전체 보기");
+      reset.type = "button";
+      reset.addEventListener("click", () => { el("reader-find").value = ""; drawText(); el("reader-find").focus(); });
+      heading.append(reset);
+    }
+    for (const [index, product] of matches.entries()) {
       const item = node("li");
       const button = node("button", "product-row");
       button.type = "button";
       button.setAttribute("aria-label", product.name);
+      button.setAttribute("data-product-id", product.id);
       button.setAttribute("aria-haspopup", "dialog");
       const title = node("span", "product-row-title");
       title.append(node("strong", "", product.name));
@@ -231,14 +266,14 @@
       const arrow = node("span", "product-row-arrow", "›");
       arrow.setAttribute("aria-hidden", "true");
       button.append(title, maker, description, price, arrow);
-      button.addEventListener("click", () => globalThis.HLBProductBook.open(products, index, button, language));
+      button.addEventListener("click", () => globalThis.HLBProductBook.open(matches, index, button, language, {filtered}));
       item.append(button);
       list.append(item);
     }
     const total = products.length, shown = list.childElementCount;
     count.textContent = english
-      ? (terms.length ? shown + " of " + total : total) + " products"
-      : (terms.length ? "검색 " + shown + "개 / 전체 " : "전체 ") + total + "개";
+      ? (filtered ? shown + " of " + total : total) + " products"
+      : (filtered ? "검색 " + shown + "개 / 전체 " : "전체 ") + total + "개";
     if (shown) section.append(columns, list);
     else section.append(node("p", "reading-empty", english ? "No products found." : "일치하는 제품이 없습니다."));
     return section;
@@ -427,12 +462,26 @@
     releaseMedia();
     tableObserver?.disconnect();
     el("panel").classList.remove("wide-tables");
-    entry=null; mediaURL=null; textReady=false;
+    entry=null; recordId=null; mediaURL=null; textReady=false;
     mediaChoices=[];mediaIndex=0;mediaSelect=null;
     el("reader-pane").classList.remove("exhibit-reader");
     el("reader-media").replaceChildren(); el("reader-body").replaceChildren();
   }
-  function open(record,spaceName) {
+  function waitForEdition() {
+    clear();
+    el("reader-meta").textContent = "";
+    el("reader-share").replaceChildren();
+    el("reader-modes").hidden = true;
+    el("reader-find-label").hidden = true;
+    el("reader-media").hidden = true;
+    el("reader-text").hidden = false;
+    const status = node("p","reading-summary","현재 제품 카탈로그 판본을 확인하는 중…");
+    status.setAttribute("role","status");
+    el("reader-body").replaceChildren(status);
+    return status;
+  }
+  function open(record,spaceName,options={}) {
+    recordId=record.id;
     entry=readingEntry(record);
     el("reader-pane").classList.toggle("exhibit-reader", Boolean(entry?.photo));
     mediaChoices=[];
@@ -443,11 +492,16 @@
       seen.add(url.href);mediaChoices.push({media,url});
     }
     el("reader-meta").textContent=[spaceName,record.company,record.type,record.language,record.year].filter(Boolean).join("  ·  ");
-    selectMedia(0);
-    mode(Boolean(mediaURL));
+    const key = choice => choice.media.sha256 || choice.url.href;
+    const selected = options.attachment ? mediaChoices.findIndex(choice => key(choice) === options.attachment) : 0;
+    selectMedia(Math.max(0, selected));
+    el("reader-share").replaceChildren(globalThis.HLBProductLibrary.shareControl(() =>
+      globalThis.HLBProductLibrary.resourceRoute(record.id, mediaChoices.length > 1 ? key(mediaChoices[mediaIndex]) : null)));
+    mode(Boolean(mediaURL) && !options.productList);
+    if (selected < 0 && mediaURL) el("reader-media").prepend(node("p", "media-note", "공유된 첨부가 변경되어 현재 자료를 열었습니다."));
   }
   el("reader-find").addEventListener("input",drawText);
   el("reader-text-mode").addEventListener("click",()=>mode(false));
   el("reader-original-mode").addEventListener("click",()=>mode(true));
-  globalThis.HLBReader={open,clear};
+  globalThis.HLBReader={open,clear,waitForEdition,productEdition,currentId:()=>recordId};
 })();

@@ -23,9 +23,18 @@
     return [...local,...snapshot.resources];
   }
 
+  function getInitialResources() {
+    syncState={status:"bundled",updatedAt:null,count:0};
+    try {
+      const cached=JSON.parse(globalThis.localStorage?.getItem("hlb-catalog-v1") || "null");
+      const resources=mergeSnapshot(cached);
+      syncState={status:"cached",updatedAt:cached.checkedAt,count:cached.resources.length};
+      return resources;
+    } catch { return globalThis.HLBCatalogData.resources; }
+  }
+
   async function loadResources(options={}) {
     let resources=globalThis.HLBCatalogData.resources;
-    syncState={status:"bundled",updatedAt:null,count:0};
     const base=options.baseURI || globalThis.document?.baseURI;
     const fetcher=options.fetcher || globalThis.fetch;
     if (base && fetcher) {
@@ -43,12 +52,7 @@
         syncState={status:"synced",updatedAt:snapshot.checkedAt,count:snapshot.resources.length};
         try { storage?.setItem("hlb-catalog-v1",JSON.stringify(snapshot)); } catch {}
       } catch {
-        syncState={status:"bundled",updatedAt:null,count:0};
-        try {
-          const snapshot=JSON.parse(storage?.getItem("hlb-catalog-v1") || "null");
-          resources=mergeSnapshot(snapshot);
-          syncState={status:"cached",updatedAt:snapshot.checkedAt,count:snapshot.resources.length};
-        } catch {}
+        resources=getInitialResources();
       } finally { clearTimeout(timeout); }
     }
     return resources.map(resource => ({
@@ -94,5 +98,5 @@
     });
   }
 
-  globalThis.HLBCatalog = { spaces, loadResources, searchResources, getSyncState:()=>({...syncState}) };
+  globalThis.HLBCatalog = { spaces, getInitialResources, loadResources, searchResources, getSyncState:()=>({...syncState}) };
 })();

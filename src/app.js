@@ -10,6 +10,7 @@
   const spaces = new Map(catalog.spaces.map(space => [space.id, space]));
   const fields = {space:el("space-filter"), type:el("type-filter"), language:el("language-filter"), year:el("year-filter")};
   let records = [];
+  let catalogReady, catalogSettled = false;
   let world, player, renderer, camera, scene, fireworks, timeOfDay, yacht, historyFilm;
   const historyBook=window.HLBHistoryBook.create(el("history-pane"));
   let station = null, destination = null, localCollection = "";
@@ -21,6 +22,28 @@
   const readingStops = [];
   const cafeCounterRadius = 1.8;
   const archiveSpaces = new Set();
+  const guide = window.HLBLupeGuide.create({
+    space: id => bySpace.get(id),
+    nearest: () => {
+      if (!player) return null;
+      const p = player.getPosition();
+      let nearest = null;
+      for (const hall of bySpace.values()) {
+        if (hall.interior && world.containsPoint(hall.interior,p)) return hall;
+        if (!nearest || distance(p,hall.station) < distance(p,nearest.station)) nearest = hall;
+      }
+      return nearest;
+    },
+    walk: hall => walkToStop(hall, false, true),
+    stop: () => { interruptWalk(); player?.setActive(false); player?.setActive(true); },
+    riding: () => Boolean(yacht?.getState().busy),
+    available: () => Boolean(player) && !document.hidden && !dialog.open && !portalDestination && !historyFilm?.isWatching()
+  });
+  function interruptWalk() {
+    destination = null;
+    guide.interrupt();
+    player?.setGuideTarget(null);
+  }
   const cafeMenu = [
     {item:"coffee", name:"커피", action:"커피 마시기", progress:"마시는 중", received:"커피를 받았어요.", button:el("drink-coffee")},
     {item:"bread", name:"빵", action:"빵 먹기", progress:"먹는 중", received:"빵을 받았어요.", button:el("eat-bread")}
@@ -145,12 +168,13 @@
     if (portalDestination || historyFilm?.isWatching()) return;
     if (yacht?.getState().busy && yacht.getState().phase !== "walking") return;
     yacht?.cancelApproach();
+    guide.dismiss();
     setSoundPanel(false);
     player?.setActive(false);
     historyFilm?.setPresent(false);
     if(name!=="history") historyBook.close();
     resetStick();
-    destination = null;
+    interruptWalk();
     el("travel").hidden = true;
     for (const pane of ["guide", "gallery", "cafe", "library", "help", "reader", "warp", "history", "yacht"]) el(pane + "-pane").hidden = pane !== name;
     const reading=name==="reader";
@@ -178,30 +202,48 @@
     resetFilters();
     const space = spaces.get(spaceId);
     fields.space.hidden = Boolean(space);
-    el("library-desc").textContent = space ? space.description : "HLB그룹의 자료를 찾아 이곳에서 열람하세요.";
-    openPane("library", space ? space.title + " 열람대" : "자료 검색");
+    el("library-desc").textContent = space ? space.description : "HLB그룹의 자료와 개별 제품을 검색하세요.";
+    openPane("library", space ? space.title + " 열람대" : "자료·제품 통합 검색");
     renderRecords();
   }
 
-  function openRecord(record, row = null) {
+  function openRecord(record, row = null, options = {}) {
     returnRow = row;
     listScroll = dialog.scrollTop;
     openPane("reader", record.title);
     el("reader-back").textContent = row ? "← 자료 목록" : "← 전시장";
-    window.HLBReader.open(record, spaces.get(record.space).title);
+    if (!catalogSettled && (record.id === "products-ko" || record.id === "products-en")) {
+      const pending = window.HLBReader.waitForEdition();
+      catalogReady.then(() => {
+        if (!dialog.open || el("reader-pane").hidden || !pending.isConnected) return;
+        const current = records.find(item => item.id === record.id);
+        if (current) {
+          el("panel-title").textContent = current.title;
+          window.HLBReader.open(current, spaces.get(current.space).title, options);
+        } else {
+          openLibrary(); el("library-desc").textContent = "이 제품 카탈로그는 현재 자료 목록에서 내려갔습니다.";
+        }
+      });
+      return;
+    }
+    window.HLBReader.open(record, spaces.get(record.space).title, options);
   }
 
-  function walkToStop(stop, inspectOnArrival = false) {
-    if (yacht?.getState().busy) return;
+  function walkToStop(stop, inspectOnArrival = false, withLupe = false) {
+    if (yacht?.getState().busy) return false;
+    if (!withLupe) interruptWalk();
     if (dialog.open) dialog.close();
     player.setActive(true);
     if (player.walkTo(stop.station)) {
-      destination = {...stop, inspectOnArrival};
+      destination = {...stop, inspectOnArrival, withLupe};
+      if (withLupe) player.setGuideTarget(stop.station);
       el("announcement").textContent = stop.title + "까지 이동합니다.";
     } else {
       el("announcement").textContent = "길을 찾지 못했습니다. 캐릭터를 직접 움직여 보세요.";
+      return false;
     }
     updateStatus();
+    return true;
   }
 
   function openGallery() {
@@ -249,9 +291,10 @@
   }
   function beginHistoryWatch() {
     if(!historyFilm || dialog.open || !inHistoryHall() || yacht?.getState().busy)return;
-    destination=null;resetStick();player.setActive(false);
+    interruptWalk();guide.dismiss();resetStick();player.setActive(false);
     historyFilm.setPresent(true);
     if(!historyFilm.beginWatch()){player.setActive(true);return;}
+    player.setLupeVisible(false);
     music.setSuspended(true);
     el("experience").classList.add("history-watching");
     el("history-watch").hidden=false;
@@ -259,6 +302,7 @@
   }
   function endHistoryWatch() {
     if(!historyFilm?.endWatch())return;
+    player.setLupeVisible(true);
     music.setSuspended(false);
     el("experience").classList.remove("history-watching");el("history-watch").hidden=true;
     player.setActive(!document.hidden && !dialog.open);updateStatus();resumeRendering();canvas.focus({preventScroll:true});
@@ -329,11 +373,14 @@
   }
   el("leave-counter").addEventListener("click", () => dialog.close());
 
+  let libraryRequest = 0;
   function renderRecords() {
-    const results = catalog.searchResources(records, {
+    const request = ++libraryRequest;
+    const filters = {
       query: el("query").value, space: localCollection || fields.space.value,
       type:fields.type.value, language:fields.language.value, year:fields.year.value
-    });
+    };
+    const results = catalog.searchResources(records, filters);
     const rows = document.createDocumentFragment();
     for (const record of results) {
       const row = make("li");
@@ -350,15 +397,127 @@
     el("resources").replaceChildren(rows);
     el("count").textContent = "자료 " + results.length + "건";
     el("empty").hidden = results.length !== 0;
+    el("product-results").hidden = true;
+    el("resource-results-title").hidden = true;
+    el("found-products").replaceChildren();
+    if (!filters.query.trim()) return;
+    if (!catalogSettled) {
+      el("count").textContent += " · 제품 판본 확인 중…";
+      el("empty").hidden = true;
+      return;
+    }
+    const editions = catalog.searchResources(records, {...filters, query:""})
+      .filter(record => record.id === "products-ko" || record.id === "products-en")
+      .map(record => window.HLBReader.productEdition(record)).filter(Boolean);
+    if (!editions.length) return;
+    function showProducts(data) {
+      if (request !== libraryRequest || !dialog.open || el("library-pane").hidden) return;
+      const rows = document.createDocumentFragment();
+      let count = 0;
+      for (const {language} of editions) {
+        const matches = window.HLBProductLibrary.search(data[language], filters.query);
+        for (const [index, product] of matches.entries()) {
+          const row = make("li");
+          const button = make("button", "resource-link"); button.type = "button";
+          button.dataset.productId = product.id;
+          button.setAttribute("aria-haspopup", "dialog");
+          const copy = make("span", "resource-copy");
+          copy.append(make("strong", "", product.name), make("small", "", [...new Set([
+            product.brand, product.company, language === "ko" ? "국문" : "영문"
+          ].filter(Boolean))].join(" · ")));
+          button.append(copy, icon("book"));
+          button.addEventListener("click", () => window.HLBProductBook.open(matches, index, button, language,
+            {filtered:true, backLabel:language === "en" ? "Search results" : "검색 결과"}));
+          row.append(button); rows.append(row);
+        }
+        count += matches.length;
+      }
+      el("found-products").replaceChildren(rows);
+      el("product-results").hidden = !count;
+      el("resource-results-title").hidden = !count || !results.length;
+      el("empty").hidden = Boolean(count || results.length);
+      el("count").textContent = "제품 " + count + "개 · 자료 " + results.length + "건";
+    }
+    if (window.HLBProducts) { showProducts(window.HLBProducts); return; }
+    el("empty").hidden = true;
+    el("count").textContent += " · 제품 검색 중…";
+    window.HLBProductLibrary.load().then(showProducts).catch(() => {
+      if (request !== libraryRequest || !dialog.open || el("library-pane").hidden) return;
+      const retry = make("button", "product-reset", "제품 검색 다시 시도"); retry.type = "button";
+      retry.addEventListener("click", renderRecords);
+      el("count").replaceChildren("자료 " + results.length + "건 · ", retry);
+    });
   }
 
-  function prepareLibrary() {
+  function refreshOpenLibrary() {
+    if (!dialog.open) return;
+    const currentId = window.HLBReader.currentId();
+    const bookLanguage = window.HLBProductBook.currentLanguage();
+    if (bookLanguage) {
+      const record = records.find(item => item.id === "products-" + bookLanguage);
+      if (window.HLBReader.productEdition(record)) return;
+      window.HLBProductBook.close();
+      if (record) { openRecord(record); return; }
+    }
+    if (!el("library-pane").hidden) { renderRecords(); return; }
+    if (!el("reader-pane").hidden && currentId) {
+      const record = records.find(item => item.id === currentId);
+      if (!record) { window.HLBReader.clear(); openLibrary(); return; }
+      if (currentId.startsWith("products-") && !window.HLBReader.productEdition(record)) openRecord(record,returnRow);
+    }
+  }
+
+  async function openSharedLink() {
+    const hash = location.hash;
+    const route = window.HLBProductLibrary.readRoute(hash);
+    if (!route) return false;
+    if (!catalogSettled) {
+      await catalogReady;
+      if (location.hash !== hash) return false;
+    }
+    const id = route.type === "product" ? "products-" + route.language : route.id;
+    const record = records.find(item => item.id === id);
+    window.HLBProductBook.close();
+    if (!record) {
+      openLibrary(); el("library-desc").textContent = "공유된 자료가 목록에서 내려갔습니다. 다른 자료를 검색해 주세요.";
+      return true;
+    }
+    if (route.type === "resource") { openRecord(record, null, {attachment:route.attachment}); return true; }
+    const edition = window.HLBReader.productEdition(record);
+    if (!edition) { openRecord(record); return true; }
+    openRecord(record, null, {attachment:edition.attachment, productList:true});
+    try {
+      const data = await window.HLBProductLibrary.load();
+      if (location.hash !== hash || !dialog.open || el("reader-pane").hidden || window.HLBReader.currentId() !== id) return true;
+      const current = records.find(item => item.id === id);
+      if (!window.HLBReader.productEdition(current)) { refreshOpenLibrary(); return true; }
+      const products = data[route.language];
+      const product = window.HLBProductLibrary.resolveProduct(products, route);
+      if (product) {
+        const opener = Array.from(el("reader-body").querySelectorAll(".product-row")).find(button => button.dataset.productId === product.id);
+        opener?.scrollIntoView({block:"nearest"});
+        window.HLBProductBook.open(products, products.indexOf(product), opener || el("reader-text-mode"), route.language);
+      } else {
+        el("reader-body").prepend(make("p","media-note","공유된 제품이 현재 도감에 없습니다. 아래 목록에서 다른 제품을 찾아보세요."));
+      }
+    } catch {
+      // The directory displays its own retry control when the data file is unavailable.
+    }
+    return true;
+  }
+  window.addEventListener("hashchange", () => { if (window.HLBProductLibrary.readRoute(location.hash)) openSharedLink(); });
+
+  function refreshLibraryFilters() {
+    archiveSpaces.clear();
+    for (const record of records) archiveSpaces.add(record.space);
     const sync=catalog.getSyncState();
     el("catalog-status").textContent=sync.updatedAt
       ? "노션 자료 반영 · "+new Intl.DateTimeFormat("ko-KR",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Seoul"}).format(new Date(sync.updatedAt))+(sync.status==="cached"?" · 저장된 자료":"")
       : "저장된 전시 자료를 표시하고 있습니다.";
     const defaults = {space:"모든 공간",type:"모든 유형",language:"모든 언어",year:"모든 연도"};
     for (const [name, select] of Object.entries(fields)) {
+      const selected = select.value;
+      select.replaceChildren();
       select.add(new Option(defaults[name], ""));
       if (name === "space") {
         for (const space of spaces.values()) if (archiveSpaces.has(space.id)) select.add(new Option(space.title, space.id));
@@ -368,8 +527,13 @@
         else values.sort((a,b) => a.localeCompare(b,"ko"));
         for (const value of values) select.add(new Option(value + (name === "year" ? "년" : ""), String(value)));
       }
-      select.addEventListener("change", renderRecords);
+      if (selected && [...select.options].some(option => option.value === selected)) select.value = selected;
     }
+  }
+
+  function prepareLibrary() {
+    refreshLibraryFilters();
+    for (const select of Object.values(fields)) select.addEventListener("change", renderRecords);
     el("query").addEventListener("input", renderRecords);
     el("clear-filters").addEventListener("click", () => { resetFilters(); renderRecords(); el("query").focus(); });
     for (const space of spaces.values()) {
@@ -432,7 +596,10 @@
     if (destination && distance(p, destination.station) < .12) {
       if (destination.lookAt) player.facePoint(destination.lookAt);
       const arrived = destination.inspectOnArrival ? destination : null;
+      const guided = destination.withLupe;
       destination = null;
+      player.setGuideTarget(null);
+      if (guided) guide.arrived();
       if (arrived?.spaceId === "cafe") openCafe();
       else if (arrived?.id === "history-book") openHistoryBook();
       else if (arrived?.id === "history-film") beginHistoryWatch();
@@ -460,6 +627,7 @@
     el("travel").hidden = !destination && rideState.phase!=="walking";
     hasWalked ||= distance(p,world.spawn) > 2;
     el("hint").hidden = Boolean(station || destination || hasWalked || dock!==null || busy);
+    guide.tick();
   }
 
   function renderFrame(now) {
@@ -512,7 +680,7 @@
     if (yacht?.getState().busy && yacht.getState().phase!=="walking") return;
     yacht?.cancelApproach();
     event.preventDefault();
-    destination=null;
+    interruptWalk();
     stickPointer=event.pointerId; stick.setPointerCapture(stickPointer); readStick(event);
   });
   stick.addEventListener("pointermove",event=>{ if(event.pointerId===stickPointer) readStick(event); });
@@ -522,11 +690,13 @@
   el("gallery-guide").addEventListener("click",openGallery);
   el("open-search").addEventListener("click",()=>openLibrary());
   el("open-help").addEventListener("click",()=>openPane("help","조작 방법"));
+  el("release-version").textContent = "v" + window.HLBRelease.version;
+  for (const change of window.HLBRelease.changes) el("release-changes").append(make("li","",change));
   el("close-panel").addEventListener("click",()=>dialog.close());
   function backToList() {
     if (!returnRow) { dialog.close(); return; }
     window.HLBReader.clear();
-    openPane("library",localCollection ? spaces.get(localCollection).title+" 열람대" : "자료 검색");
+    openPane("library",localCollection ? spaces.get(localCollection).title+" 열람대" : "자료·제품 통합 검색");
     dialog.scrollTop=listScroll;
     returnRow?.focus({preventScroll:true});
     returnRow=null;
@@ -600,20 +770,21 @@
   }
   el("cancel-travel").addEventListener("click",()=>{
     if (portalDestination) { finishPortalJourney("포탈 이동을 취소했습니다."); return; }
-    destination=null;
+    interruptWalk();
     yacht?.cancelApproach();
     player?.setActive(false); player?.setActive(true);
     updateStatus(); canvas.focus({preventScroll:true});
   });
   document.addEventListener("visibilitychange",()=>{
     if(document.hidden && portalDestination && !warpTravel.isOpen()) finishPortalJourney("포탈 이동을 취소했습니다.");
-    if(document.hidden) { cancelAnimationFrame(frame); frame=0; destination=null; yacht?.cancelApproach(); resetStick(); player?.setActive(false); }
+    if(document.hidden) { cancelAnimationFrame(frame); frame=0; interruptWalk(); guide.dismiss(); yacht?.cancelApproach(); resetStick(); player?.setActive(false); }
     else { player?.setActive(!dialog.open && !warpTravel.isOpen() && !historyFilm?.isWatching()); resumeRendering(); }
     historyFilm?.setPresent(inHistoryHall() && !document.hidden && !dialog.open);
   });
   el("retry").addEventListener("click",()=>location.reload());
   el("fallback-search").addEventListener("click",()=>openLibrary());
   function showError(message) {
+    guide.disable();
     if (portalDestination) {
       if (!warpTravel.close()) finishPortalJourney("포탈 이동이 중단되었습니다.");
     }
@@ -637,21 +808,44 @@
     player?.setActive(false);
   }
 
-  async function start() {
-    records=await catalog.loadResources();
-    for (const record of records) archiveSpaces.add(record.space);
-    prepareLibrary();
+  function openInitialLink() {
+    if (/^#\/(product|resource)\//.test(location.hash)) { openSharedLink(); return; }
     if (location.hash === "#/products") {
       openLibrary("product");
       el("resources").querySelector('[data-record-id="products-ko"]')?.click();
     }
+    if (location.hash.startsWith("#/library")) {
+      const params=new URLSearchParams(location.hash.split("?")[1]);
+      openLibrary(spaces.has(params.get("space")) ? params.get("space") : "");
+      el("query").value=params.get("query") || "";
+      for(const [name,select] of Object.entries(fields)) if(params.has(name)) select.value=params.get(name);
+      renderRecords();
+    }
+  }
+
+  async function start() {
+    records=catalog.getInitialResources();
+    prepareLibrary();
+    const initialHash=location.hash;
+    catalogReady=catalog.loadResources().then(latest=>{
+      const previousRecords=records;
+      records=latest;
+      catalogSettled=true;
+      refreshLibraryFilters();
+      for (const stop of readingStops) if (stop.record) stop.record=records.find(record=>record.id===stop.id);
+      refreshOpenLibrary(previousRecords);
+      if (initialHash && location.hash===initialHash) openInitialLink();
+    }).catch(error=>{
+      catalogSettled=true;
+      console.error("전시 자료를 갱신하지 못했습니다.",error);
+    });
     const T=window.THREE;
     if (!T || !window.HLBWorld3D || !window.HLBPlayer3D) throw new Error("missing 3D resources");
     try {
       renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:"high-performance"});
     } catch (error) {
       showError("브라우저의 그래픽 가속을 켜고 다시 열어주세요. 자료 검색도 이용할 수 있습니다.");
-      if (visitId === "cologne") openLibrary(visitId);
+      if (visitId === "cologne" && !initialHash) openLibrary(visitId);
       console.error(error); return;
     }
     renderer.outputColorSpace=T.SRGBColorSpace;
@@ -695,12 +889,13 @@
     if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 포탈"});
     const arrival = ["cologne","cafe","history"].includes(visitId) ? bySpace.get(visitId) : ["portal","warp"].includes(visitId) ? world.warpGate : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
+      if (exhibit?.id === "lupe") { guide.menu(); return; }
       yacht?.cancelApproach();
-      destination=null;
+      interruptWalk();
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
       if (stop) walkToStop(stop, true);
     },action=>{
-      if (action === "move") { destination=null;yacht?.cancelApproach(); }
+      if (action === "move") { interruptWalk();yacht?.cancelApproach(); }
       else if (action === "interact") interact();
       else if (action === "eat-bread") consumeCafeItem("bread");
       else if (action === "drink-coffee") consumeCafeItem("coffee");
@@ -731,15 +926,8 @@
     });
     el("loading").hidden=true;
     el("play-actions").hidden=false;
+    guide.enter(!initialHash);
     updateStatus();
-    // Retain existing bookmarks to a specific collection.
-    if (location.hash.startsWith("#/library")) {
-      const params=new URLSearchParams(location.hash.split("?")[1]);
-      openLibrary(spaces.has(params.get("space")) ? params.get("space") : "");
-      el("query").value=params.get("query") || "";
-      for(const [name,select] of Object.entries(fields)) if(params.has(name)) select.value=params.get(name);
-      renderRecords();
-    }
   }
   start().catch(error=>{
     console.error("HLB 유니버스 초기화 실패",error);

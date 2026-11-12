@@ -10,19 +10,20 @@ import "../src/reading-data.js";
 import "../src/report-reading-data.js";
 import "../src/cologne-reading.js";
 import "../src/product-data.js";
+import "../src/product-source-hashes.js";
 
 const documents={...globalThis.HLBReadingData,...globalThis.HLBReportReadingData,...globalThis.HLBCologneReadingData};
 const root=new URL("../",import.meta.url);
 
-test("제품 찾아보기에는 국·영문 원본의 384개 품목과 해당 사진 파일이 연결된다", async () => {
+test("제품 찾아보기에는 국·영문 검수판의 전체 품목과 해당 사진 파일이 연결된다", async () => {
   const pictures = new Set();
-  for (const [language, lastPage] of [["ko", 17], ["en", 16]]) {
+  for (const [language, edition] of Object.entries(globalThis.HLBProductEditions)) {
     const items = globalThis.HLBProducts[language];
-    assert.equal(items.length, 384);
+    assert.equal(items.length, edition.products);
     assert.equal(new Set(items.map(item => item.id)).size, items.length);
-    assert.equal(items[0].page, 2);
-    assert.equal(items.at(-1).page, lastPage);
-    assert.equal(items.filter(item => item.images.length).length, 352, language + " 원본 사진 보유 품목");
+    const pages = items.map(item => item.page);
+    assert.deepEqual(pages, [...pages].sort((a,b) => a-b), language + " 원본 쪽 순서");
+    assert.equal(items.filter(item => item.images.length).length, edition.withPhotos, language + " 원본 사진 보유 품목");
     for (const item of items) {
       assert.ok(item.name.trim(), item.id);
       for (const photo of item.images) {

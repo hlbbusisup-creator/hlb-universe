@@ -33,6 +33,9 @@
   let index = 0;
   let trigger = null;
   let words = labels.ko;
+  let bookLanguage = "ko";
+  let resultSet = false;
+  let share = null;
   let leaf = null;
 
   function element(tag, className, value) {
@@ -163,7 +166,11 @@
     const photo = photoPage(product);
     const information = informationPage(product);
     spread.replaceChildren(photo, information);
-    counter.textContent = (index + 1) + " / " + products.length;
+    counter.textContent = (resultSet ? (bookLanguage === "en" ? "Results · " : "검색 결과 · ") : "") + (index + 1) + " / " + products.length;
+    share?.remove();
+    share = globalThis.HLBProductLibrary.shareControl(() => dialog.open && products[index]
+      ? globalThis.HLBProductLibrary.productRoute(products[index], bookLanguage) : null, bookLanguage === "en");
+    toolbar.insertBefore(share, counter);
     announce.textContent = product.name + ", " + counter.textContent;
     previous.disabled = index === 0;
     next.disabled = index === products.length - 1;
@@ -185,14 +192,16 @@
     if (focused === next && next.disabled) previous.focus({preventScroll: true});
   }
 
-  function open(items, selectedIndex, opener, language = "ko") {
+  function open(items, selectedIndex, opener, language = "ko", options = {}) {
     if (!Array.isArray(items) || !Number.isInteger(selectedIndex) || !items[selectedIndex]) return;
     products = items;
     trigger = opener || document.activeElement;
     words = labels[language] || labels.ko;
+    bookLanguage = language;
+    resultSet = Boolean(options.filtered);
     dialog.lang = words === labels.en ? "en" : "ko";
     dialog.setAttribute("aria-label", words.title);
-    for (const [button, label] of [[back, words.list], [previous, words.previous], [next, words.next]]) {
+    for (const [button, label] of [[back, options.backLabel || words.list], [previous, words.previous], [next, words.next]]) {
       button.lastElementChild.textContent = label;
       button.setAttribute("aria-label", label);
       button.title = label;
@@ -241,5 +250,5 @@
   board.append(spread);
   stage.append(previous, board, next);
   dialog.append(toolbar, stage, announce);
-  globalThis.HLBProductBook = {open, close};
+  globalThis.HLBProductBook = {open, close, currentLanguage:() => dialog.open ? bookLanguage : null};
 })();

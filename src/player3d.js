@@ -595,6 +595,8 @@
   function create(scene,camera,canvas,world,arrival = null,onScenePick = null,onAction = null) {
     const T = globalThis.THREE;
     const visitor = createVisitor(T,scene);
+    const lupe = globalThis.HLBLupe3D?.create(T,scene);
+    let guideTarget=null, showLupe=true;
     let position = {...(arrival?.station || world.spawn)};
     const groundAt=p=>world.groundHeight?.(p) ?? 0;
     visitor.root.position.set(position.x,groundAt(position)+(arrival ? 0.086 : 0.025),position.z);
@@ -636,6 +638,28 @@
     function volumeDistance(inputRay,body) {
       const testRay=body.inverse ? volumeRay.copy(inputRay).applyMatrix4(body.inverse) : inputRay;
       return testRay.intersectBox(body.box,volumeHit) ? testRay.origin.distanceTo(volumeHit) : Infinity;
+    }
+    const orbitRay=new T.Ray(), orbitDirection=new T.Vector3(), nearbyWalls=[];
+    let lastWallX=Infinity,lastWallZ=Infinity;
+    function limitOrbit(anchor,goal) {
+      // Reuse the broad-phase list while in the same three-metre patch.
+      const cellX=Math.floor(anchor.x/3),cellZ=Math.floor(anchor.z/3);
+      if(lastWallX!==cellX || lastWallZ!==cellZ) {
+        nearbyWalls.length=0;
+        const physical=world.cameraColliders || world.colliders;
+        for(let i=0;i<physical.length;i++) {
+          const b=physical[i];
+          if(b.maxX>=cellX*3-2 && b.minX<=(cellX+1)*3+2 &&
+             b.maxZ>=cellZ*3-2 && b.minZ<=(cellZ+1)*3+2)nearbyWalls.push(cameraBoxes[i]);
+        }
+        lastWallX=cellX;lastWallZ=cellZ;
+      }
+      orbitDirection.subVectors(goal,anchor);
+      let limit=orbitDirection.length();
+      if(limit<.001)return;
+      orbitRay.set(anchor,orbitDirection.normalize());
+      for(const wall of nearbyWalls)limit=Math.min(limit,volumeDistance(orbitRay,wall)-.21);
+      goal.copy(anchor).addScaledVector(orbitDirection,Math.max(0,limit));
     }
     const ray = new T.Ray(), target = new T.Vector3(), direction = new T.Vector3();
     const lookAt = new T.Vector3();
@@ -849,6 +873,7 @@
       if (!portal) return false;
       const {origin}=portal;
       portal=null;
+      if(lupe)lupe.root.visible=showLupe;
       release();
       position=origin.position;
       visitor.root.position.copy(origin.body);
@@ -875,10 +900,12 @@
       visitor.root.position.copy(ride.start);
       visitor.root.rotation.set(0,0,0);
       visitor.root.visible=true;
+      lupe?.board(visitor.root);
       return true;
     }
     function endRide(point, facing) {
       if (!ride) return false;
+      lupe?.leave();
       scene.add(visitor.root);
       ride=null;
       position={x:point.x,z:point.z};
@@ -896,6 +923,7 @@
       visitor.root.getWorldPosition(ridePosition);
       position={x:ridePosition.x,z:ridePosition.z};
       visitor.animate(active ? dt : 0,ride.boarding<.75 ? dt*.7 : 0,reducedMotion.matches,0);
+      lupe?.ride(dt,reducedMotion.matches);
       const portrait=camera.aspect<1;
       const fieldOfView=portrait ? 72 : baseFov;
       if (camera.fov!==fieldOfView) { camera.fov=fieldOfView;camera.updateProjectionMatrix(); }
@@ -913,6 +941,7 @@
       dt=clamp(Number(dt)||0,0,0.07);
       if (ride) { updateRide(dt); return position; }
       if (portal && !portal.path.length) {
+        if(lupe)lupe.root.visible=false;
         if (active && !document.hidden) updatePortalTouch(dt);
         return position;
       }
@@ -961,6 +990,7 @@
         if (!tastingPose) cafeTurn=null;
       }
       updateCamera(dt);
+      if(lupe && showLupe)lupe.fly(dt,visitor.root,camera,guideTarget && (route[0] || guideTarget),reducedMotion.matches,limitOrbit);
       return position;
     }
     function editing(event) {
@@ -993,6 +1023,18 @@
       ndc.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);
       camera.updateMatrixWorld();
       raycaster.setFromCamera(ndc,camera);
+      if(onScenePick && lupe?.root.visible) {
+        const center=lupe.root.getWorldPosition(lupePickCenter);
+        // Keep a fingertip-sized target when the model shrinks on the yacht.
+        const depth=raycaster.ray.origin.distanceTo(center);
+        const worldPerPixel=2*depth*Math.tan(T.MathUtils.degToRad(camera.fov/2))/Math.max(1,rect.height);
+        const hitRadius=Math.max(.48*lupe.root.scale.x,Math.min(.80,worldPerPixel*15));
+        if(raycaster.ray.distanceSqToPoint(center)<hitRadius*hitRadius) {
+          onScenePick({id:"lupe"});
+          return;
+        }
+      }
+      if(ride)return;
       const room = roomAt(position)?.space;
       if (onScenePick) {
         let picked = null, closest = Infinity;
@@ -1022,7 +1064,7 @@
         floorHit.z>=world.bounds.minZ && floorHit.z<=world.bounds.maxZ) walkTo(floorHit);
     }
     function pointerDown(event) {
-      if (!active || ride || portal || (event.pointerType==="mouse" && event.button!==0)) return;
+      if (!active || portal || (event.pointerType==="mouse" && event.button!==0)) return;
       pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,drag:false});
       canvas.setPointerCapture(event.pointerId);
       canvas.focus({preventScroll:true});
@@ -1039,11 +1081,12 @@
       p.x=event.clientX; p.y=event.clientY;
       if (pointers.size>=2) {
         const [a,b]=pointers.values(), gap=Math.hypot(a.x-b.x,a.y-b.y);
-        if (gap>2 && pinchGap>2) changeZoom(pinchGap/gap);
+        if (!ride && gap>2 && pinchGap>2) changeZoom(pinchGap/gap);
         pinchGap=gap; return;
       }
       if (!p.drag && Math.hypot(p.x-p.startX,p.y-p.startY)<5) return;
       p.drag=true; canvas.classList.add("camera-dragging");
+      if(ride)return;
       yaw-=dx*0.006;
       pitch=clamp(pitch+dy*0.004,-0.10,0.82);
     }
@@ -1076,8 +1119,11 @@
     canvas.addEventListener("pointermove",pointerMove,options);
     for (const name of ["pointerup","pointercancel","lostpointercapture"]) canvas.addEventListener(name,pointerUp,options);
     canvas.addEventListener("wheel",wheel,{signal:listeners.signal,passive:false});
+    const lupePickCenter=new T.Vector3();
     resetView();
+    if(lupe)lupe.fly(0,visitor.root,camera,null,reducedMotion.matches,limitOrbit);
     function dispose() {
+      lupe?.dispose();
       release(); listeners.abort(); visitor.dispose();
       marker.removeFromParent(); marker.geometry.dispose(); markerMaterial.dispose();
     }
@@ -1089,6 +1135,9 @@
       return {x:position.x, y:visitor.root.position.y + jumpHeight, z:position.z};
     }
     return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose,
+      setGuideTarget(point){ guideTarget=point || null; },
+      setLupeVisible(value){ showLupe=Boolean(value); if(lupe)lupe.root.visible=showLupe && !portal?.shot; },
+      getLupePosition(){ return lupe?.root.visible ? lupe.root.getWorldPosition(new T.Vector3()) : null; },
       beginRide,endRide,isRiding:()=>Boolean(ride),
       beginPortalTouch,endPortalTouch,isPortalTouching:()=>Boolean(portal),
       getCafeState:visitor.getCafeState, orderCafeItem:visitor.orderCafeItem,consumeCafeItem};

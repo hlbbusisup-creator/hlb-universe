@@ -75,7 +75,13 @@ npm run sync:notion
 
 동기화는 전체 자료를 수집·검증한 다음 목록을 교체합니다. 수집이나 다운로드에 실패하면 마지막 정상 목록과 PDF를 유지하고 워크플로 로그에 실패를 남깁니다. 공개 페이지가 비공개로 바뀌거나 Notion의 공개 게시 API 형식이 변경되면 `scripts/sync-notion.mjs`의 수집 어댑터 또는 `config/notion-sync.json` 설정을 점검해야 합니다.
 
-기존 384개 제품의 책 형태 미리보기는 연결된 카탈로그 PDF의 SHA-256이 기존 추출 원본과 같을 때 유지합니다. PDF가 바뀌면 최신 PDF를 우선 제공하며, 제품명·사진·설명을 담은 책 데이터의 재추출은 별도 갱신 작업입니다.
+### 제품 도감 판본 검수
+
+국문·영문 도감은 각각 검수한 PDF와 함께 관리합니다. 새 PDF가 동기화되면 해당 언어의 자료는 최신 PDF로 열립니다. Actions 실행 요약에는 원본 판본과 검수판, 품목 수, 사진·설명·가격이 있는 품목 수가 표시됩니다. 새 판본을 배포하면 별도의 `product-book-review` 작업이 실패 상태로 담당자에게 조치 필요를 표시합니다. `deploy` 결과에서 사이트 공개 여부를 별도로 확인할 수 있습니다.
+
+1. 최신 PDF와 대조하여 해당 언어의 제품명·회사·가격·설명·원본 쪽을 `src/product-data.js`에 반영하고 관련 사진을 `assets/products/`에 갱신합니다. 원본에 사진이나 가격이 없는 제품은 비워 둡니다.
+2. `npm run review:products`를 실행해 실제 제품 수와 사진·설명·가격의 수를 원본과 대조합니다. 수정된 데이터의 새 수치와 지문은 기존 검수 기록과 달라도 먼저 출력됩니다.
+3. 원본 대조를 마치면 출력된 해당 언어의 PDF 지문(`source`), 데이터·사진 지문(`preview`), 품목 수치를 `src/product-source-hashes.js`에 입력합니다. 데이터, 사진과 검수 기록을 같은 커밋으로 반영합니다. `npm run review:products`와 `npm test`가 통과하면 새 도감이 해당 PDF와 함께 공개됩니다.
 
 공개 GitHub 저장소에 60일 동안 활동이 없으면 예약 워크플로가 자동으로 비활성화될 수 있습니다. 자동 확인이 멈추면 Actions에서 활성화 상태와 최근 실행 결과를 확인하세요. [GitHub 예약 실행 안내](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 
@@ -122,5 +128,7 @@ npm test
 3. **Actions → Deploy HLB Universe to GitHub Pages → Run workflow**에서 `main`을 선택해 실행합니다. `build`와 `deploy`가 성공하면 **Settings → Pages → Visit site**에서 공개 주소를 확인할 수 있습니다.
 
 배포 후에는 GitHub 로그인 없이 [HLB 유니버스](https://hlbbusisup-creator.github.io/hlb-universe/)와 [에데꼬론 상품관](https://hlbbusisup-creator.github.io/hlb-universe/?visit=cologne)에 접속할 수 있습니다.
+
+도움말의 버전과 변경 사항은 `src/release-info.js`에서 관리합니다. 버전을 올릴 때는 `package.json`도 같은 번호로 변경하세요. 공개 파일에 기록된 `release.json`의 버전과 커밋을 배포 직후 실제 사이트에서 대조합니다. 버전 또는 커밋이 다르면 다음 정기 실행에서도 재배포를 시도합니다.
 
 화면이나 로컬 전시 자료를 수정한 뒤 VS Code에서 커밋하고 **변경 내용 동기화**를 누르면 `main`에 올린 버전이 같은 주소에 반영됩니다. 푸시는 현재 저장소 내용으로 검사·배포하며, Notion 새 자료 확인은 위의 예약 실행 또는 **Run workflow**로 수행합니다. 배포 워크플로는 `npm test`와 `npm run build`를 실행하고 `dist/site`에 담긴 화면과 전시 자료를 배포합니다. [GitHub Pages 배포 설정 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)

@@ -20,8 +20,12 @@ jobs:
       pages: read
     outputs:
       publish: ${{ steps.changes.outputs.publish }}
+      commit: ${{ steps.revision.outputs.commit }}
+      review_pending: ${{ steps.review.outputs.pending }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
@@ -29,27 +33,29 @@ jobs:
         if: github.event_name != 'push'
         timeout-minutes: 20
         run: npm run sync:notion
+      - name: Compare product books with the latest PDFs
+        id: review
+        run: npm run review:products
+      - uses: actions/configure-pages@v5
+        id: pages
       - name: Check for changed publications
         id: changes
+        env:
+          PAGE_URL: ${{ steps.pages.outputs.base_url }}
         shell: bash
         run: |
+          changed=false
+          publish=true
           if [ -n "$(git status --porcelain -- assets/reading/notion/)" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          elif [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "publish=false" >> "$GITHUB_OUTPUT"
+            changed=true
+          elif [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(node scripts/release.mjs matches "$PAGE_URL")" = "true" ]; then
+            publish=false
           fi
-      - uses: actions/configure-pages@v5
-        if: steps.changes.outputs.publish == 'true'
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
       - run: npm test
         if: steps.changes.outputs.publish == 'true'
-      - run: npm run build
-        if: steps.changes.outputs.publish == 'true'
-      - name: Save verified Notion snapshot
+      - name: Record verified Notion snapshot locally before stamping the site
         if: steps.changes.outputs.changed == 'true'
         shell: bash
         run: |
@@ -57,23 +63,55 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- assets/reading/notion/
           git commit -m "Sync public Notion InfoBank"
-          git push origin HEAD:main
+      - id: revision
+        if: steps.changes.outputs.publish == 'true'
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - run: npm run build
+        if: steps.changes.outputs.publish == 'true'
       - uses: actions/upload-pages-artifact@v4
         if: steps.changes.outputs.publish == 'true'
         with:
           path: dist/site
+      - name: Save the exact snapshot contained in the artifact
+        if: steps.changes.outputs.changed == 'true'
+        run: git push origin HEAD:main
 
   deploy:
     needs: build
     if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /package.json
+            /scripts/release.mjs
+            /src/release-info.js
       - name: Deploy site
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify the version and commit served at the public URL
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node scripts/release.mjs verify "$PAGE_URL"
+
+  product-book-review:
+    needs: [build, deploy]
+    if: needs.build.outputs.review_pending == 'true'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Flag the catalogue for editorial review after publication
+        run: |
+          echo "::error title=제품 도감 갱신 필요::최신 원본을 배포했습니다. build 작업의 검수 요약을 확인하고 해당 언어의 제품·사진·판본 기록을 함께 갱신하세요."
+          exit 1

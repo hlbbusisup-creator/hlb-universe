@@ -4,7 +4,7 @@ import {createContext,runInContext} from "node:vm";
 import test from "node:test";
 
 const paths=["src/catalog-data.js","src/reading-data.js","src/report-reading-data.js",
-  "src/cologne-reading.js","src/product-data.js","src/reader.js"];
+  "src/cologne-reading.js","src/product-data.js","src/product-library.js","src/reader.js"];
 const scripts=await Promise.all(paths.map(path=>readFile(new URL("../"+path,import.meta.url),"utf8")));
 
 class Element extends EventTarget {
@@ -127,7 +127,7 @@ test("등록된 모든 PDF·영상·지도가 자료 클릭 즉시 팝업 미디
   assert.ok(mounted.length>5);
 });
 
-test("동기화한 reading이 우선하며 동일 판본의 384개 제품 책과 정적 에데꼬론 설명을 보존한다",()=>{
+test("동기화한 reading이 우선하며 동일 판본의 전체 제품 책과 정적 에데꼬론 설명을 보존한다",()=>{
   const {api,context,get,mounted,books}=reader();
   const sha256="a".repeat(64);
   context.HLBProductSourceHashes={ko:sha256};
@@ -138,10 +138,10 @@ test("동기화한 reading이 우선하며 동일 판본의 384개 제품 책과
   assert.equal(get("reader-text-mode").textContent,"제품 찾아보기");
   get("reader-text-mode").click();
   const products=descendants(get("reader-body"),element=>element.classList.contains("product-row"));
-  assert.equal(products.length,384);
-  products[383].click();
+  assert.equal(products.length,context.HLBProducts.ko.length);
+  products.at(-1).click();
   assert.equal(books[0][0],context.HLBProducts.ko);
-  assert.equal(books[0][1],383);
+  assert.equal(books[0][1],products.length-1);
   assert.equal(books[0][3],"ko");
   assert.match(get("reader-body").textContent,/새 자료 소개/);
   api.open({id:"cologne-cartridges",title:"향 카트리지"},"에데꼬론");
@@ -150,6 +150,25 @@ test("동기화한 reading이 우선하며 동일 판본의 384개 제품 책과
   get("reader-text-mode").click();
   assert.equal(descendants(get("reader-body"),element=>element.classList.contains("scent-choice")).length,9);
   assert.ok(descendants(get("reader-body"),element=>element.classList.contains("exhibit-photo")).length);
+});
+
+test("제품 목록과 책이 같은 검색 결과를 공유하며 검색한 행으로 돌아갈 수 있다",()=>{
+  const {api,get,books,context}=reader();
+  api.open({id:"products-ko"},"제품전시관");
+  get("reader-text-mode").click();
+  const find=get("reader-find"), products=context.HLBProducts.ko;
+  const choice=products.find(product => product.brand && products.some(other => other.brand && other.brand !== product.brand));
+  find.value=choice.brand;
+  find.dispatchEvent(new Event("input"));
+  const rows=descendants(get("reader-body"),element=>element.classList.contains("product-row"));
+  rows.at(-1).click();
+  const [items,index,opener,,options]=books[0];
+  assert.equal(items.length,rows.length);
+  assert.ok(items.length>0 && items.length<products.length);
+  assert.equal(items[index].id,opener.getAttribute("data-product-id"));
+  assert.equal(opener,rows.at(-1));
+  assert.equal(options.filtered,true);
+  assert.equal(find.value,choice.brand);
 });
 
 test("동기화한 새 본문은 과거 설명을 덮어쓰고 다른 판본의 정적 제품 책을 표시하지 않는다",()=>{

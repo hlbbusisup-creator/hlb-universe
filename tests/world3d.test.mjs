@@ -145,6 +145,22 @@ test('회전하는 포탈을 정렬하면 접근 가능한 손 접촉점이 V자
   }
 });
 
+test('포탈의 두 글자 띠는 교차한 자세로 반대 방향으로 회전하며 손을 대도 계속 돈다', () => {
+  const gate=world.warpGate;
+  const axes=[-1,1].map(side=>gate.object.getObjectByName('HLB crossed orbit '+side));
+  assert.ok(axes[0].rotation.z*axes[1].rotation.z<0);
+  const rings=axes.map(axis=>axis.children[0]), angles=rings.map(ring=>ring.rotation.y);
+  assert.ok(rings.every(ring=>ring.children[0].material.map.repeat.x>1));
+  gate.setTouchPose(true);
+  try {
+    gate.update(.1);
+    assert.ok((rings[0].rotation.y-angles[0])*(rings[1].rotation.y-angles[1])<0);
+    const still=rings.map(ring=>ring.rotation.y);
+    gate.update(.1,true);
+    assert.deepEqual(rings.map(ring=>ring.rotation.y),still);
+  } finally { gate.setTouchPose(false); }
+});
+
 test('포탈 진입로와 본선의 경계 양옆에 동일한 두 줄의 포장 블록이 이어진다', () => {
   const stone=scene.getObjectByName('box stone'),matrix=new THREE.Matrix4();
   const z=world.warpGate.station.z;

@@ -71,6 +71,40 @@
     });
   }
 
+  function orbitBands(T,root) {
+    const canvas=document.createElement("canvas");
+    canvas.width=256;canvas.height=64;
+    const ctx=canvas.getContext("2d");
+    ctx.fillStyle="#a9252b";ctx.fillRect(0,0,256,64);
+    ctx.fillStyle="#ff9f86";ctx.fillRect(0,1,256,3);ctx.fillRect(0,60,256,3);
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.font='bold 46px Arial, sans-serif';ctx.fillStyle="#fff7ec";ctx.fillText("HLB",128,34);
+    const map=new T.CanvasTexture(canvas);
+    map.colorSpace=T.SRGBColorSpace;map.wrapS=T.RepeatWrapping;map.repeat.x=11;
+    const front=new T.MeshBasicMaterial({map,toneMapped:false});
+    const inside=new T.MeshBasicMaterial({map,side:T.BackSide,toneMapped:false});
+    const bands=[-1,1].map(side=>{
+      const axis=new T.Group();
+      axis.name="HLB crossed orbit "+side;
+      axis.position.y=2.88;axis.rotation.set(side*.52,0,side*.57);
+      root.add(axis);
+      const band=new T.Group();
+      const radius=side<0 ? 1.63 : 1.72;
+      const wall=new T.CylinderGeometry(radius,radius,.19,80,1,true);
+      const lining=wall.clone();
+      // Text on the inner face must also read left to right.
+      const uv=lining.attributes.uv;
+      for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));
+      band.add(new T.Mesh(wall,front),new T.Mesh(lining,inside));
+      axis.add(band);
+      return band;
+    });
+    return step=>{
+      bands[0].rotation.y=(bands[0].rotation.y+step*.48)%(2*Math.PI);
+      bands[1].rotation.y=(bands[1].rotation.y-step*.43)%(2*Math.PI);
+    };
+  }
+
   function build({T,site,place,collider,colliders,roofs}) {
     const x=-10,z=23,touchYaw=Math.PI/2,restYaw=Math.PI*.36;
     const root=new T.Group();
@@ -79,6 +113,7 @@
     root.position.set(x,0,z);site.add(root);
     const sculpture=new T.Group();
     sculpture.name="Portal sculpture";sculpture.rotation.y=restYaw;root.add(sculpture);
+    const updateBands=orbitBands(T,root);
     const glass=frostedGlass(T);
     const crystal=new T.Mesh(crystalGeometry(T),glass);
     crystal.name="Portal crystal";sculpture.add(crystal);
@@ -115,6 +150,7 @@
     }
     function update(dt=0,reducedMotion=false) {
       const step=Math.max(0,Math.min(Number(dt)||0,.1));
+      if(!reducedMotion)updateBands(step);
       if (reducedMotion) {
         sculpture.rotation.y=touching?touchYaw:restYaw;
       } else if (touching) {
