@@ -1,6 +1,6 @@
 {
   "name": "hlb-universe",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "HLB 유니버스에서 캐릭터와 함께 HLB그룹 전시관을 방문하는 3D 인포뱅크",
   "engines": {

@@ -12,12 +12,13 @@
     cologne:"여기는 에데꼬론 상품관이에요. 퍼스널 디퓨저와 향 카트리지가 서로 다른 전시대에 있어요. 궁금한 전시품을 누르면 가까이 가서 살펴볼 수 있어요.",
     cafe:"여기는 카페 렌토예요. 주문대에서 커피와 빵을 받아 보세요. 손에 들고 다음 전시관까지 산책할 수도 있어요."
   };
-  function create({nearest, space, walk, stop, riding, available}) {
+  function create({nearest, space, walk, stop, riding, available, onMenuAnchor = () => {}}) {
     const el = id => document.getElementById(id);
     const widget = el("lupe-guide"), card = el("lupe-card"), launcher = el("lupe-launcher");
     const title = el("lupe-title"), copy = el("lupe-copy"), bubble = el("lupe-bubble");
     const next = el("lupe-tour"), local = el("lupe-near"), voice = el("lupe-voice"), end = el("lupe-end");
     let step = -1, mode = "idle", storyId = "", utterance = null;
+    let aboard = false, menuAnchor = "launcher";
     let expiresAt = 0;
     const introduced = new Set();
     const synth = window.speechSynthesis;
@@ -26,7 +27,7 @@
       voice.textContent = "설명 듣기";
     }
     function speak(text) {
-      if (!synth || !window.SpeechSynthesisUtterance) return;
+      if (aboard || !synth || !window.SpeechSynthesisUtterance) return;
       silence();
       const line = new SpeechSynthesisUtterance(text);
       line.lang = "ko-KR";
@@ -54,11 +55,12 @@
     }
     function say(text) {
       closeMenu();
+      if (aboard) return;
       bubble.textContent = text;
       expiresAt = performance.now() + Math.max(6500, text.length * 140);
     }
     function nearby() {
-      const hall = nearest();
+      const hall = aboard ? null : nearest();
       local.hidden = !hall;
       if (!hall) delete local.dataset.hall;
       else if (local.dataset.hall !== hall.id) {
@@ -70,23 +72,38 @@
       const hall = step >= 0 ? space(route[step]) : null;
       const story = storyId && nearest()?.id === storyId ? space(storyId) : null;
       title.textContent = mode === "arrived" ? (step + 1) + " / " + route.length + " · " + hall.title : "루페와 둘러보기";
-      if (story) copy.textContent = stories[story.id];
+      if (aboard) copy.textContent = mode === "queued" ? "하선 후 관람 예약 · " + hall.title : "";
+      else if (story) copy.textContent = stories[story.id];
       else if (mode === "arrived") copy.textContent = stories[hall.id];
       else if (mode === "queued") copy.textContent = "블랙캣에서 내리면 " + hall.title + "까지 안내할게요.";
       else if (hall) copy.textContent = hall.title + "까지 함께 가요. 자유롭게 둘러보다가 다시 저를 불러도 돼요.";
       else copy.textContent = "저와 함께 그룹안내소, 제품전시관, HLB 역사관을 차례로 둘러볼까요?";
+      copy.hidden = !copy.textContent;
       end.hidden = step < 0;
-      voice.hidden = !(synth && window.SpeechSynthesisUtterance && (story || mode === "arrived"));
+      voice.hidden = aboard || !(synth && window.SpeechSynthesisUtterance && (story || mode === "arrived"));
       next.textContent = mode === "arrived" ? (step === route.length - 1 ? "관람 마치기" : "다음 장소로 · " + space(route[step + 1]).title)
         : mode === "paused" ? "HLB 둘러보기 계속하기" : "HLB 둘러보기";
       nearby();
     }
-    function menu() {
+    function setAboard(value) {
+      if (aboard === value) return;
+      aboard = value;
+      if (aboard) {
+        storyId = "";
+        silence();
+        clearBubble();
+      }
+      if (!card.hidden) updateMenu();
+    }
+    function menu(anchor = "launcher") {
       if (!available()) return;
+      menuAnchor = anchor;
+      onMenuAnchor(anchor);
       clearBubble();
       updateMenu();
       card.hidden = false;
       launcher.setAttribute("aria-expanded", "true");
+      if (anchor === "lupe") next.focus({preventScroll:true});
     }
     function beginLeg() {
       const hall = space(route[step]);
@@ -118,6 +135,7 @@
       beginLeg();
     });
     local.addEventListener("click", () => {
+      if (aboard) return;
       const hall = nearest();
       if (!hall) return;
       storyId = hall.id;
@@ -127,10 +145,14 @@
     });
     voice.addEventListener("click", () => utterance ? silence() : speak(copy.textContent));
     end.addEventListener("click", () => finish(false));
-    el("lupe-dismiss").addEventListener("click", () => { dismiss(); launcher.focus({preventScroll:true}); });
-    launcher.addEventListener("click", () => card.hidden ? menu() : dismiss());
+    function dismissAndFocus() {
+      dismiss();
+      (menuAnchor === "lupe" ? el("world") : launcher).focus({preventScroll:true});
+    }
+    el("lupe-dismiss").addEventListener("click", dismissAndFocus);
+    launcher.addEventListener("click", () => card.hidden || menuAnchor !== "launcher" ? menu("launcher") : dismiss());
     widget.addEventListener("keydown", e => {
-      if (e.key === "Escape" && !card.hidden) { dismiss(); launcher.focus({preventScroll:true}); }
+      if (e.key === "Escape" && !card.hidden) dismissAndFocus();
     });
     return {
       enter(welcome) {
@@ -138,7 +160,7 @@
         dismiss();
         if (welcome) say(greeting);
       },
-      menu, dismiss,
+      menu, dismiss, setAboard,
       disable() { dismiss(); widget.hidden = true; },
       interrupt() {
         if (mode !== "walking") return;
@@ -155,7 +177,7 @@
         say(space(id).title + "에 도착했어요! " + stories[id]);
       },
       tick(insideId) {
-        if (!available()) return;
+        if (aboard || !available()) return;
         if (mode === "queued" && !riding()) { beginLeg(); return; }
         if (storyId && nearest()?.id !== storyId) {
           storyId = "";

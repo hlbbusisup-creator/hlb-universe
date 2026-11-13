@@ -25,6 +25,7 @@ const mime = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
   '.woff2': 'font/woff2'
 };
 

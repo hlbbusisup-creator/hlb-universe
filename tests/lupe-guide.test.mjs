@@ -9,7 +9,7 @@ const halls=Object.fromEntries([
 ].map(([id,title])=>[id,{id,title}]));
 
 function setup({voice=true}={}) {
-  const elements=new Map(), walks=[], spoken=[];
+  const elements=new Map(), walks=[], spoken=[], anchors=[];
   const state={aboard:false,nearest:"group",available:true,stopped:0,cancelled:0,now:0};
   function el(id) {
     if (!elements.has(id)) {
@@ -29,10 +29,10 @@ function setup({voice=true}={}) {
   runInNewContext(script,page);
   const guide=page.HLBLupeGuide.create({
     nearest:()=>halls[state.nearest],space:id=>halls[id],walk:hall=>{walks.push(hall.id);return true;},
-    riding:()=>state.aboard,available:()=>state.available,stop:()=>{state.stopped++;},
+    riding:()=>state.aboard,available:()=>state.available,stop:()=>{state.stopped++;},onMenuAnchor:value=>anchors.push(value),
   });
   const button=suffix=>el("lupe-"+suffix);
-  return {guide,button,state,walks,spoken};
+  return {guide,button,state,walks,spoken,anchors};
 }
 
 test("입장 인사와 세 전시관 도착 안내는 말풍선으로만 보이고, 누를 때만 다음 관람 메뉴가 열린다",()=>{
@@ -75,19 +75,53 @@ test("자유 이동 후 동일 전시관에서 코스를 재개하고, 직접 �
 
 test("블랙캣에서 요청한 안내는 하선 후 한 번만 시작하며, 하선 전에 취소할 수 있다",()=>{
   const {guide,button,state,walks}=setup();
-  state.aboard=true;
+  state.aboard=true;guide.setAboard(true);
   guide.menu();button("tour").click();guide.tick();
   assert.deepEqual(walks,[]);
   assert.equal(button("card").hidden,true);
+  assert.equal(button("bubble").textContent,"");
   guide.menu();
   button("end").click();
-  state.aboard=false;guide.tick();
+  state.aboard=false;guide.setAboard(false);guide.tick();
   assert.deepEqual(walks,[]);
-  state.aboard=true;guide.menu();button("tour").click();guide.tick();
-  state.aboard=false;state.available=false;guide.tick();
+  state.aboard=true;guide.setAboard(true);guide.menu();button("tour").click();guide.tick();
+  state.aboard=false;guide.setAboard(false);state.available=false;guide.tick();
   assert.deepEqual(walks,[]);
   state.available=true;guide.tick();guide.tick();
   assert.deepEqual(walks,["group"]);
+});
+
+test("탑승 직전의 설명은 즉시 멈추고 비행 중 수동·자동 설명은 하선까지 조용하다",()=>{
+  const {guide,button,state,spoken}=setup();
+  state.aboard=true; // The yacht is arriving, the passenger is still at the dock.
+  guide.menu("lupe");button("near").click();
+  assert.equal(spoken.length,1);
+  assert.match(button("bubble").textContent,/그룹안내소/);
+  guide.setAboard(true);
+  assert.equal(state.cancelled,1);
+  assert.equal(button("bubble").textContent,"");
+  guide.tick("history");guide.menu("lupe");
+  assert.equal(button("near").hidden,true);
+  assert.equal(button("voice").hidden,true);
+  button("near").click();button("voice").click();
+  assert.equal(spoken.length,1);
+  assert.equal(button("bubble").textContent,"");
+  state.aboard=false;guide.setAboard(false);guide.tick();
+  assert.equal(spoken.length,1);
+  assert.equal(button("bubble").textContent,"");
+  assert.equal(button("near").hidden,false);
+  button("near").click();
+  assert.equal(spoken.length,2);
+});
+
+test("3D 루페로 연 메뉴를 상단 버튼으로 전환하고 같은 버튼으로 닫을 수 있다",()=>{
+  const {guide,button,anchors}=setup();
+  guide.menu("lupe");guide.tick();
+  button("launcher").click();
+  assert.equal(button("card").hidden,false);
+  button("launcher").click();
+  assert.equal(button("card").hidden,true);
+  assert.deepEqual(anchors,["lupe","launcher"]);
 });
 
 test("현재 건물의 설명을 한국어로 들려주고, 이동하면 근처 건물 이름과 내용을 갱신한다",()=>{

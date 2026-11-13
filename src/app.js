@@ -37,6 +37,10 @@
     walk: hall => walkToStop(hall, false, true),
     stop: () => { interruptWalk(); player?.setActive(false); player?.setActive(true); },
     riding: () => Boolean(yacht?.getState().busy),
+    onMenuAnchor: anchor => {
+      lupeCard.dataset.anchor = anchor;
+      menuSide = 0;
+    },
     available: () => Boolean(player) && !document.hidden && !dialog.open && !portalDestination && !historyFilm?.isWatching()
   });
   function interruptWalk() {
@@ -566,22 +570,61 @@
 
 
   function distance(a,b) { return Math.hypot(a.x-b.x,a.z-b.z); }
-  const bubble = el("lupe-bubble");
-  let bubbleAnchor, viewWidth = 0, viewHeight = 0;
-  function positionLupeBubble() {
-    if (!bubble.textContent || dialog.open || portalDestination || historyFilm?.isWatching()) {
+  const bubble = el("lupe-bubble"), lupeCard = el("lupe-card");
+  let lupeAnchor, viewWidth = 0, viewHeight = 0, menuSide = 0, cardPointer = null;
+  lupeCard.addEventListener("pointerdown", event => { cardPointer = event.pointerId; });
+  for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, event => {
+    if (event.pointerId === cardPointer) cardPointer = null;
+  });
+  window.addEventListener("blur", () => { cardPointer = null; });
+
+  function positionSceneMenu(x, y, gap) {
+    // Keep a pressed button under the finger through the end of a tap or scroll.
+    if (cardPointer !== null) return;
+    const margin = 8;
+    const right = viewWidth - margin - gap - x, left = x - gap - margin;
+    const minSideWidth = 176;
+    const previousRoom = menuSide === 1 ? right : left;
+    if (!menuSide || previousRoom < minSideWidth) menuSide = right >= left ? 1 : -1;
+    const room = menuSide === 1 ? right : left;
+    const beside = room >= minSideWidth;
+    const width = Math.min(294, beside ? room : viewWidth - 2 * margin);
+    lupeCard.style.setProperty("--card-width", Math.floor(width) + "px");
+    const height = lupeCard.offsetHeight;
+    let px = beside ? (menuSide === 1 ? x + gap : x - gap - width) : x - width / 2;
+    let py = beside ? y - height / 2 : (y > viewHeight / 2 ? y - gap - height : y + gap);
+    px = Math.max(margin, Math.min(px, viewWidth - width - margin));
+    py = Math.max(margin, Math.min(py, viewHeight - height - margin));
+    lupeCard.style.setProperty("--card-x", Math.round(px) + "px");
+    lupeCard.style.setProperty("--card-y", Math.round(py) + "px");
+  }
+
+  function positionLupeUI() {
+    const sceneMenu = !lupeCard.hidden && lupeCard.dataset.anchor === "lupe";
+    if ((!bubble.textContent && !sceneMenu) || dialog.open || portalDestination || historyFilm?.isWatching()) {
       bubble.hidden = true;
       return;
     }
-    const anchor = player.getLupePosition(bubbleAnchor,.5);
-    if (!anchor) { bubble.hidden = true; return; }
-    // The renderer has just updated both the camera and the riding passenger's world matrix.
-    anchor.project(camera);
-    if (Math.abs(anchor.x) > 1 || Math.abs(anchor.y) > 1 || anchor.z < -1 || anchor.z > 1) {
+    const anchor = player.getLupePosition(lupeAnchor, sceneMenu ? 0 : .5);
+    let pixelsPerMetre = 0;
+    if (anchor) {
+      // The renderer has just updated both the camera and the passenger's world matrix.
+      anchor.applyMatrix4(camera.matrixWorldInverse);
+      pixelsPerMetre = .5 * viewHeight * camera.projectionMatrix.elements[5] / -anchor.z;
+      anchor.applyMatrix4(camera.projectionMatrix);
+    }
+    if (!anchor || pixelsPerMetre <= 0 || Math.abs(anchor.x) > 1 || Math.abs(anchor.y) > 1 || Math.abs(anchor.z) > 1) {
       bubble.hidden = true;
+      if (sceneMenu) guide.dismiss();
       return;
     }
     const x = (anchor.x + 1) * viewWidth / 2, y = (1 - anchor.y) * viewHeight / 2;
+    if (sceneMenu) {
+      bubble.hidden = true;
+      const radius = player.isRiding() ? .27 : .54;
+      positionSceneMenu(x, y, 8 + Math.min(72, pixelsPerMetre * radius));
+      return;
+    }
     bubble.hidden = false;
     const w = bubble.offsetWidth, h = bubble.offsetHeight, margin = 8;
     const left = Math.max(margin, Math.min(x - w / 2, viewWidth - margin - w));
@@ -669,7 +712,7 @@
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
     }
     renderer.render(scene,camera);
-    positionLupeBubble();
+    positionLupeUI();
     if (!frame && !dialog.open && !warpTravel.isOpen()) frame=requestAnimationFrame(renderFrame);
   }
 
@@ -883,7 +926,7 @@
     renderer.toneMappingExposure=1.02;
     scene=new T.Scene();
     camera=new T.PerspectiveCamera(56,1,.06,300);
-    bubbleAnchor=new T.Vector3();
+    lupeAnchor=new T.Vector3();
     world=window.HLBWorld3D.build(scene);
     timeOfDay=window.HLBTimeOfDay.create(scene, world.lavaLights);
     let time = "day";
@@ -917,7 +960,7 @@
     if (world.warpGate) readingStops.push({...world.warpGate, spaceId:"warp", action:"이동하기 · 포탈"});
     const arrival = ["cologne","cafe","history"].includes(visitId) ? bySpace.get(visitId) : ["portal","warp"].includes(visitId) ? world.warpGate : null;
     player=window.HLBPlayer3D.create(scene,camera,canvas,world,arrival,exhibit=>{
-      if (exhibit?.id === "lupe") { guide.menu(); return; }
+      if (exhibit?.id === "lupe") { guide.menu("lupe"); positionLupeUI(); return; }
       yacht?.cancelApproach();
       interruptWalk();
       const stop=exhibit && readingStops.find(candidate=>candidate.id===exhibit.id);
@@ -931,6 +974,7 @@
       else playAction(action);
     });
     yacht=window.HLBYachtRide.create({scene,world,player,onChange:state=>{
+      guide.setAboard(player.isRiding());
       if (state.message) el("announcement").textContent=state.message;
     }});
     fireworks=window.HLBFireworks.create(scene, camera, canvas, {
