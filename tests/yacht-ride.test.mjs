@@ -106,6 +106,36 @@ test("루페는 육지와 블랙캣에서 선택할 수 있고 다음 승선에�
   }
 });
 
+test("루페는 곡선을 유영하며 실제 비행 방향으로 몸을 돌리고, 동작 줄이기에서는 선회를 멈춘다",t=>{
+  const {T,page,scene,player,step}=createTrip(t);
+  const lupe=scene.getObjectByName("루페"),forward=new T.Vector3();
+  const previous=player.getLupePosition(),delta=new T.Vector3();
+  let aligned=0, rise=0, fall=0;
+  for(let i=0;i<200;i++) {
+    step();
+    const current=player.getLupePosition();
+    delta.subVectors(current,previous);
+    if(i>25) {
+      if(delta.y>.002)rise++;
+      if(delta.y<-.002)fall++;
+      delta.y=0;delta.normalize();
+      lupe.getWorldDirection(forward);forward.y=0;forward.normalize();
+      if(delta.dot(forward)>.82)aligned++;
+    }
+    previous.copy(current);
+  }
+  assert.ok(aligned>155,"곡선 구간에서도 카메라가 아닌 진행 방향을 향함");
+  assert.ok(rise>15 && fall>15,"유영 중 상승과 하강이 모두 있음");
+  const otherScene=new T.Scene(),stationary=page.HLBLupe3D.create(T,otherScene);
+  const visitor=new T.Group(),camera=new T.PerspectiveCamera();
+  camera.position.set(0,3,8);
+  stationary.fly(0,visitor,camera,null,true,()=>{});
+  const before=stationary.root.position.clone();
+  for(let i=0;i<100;i++)stationary.fly(.05,visitor,camera,null,true,()=>{});
+  assert.ok(before.distanceTo(stationary.root.position)<.001);
+  stationary.dispose();
+});
+
 test("BlackCAT carries the real avatar above the roofs and returns to both stations",t=>{
   const {T,scene,docks,player,yacht,craft,avatar,changes,step,until}=createTrip(t);
   assert.equal(yacht.nearby(),0);

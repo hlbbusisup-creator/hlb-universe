@@ -10,6 +10,43 @@
   pointer-events: none;
 }
 #lupe-guide button, #lupe-card { pointer-events: auto; }
+#lupe-bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: max-content;
+  max-width: min(32ch, calc(100% - 32px));
+  margin: 0;
+  padding: 9px 13px;
+  border: 1px solid #bb9984;
+  border-radius: 16px;
+  background: #fffaf0;
+  color: #432e2a;
+  box-shadow: 0 3px 12px #35222325;
+  font-size: clamp(12px, 1.2vw, 14px);
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+#lupe-bubble::after {
+  content: "";
+  position: absolute;
+  left: var(--tip-x, 50%);
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  border: solid #bb9984;
+  border-width: 0 1px 1px 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+#lupe-bubble.below::after {
+  top: -5px;
+  bottom: auto;
+  transform: translateX(-50%) rotate(225deg);
+}
 #lupe-launcher {
   display: inline-flex;
   align-items: center;
@@ -36,11 +73,11 @@
 #lupe-copy { margin: 7px 0 12px; font-size: 14px; line-height: 1.55; word-break: keep-all; }
 #lupe-dismiss { position: absolute; right: 5px; top: 5px; width: 30px; height: 30px; border: 0; }
 #lupe-actions { display: flex; flex-wrap: wrap; gap: 5px; }
-#lupe-actions button, #lupe-talk {
+#lupe-actions button {
   padding: 7px 10px; min-height: 35px; border-radius: 9px;
   font: inherit; font-size: 13px; font-weight: 650; color: #653a31; background: #f1e3da;
 }
-#lupe-tour, #lupe-talk { background: #a93028 !important; color: white !important; }
+#lupe-actions #lupe-tour { background: #a93028; color: white; }
 #lupe-actions :is(#lupe-end,#lupe-voice) { text-decoration: underline; background: transparent; }
 .history-watching #lupe-guide, .portal-travelling #lupe-guide { visibility: hidden; }
 #release-notes { margin: 16px 0; font-size: 14px; }

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="src/product-book.css?v=0.2.0">
   <link rel="stylesheet" href="src/warp-travel.css?v=crystal-portal">
   <link rel="stylesheet" href="src/history.css?v=history-room2">
-  <link rel="stylesheet" href="src/lupe-guide.css?v=0.2.0">
+  <link rel="stylesheet" href="src/lupe-guide.css?v=0.2.1">
   <script defer src="assets/vendor/three.min.js"></script>
   <script defer src="src/catalog-data.js?v=history-palace"></script>
   <script defer src="src/catalog.js?v=0.2.0"></script>
@@ -26,11 +26,11 @@
   <script defer src="src/cologne-gallery.js?v=circle-yacht"></script>
   <script defer src="src/hall-designs.js?v=fan-sync"></script>
   <script defer src="src/cafe.js?v=circle-yacht"></script>
-  <script defer src="src/warp-gate.js?v=0.2.0"></script>
+  <script defer src="src/warp-gate.js?v=0.2.1"></script>
   <script defer src="src/history-hall.js?v=history-palace"></script>
   <script defer src="src/world3d.js?v=blackcat-docks"></script>
-  <script defer src="src/lupe3d.js?v=lupe"></script>
-  <script defer src="src/player3d.js?v=lupe"></script>
+  <script defer src="src/lupe3d.js?v=0.2.1"></script>
+  <script defer src="src/player3d.js?v=0.2.1"></script>
   <script defer src="src/blackcat-yacht.js?v=blackcat-docks"></script>
   <script defer src="src/yacht-ride.js?v=blackcat-docks"></script>
   <script defer src="src/time-of-day.js?v=brand-street"></script>
@@ -40,9 +40,9 @@
   <script defer src="src/history-data.js?v=history-room2"></script>
   <script defer src="src/history-book.js?v=history-room2"></script>
   <script defer src="src/history-film.js?v=history"></script>
-  <script defer src="src/release-info.js"></script>
-  <script defer src="src/lupe-guide.js?v=0.2.0"></script>
-  <script defer src="src/app.js?v=0.2.0"></script>
+  <script defer src="src/release-info.js?v=0.2.1"></script>
+  <script defer src="src/lupe-guide.js?v=0.2.1"></script>
+  <script defer src="src/app.js?v=0.2.1"></script>
 </head>
 <body>
   <svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -95,12 +95,12 @@
       </div>
     </div>
     <div id="loading" role="status">HLB 유니버스에 들어가는 중…</div>
+    <p id="lupe-bubble" role="status" aria-label="루페의 말" hidden></p>
     <aside id="lupe-guide" aria-label="루페 관람 안내" hidden>
       <button id="lupe-launcher" class="glass" type="button" aria-controls="lupe-card" aria-expanded="false" aria-label="루페와 대화하기"><img src="assets/lupe-portrait.jpg" alt="" width="34" height="34"><span>루페</span></button>
       <section id="lupe-card" aria-labelledby="lupe-title" hidden>
-        <button type="button" id="lupe-dismiss" class="icon-button" aria-label="루페 말풍선 닫기"><svg aria-hidden="true"><use href="#close-icon"/></svg></button>
+        <button type="button" id="lupe-dismiss" class="icon-button" aria-label="루페 메뉴 닫기"><svg aria-hidden="true"><use href="#close-icon"/></svg></button>
         <div role="status"><strong id="lupe-title"></strong><p id="lupe-copy"></p></div>
-        <button type="button" id="lupe-talk">루페와 대화하기</button>
         <div id="lupe-actions">
           <button type="button" id="lupe-tour">HLB 둘러보기</button>
           <button type="button" id="lupe-near" hidden></button>

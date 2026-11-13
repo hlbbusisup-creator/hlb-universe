@@ -1137,7 +1137,12 @@
     return {update,setActive,setStick,walkTo,jump,getPosition,resetView,facePoint,toggleOverview,isOverview,dispose,
       setGuideTarget(point){ guideTarget=point || null; },
       setLupeVisible(value){ showLupe=Boolean(value); if(lupe)lupe.root.visible=showLupe && !portal?.shot; },
-      getLupePosition(){ return lupe?.root.visible ? lupe.root.getWorldPosition(new T.Vector3()) : null; },
+      getLupePosition(target = new T.Vector3(), above = 0) {
+        if (!lupe?.root.visible) return null;
+        lupe.root.getWorldPosition(target);
+        target.y += above * lupe.root.scale.y;
+        return target;
+      },
       beginRide,endRide,isRiding:()=>Boolean(ride),
       beginPortalTouch,endPortalTouch,isPortalTouching:()=>Boolean(portal),
       getCafeState:visitor.getCafeState, orderCafeItem:visitor.orderCafeItem,consumeCafeItem};

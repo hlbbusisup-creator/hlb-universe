@@ -7,11 +7,12 @@ import test from 'node:test';
 // animation run with the real Three.js API before any WebGL frame is drawn.
 function makeCanvas() {
   const canvas = new EventTarget();
+  canvas.paint = [];
   const context = {
     canvas,
-    fillRect() {},
-    strokeRect() {},
-    fillText() {},
+    fillRect() { canvas.paint.push("rectangle"); },
+    strokeRect() { canvas.paint.push("border"); },
+    fillText(label) { canvas.paint.push(label); },
     createRadialGradient: () => ({addColorStop() {}})
   };
   canvas.getContext = () => context;
@@ -150,7 +151,17 @@ test('포탈의 두 글자 띠는 교차한 자세로 반대 방향으로 회전
   const axes=[-1,1].map(side=>gate.object.getObjectByName('HLB crossed orbit '+side));
   assert.ok(axes[0].rotation.z*axes[1].rotation.z<0);
   const rings=axes.map(axis=>axis.children[0]), angles=rings.map(ring=>ring.rotation.y);
-  assert.ok(rings.every(ring=>ring.children[0].material.map.repeat.x>1));
+  for (const ring of rings) {
+    const [outer,inner] = ring.children;
+    const {map,alphaTest} = outer.material;
+    assert.ok(map.repeat.x>1 && alphaTest>0 && inner.material.alphaTest>0);
+    assert.ok(map.image.paint.includes("HLB") && map.image.paint.every(label=>label==="HLB"),
+      "포탈 궤도는 글자만 그리며 바탕과 테두리는 투명해야 한다");
+    assert.equal(inner.material.map,map);
+    assert.equal(inner.material.side,THREE.BackSide);
+    const a=outer.geometry.attributes.uv, b=inner.geometry.attributes.uv;
+    for (let i=0;i<a.count;i++) assert.ok(Math.abs(a.getX(i)+b.getX(i)-1)<1e-6);
+  }
   gate.setTouchPose(true);
   try {
     gate.update(.1);

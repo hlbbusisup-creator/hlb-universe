@@ -73,16 +73,19 @@
 
   function orbitBands(T,root) {
     const canvas=document.createElement("canvas");
-    canvas.width=256;canvas.height=64;
+    canvas.width=256;canvas.height=96;
     const ctx=canvas.getContext("2d");
-    ctx.fillStyle="#a9252b";ctx.fillRect(0,0,256,64);
-    ctx.fillStyle="#ff9f86";ctx.fillRect(0,1,256,3);ctx.fillRect(0,60,256,3);
     ctx.textAlign="center";ctx.textBaseline="middle";
-    ctx.font='bold 46px Arial, sans-serif';ctx.fillStyle="#fff7ec";ctx.fillText("HLB",128,34);
+    ctx.font='bold 82px Arial, sans-serif';
+    ctx.fillStyle="#a32c31";ctx.fillText("HLB",128,52);
+    ctx.fillStyle="#fff6ec";ctx.fillText("HLB",128,48);
     const map=new T.CanvasTexture(canvas);
     map.colorSpace=T.SRGBColorSpace;map.wrapS=T.RepeatWrapping;map.repeat.x=11;
-    const front=new T.MeshBasicMaterial({map,toneMapped:false});
-    const inside=new T.MeshBasicMaterial({map,side:T.BackSide,toneMapped:false});
+    // Only glyphs contribute to depth. In the gaps, the other orbit and the
+    // rotating crystal remain visible regardless of transparent-object sorting.
+    const ink={map,alphaTest:.28,alphaToCoverage:true,toneMapped:false};
+    const front=new T.MeshBasicMaterial(ink);
+    const inside=new T.MeshBasicMaterial({...ink,side:T.BackSide});
     const bands=[-1,1].map(side=>{
       const axis=new T.Group();
       axis.name="HLB crossed orbit "+side;
@@ -90,7 +93,7 @@
       root.add(axis);
       const band=new T.Group();
       const radius=side<0 ? 1.63 : 1.72;
-      const wall=new T.CylinderGeometry(radius,radius,.19,80,1,true);
+      const wall=new T.CylinderGeometry(radius,radius,.34,80,1,true);
       const lining=wall.clone();
       // Text on the inner face must also read left to right.
       const uv=lining.attributes.uv;

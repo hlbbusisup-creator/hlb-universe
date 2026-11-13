@@ -75,11 +75,18 @@
       body.limb(rim,[[s*.066,.326,.399],[s*.133,.350,.395],[s*.208,.312,.387]],.018,.010);
     }
     body.limb(0x874245,[[-.126,.12,.518],[-.055,.106,.536],[.065,.113,.533],[.139,.14,.510]],.008,.005);
-    body.limb(red,[[0,-.032,-.26],[-.14,-.048,-.47],[-.365,.04,-.43],[-.48,.27,-.25],
-      [-.443,.444,.025],[-.31,.464,.272],[-.214,.342,.47]],.088,.026);
     body.add(new T.TorusGeometry(.121,.021,8,32),rim,[-.146,.246,.494],[1,1,1],[.06,-.09,0]);
     body.limb(0xffe2b6,[[-.237,.287,.509],[-.221,.317,.514],[-.198,.337,.511]],.008,.006);
     body.finish();
+    // The middle of the tail sways, but its base and the loupe at the eye stay connected.
+    const tailBase=new T.Vector3(0,-.032,-.26), tailTip=new T.Vector3(-.214,.342,.47);
+    const tailAxis=tailTip.clone().sub(tailBase).normalize();
+    const tailPart=part("Lupe · swimming tail");
+    tailPart.limb(red,[tailBase.toArray(),[-.14,-.048,-.47],[-.365,.04,-.43],[-.48,.27,-.25],
+      [-.443,.444,.025],[-.31,.464,.272],tailTip.toArray()],.088,.026);
+    const tail=tailPart.finish();
+    tail.children[0].position.copy(tailBase).multiplyScalar(-1);
+    tail.position.copy(tailBase);
     const glass = new T.MeshStandardMaterial({color:0xc9f9ff, roughness:.13, transparent:true, opacity:.23, depthWrite:false});
     const lens = new T.Mesh(new T.SphereGeometry(1,24,12),glass);
     lens.position.set(-.146,.246,.503); lens.scale.set(.116,.116,.026); lens.rotation.y=-.09;
@@ -118,12 +125,20 @@
       {id:"head",x:0,y:1.69,z:.008}, {id:"deck-seat",x:.72,y:.16,z:.12}
     ];
     const goal=new T.Vector3(), start=new T.Vector3(), anchor=new T.Vector3();
-    let phase=.53, heading=0, initialized=false, perch=null, previousPerch=-1, landing=0;
+    const velocity=new T.Vector3(), step=new T.Vector3();
+    let phase=.53, heading=0, pitch=0, bank=0, initialized=false, perch=null, previousPerch=-1, landing=0;
+    root.rotation.order="YXZ";
     function animate(dt,reduced,folded) {
       if(!reduced)phase+=dt;
-      const angle=folded ? 1.02 : .13+.17*Math.sin(phase*6.5);
-      wings[0].rotation.z=angle;
-      wings[1].rotation.z=-angle;
+      const stroke=phase*2.65+.4*Math.sin(phase*.73);
+      const wingBeat=reduced || folded ? 0 : Math.sin(stroke)+.25*Math.sin(2*stroke-.7);
+      for(let i=0;i<wings.length;i++) {
+        const side=i===0 ? -1 : 1;
+        const lift=folded ? -1.02 : .07+.21*wingBeat;
+        wings[i].rotation.z=side*lift;
+        wings[i].rotation.y=reduced || folded ? 0 : side*.08*Math.sin(stroke-.7);
+      }
+      tail.quaternion.setFromAxisAngle(tailAxis,reduced || folded ? 0 : .26*Math.sin(stroke-1.15));
     }
     function board(visitor) {
       // Draw from the other locations each time to vary successive trips too.
@@ -145,31 +160,47 @@
     function leave() {
       scene.attach(root); perch=null;
       heading=root.rotation.y;
+      pitch=root.rotation.x; bank=root.rotation.z; velocity.set(0,0,0);
     }
     function fly(dt,visitor,camera,waypoint,reduced,limitOrbit) {
       animate(dt,reduced,false);
-      const angle=phase*.82;
+      const angle=phase*.62+.21*Math.sin(phase*.78);
       const x=visitor.position.x,z=visitor.position.z;
       const dx=waypoint ? waypoint.x-x : 0, dz=waypoint ? waypoint.z-z : 0;
       const along=Math.hypot(dx,dz);
-      const bob=reduced ? 0 : .10*Math.sin(phase*2.8);
-      anchor.set(x,visitor.position.y+1.53+bob,z);
+      const bob=reduced ? 0 : .16*Math.sin(angle*1.55)+.045*Math.sin(phase*2.65-.5);
+      anchor.set(x,visitor.position.y+1.59+bob,z);
       if(along>.45) {
         const lead=Math.min(1.28,along)/along;
-        const sway=.28*Math.cos(angle)/along;
+        const sway=.25*Math.cos(angle)/along;
         goal.set(x+dx*lead-dz*sway,anchor.y,z+dz*lead+dx*sway);
       } else {
-        goal.set(x+Math.cos(angle)*1.03,anchor.y,z+Math.sin(angle)*.84);
+        const radius=1.35+.18*Math.sin(phase*.93);
+        goal.set(x+radius*Math.cos(angle),anchor.y,z+(radius-.20)*Math.sin(angle));
       }
+      // Clip the actual step after easing so the companion stays on the visitor's side of walls.
+      const follow=initialized ? 1-Math.exp(-dt*5.8) : 1;
+      goal.lerpVectors(root.position,goal,follow);
       limitOrbit(anchor,goal);
-      goal.y=anchor.y;
-      const blend=initialized ? 1-Math.exp(-dt*12) : 1;
-      root.position.lerp(goal,blend);
-      const face=along>.45 && Math.sin(phase*.9)<.55 ? Math.atan2(dx,dz) :
-        Math.atan2(camera.position.x-root.position.x,camera.position.z-root.position.z);
-      heading+=Math.atan2(Math.sin(face-heading),Math.cos(face-heading))*(initialized ? 1-Math.exp(-dt*6) : 1);
-      root.rotation.set(-.12,heading+.28,reduced?0:.108*Math.sin(angle));
-      root.scale.setScalar(T.MathUtils.lerp(root.scale.x,.91,blend));
+      if(initialized && dt>0) {
+        step.subVectors(goal,root.position).multiplyScalar(1/dt);
+        velocity.lerp(step,1-Math.exp(-dt*7));
+      }
+      const speed=Math.hypot(velocity.x,velocity.z);
+      let face=heading;
+      if(along>.45) face=Math.atan2(dx,dz);
+      else if(speed>.10 && !reduced) face=Math.atan2(velocity.x,velocity.z);
+      else if(!initialized || reduced) face=Math.atan2(camera.position.x-goal.x,camera.position.z-goal.z);
+      const turn=Math.atan2(Math.sin(face-heading),Math.cos(face-heading));
+      const steer=initialized ? 1-Math.exp(-dt*5) : 1;
+      heading+=turn*steer;
+      const desiredPitch=reduced ? -.06 : T.MathUtils.clamp(-velocity.y/(.9+speed),-.25,.22);
+      const desiredBank=reduced ? 0 : T.MathUtils.clamp(-turn*.94,-.36,.36);
+      pitch=T.MathUtils.lerp(pitch,desiredPitch,steer);
+      bank=T.MathUtils.lerp(bank,desiredBank,steer);
+      root.position.copy(goal);
+      root.rotation.set(pitch,heading,bank);
+      root.scale.setScalar(T.MathUtils.lerp(root.scale.x,.91,follow));
       initialized=true;
     }
     function dispose() {

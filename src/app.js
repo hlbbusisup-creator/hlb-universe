@@ -566,6 +566,31 @@
 
 
   function distance(a,b) { return Math.hypot(a.x-b.x,a.z-b.z); }
+  const bubble = el("lupe-bubble");
+  let bubbleAnchor, viewWidth = 0, viewHeight = 0;
+  function positionLupeBubble() {
+    if (!bubble.textContent || dialog.open || portalDestination || historyFilm?.isWatching()) {
+      bubble.hidden = true;
+      return;
+    }
+    const anchor = player.getLupePosition(bubbleAnchor,.5);
+    if (!anchor) { bubble.hidden = true; return; }
+    // The renderer has just updated both the camera and the riding passenger's world matrix.
+    anchor.project(camera);
+    if (Math.abs(anchor.x) > 1 || Math.abs(anchor.y) > 1 || anchor.z < -1 || anchor.z > 1) {
+      bubble.hidden = true;
+      return;
+    }
+    const x = (anchor.x + 1) * viewWidth / 2, y = (1 - anchor.y) * viewHeight / 2;
+    bubble.hidden = false;
+    const w = bubble.offsetWidth, h = bubble.offsetHeight, margin = 8;
+    const left = Math.max(margin, Math.min(x - w / 2, viewWidth - margin - w));
+    const below = y - h - 11 < margin;
+    const top = below ? y + 11 : y - h - 11;
+    bubble.classList.toggle("below",below);
+    bubble.style.transform = "translate3d(" + Math.round(left) + "px," + Math.round(top) + "px,0)";
+    bubble.style.setProperty("--tip-x", Math.round(Math.max(10, Math.min(w - 10, x - left))) + "px");
+  }
 
   function updateStatus() {
     if (!world || !player) return;
@@ -627,7 +652,7 @@
     el("travel").hidden = !destination && rideState.phase!=="walking";
     hasWalked ||= distance(p,world.spawn) > 2;
     el("hint").hidden = Boolean(station || destination || hasWalked || dock!==null || busy);
-    guide.tick();
+    guide.tick(inside?.id);
   }
 
   function renderFrame(now) {
@@ -644,6 +669,7 @@
       if (now-lastStatusTime > 90) { updateStatus(); lastStatusTime=now; }
     }
     renderer.render(scene,camera);
+    positionLupeBubble();
     if (!frame && !dialog.open && !warpTravel.isOpen()) frame=requestAnimationFrame(renderFrame);
   }
 
@@ -654,6 +680,7 @@
   function resize() {
     if (!renderer) return;
     const width=canvas.clientWidth, height=canvas.clientHeight;
+    viewWidth=width; viewHeight=height;
     renderer.setSize(width,height,false);
     camera.aspect = width / Math.max(height,1);
     camera.updateProjectionMatrix();
@@ -856,6 +883,7 @@
     renderer.toneMappingExposure=1.02;
     scene=new T.Scene();
     camera=new T.PerspectiveCamera(56,1,.06,300);
+    bubbleAnchor=new T.Vector3();
     world=window.HLBWorld3D.build(scene);
     timeOfDay=window.HLBTimeOfDay.create(scene, world.lavaLights);
     let time = "day";
